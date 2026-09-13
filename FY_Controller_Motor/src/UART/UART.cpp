@@ -3,75 +3,340 @@
 #include "UART.h"
 
    UART:: UART()
-   {// define  some UART data 
-    uint8_t UART_Error = 0;
-
-
-    //Init some Data 
-     UART_context= nullptr;
+   {
+       //Init some Data 
+       UART_context= nullptr;
+       UART_Error = 0;
+       for (uint8_t i = 0; i < MAX_COMMAND_LENGTH; ++i)
+       {
+           CommandBuffer.data[i] = 0;
+       }
+       commandLength =1;
+       CommandBuffer.CMD_valid= false;
 
 
 
    }
     
-
-    void begin(UART_Context_t& context)
+  
+    ///@brief 
+    /// @param context 
+    void UART:: begin(UART_Context_t& context)
     { // Check if  content is set
-          if ( UART_context ==  nullptr)
-        {
-        UART_context = &context;
-         }
-         else
-         {
-         UART_Error |= UART_ERROR_NO_CONTENT;
-         }
-     // try to connect to the master e.g.ESP32
          Serial.begin( UART_BAUD_RATE);
-        if (Serial.available())
-        {UART::sendHello();}
-     // what will be the Answer ? 
-        
-
-
+         this-> UART_context = &context;
+      // try to connect to the master e.g.ESP32
+            sendHello();
+            
+             // what will be the Answer ? 
     }
+    
+    
 
     /* cyclic funktion to receive and send date from / to the master on serieal */
-    void update()
+    void UART::update()
     {
+     if ( this -> UART_context ==  nullptr)
+             {       
+            UART_Error |= UART_ERROR_NO_CONTENT;
+            Serial.println(F("No content. The UART is feeling lonely."));
+            return;
+             }
+        receive();
+        decodeCommand();
+        sendResponse();
+             
+
 
 
     }
 
 
 
+    /**
+     * @brief Receives and processes one UART telegram byte at a time.
+     *
+     * The receive state machine searches for a valid command, reads the
+     * command's expected payload, and then invokes CRC checking.
+     */
     void UART::receive()
     {
-      
-    while (Serial.available())
-    {
-        uint8_t byte = static_cast<uint8_t>(Serial.read());
+    switch (receiveState)
+        {
+         case ReceiveState::FindCommand:
+          // Read and validate a command byte when data is available.
+          if (Serial.available())
+          {
+          uint8_t cmd = Serial.read();
+          // Compare the received byte with all known command definitions.
+          for (uint8_t i = 0; i < COMMAND_COUNT; i++)
+           {
+               if (commandDefinitions[i].id == cmd)
+               {   CommandBuffer.cmd = cmd;
+                   CommandBuffer.type = commandDefinitions[i].type;
+                   CommandBuffer.response = commandDefinitions[i].response; 
 
-        // Byte in commandBuffer schreiben
-        // Länge prüfen
-        // Telegramm vollständig?
+                   // Store the expected payload length and prepare for data reception.
+                   expectedLength = commandDefinitions[i].telegramLength-1; // CMd  is memeber  of  the lenght !
+                   receiveState = ReceiveState::ReadData;
+                   dataIndex = 0;
+                   break;
+               }
+            }
+           // No valid command was found; remain in the command-search state.
+           }
+             break;
+            case ReceiveState::ReadData:
+
+                // Read payload bytes while data is available.
+                if (Serial.available())
+                {
+                    CommandBuffer.data[dataIndex] = Serial.read();
+                    dataIndex++;
+                
+                    // Move to CRC validation after the complete payload is received.
+                    if (dataIndex >= expectedLength)
+                    {
+                        receiveState = ReceiveState::CheckCRC;
+                    }
+                }
+
+             break;
+     
+         case ReceiveState::CheckCRC:
+                    // Validate the received telegram checksum.
+               Check_CRC();
+                        // Return to command detection for the next telegram.
+              receiveState = ReceiveState:: FindCommand ;
+             break;
+
+           default: 
+           break;
+
+        }
+
     } 
+    
+     /// @brief decode the Type 
+
+     void UART::decodeCommand()
+     {   
+           switch (CommandBuffer.type)
+         {
+       case CommandType::IMMEDIATE :
+         decodeImmediate();
+         break;
+   
+       case CommandType::EXECUTE:
+           decodeExecute();
+           break;
+   
+       case CommandType::PRIORITY:
+           decodePriority();
+           break;
+        }
+     }
 
 
-
-    }
-
-    void decodeCommand()
-    {   
-
-    }
-
-    void sendResponse()
+    void UART::decodeImmediate()
     {
+        switch(CommandBuffer.cmd)
+        {
+        case   CMD_GET_STATUS   :
+            handleGetStatus();
+        break;
+
+        case   CMD_GET_ERROR :
+           handleGetError();
+        break;
+        case  CMD_GET_POSITION :
+              handleGetPosition();
+        break;
+        case  CMD_GET_TRACK   :
+                handleGetTrack();
+        break;
+        case CMD_HELP         :
+                handleHelp();
+        break;
+
+        default     :
+          CommandBuffer.CMD_valid = false;
+        // Unknown Handle
+        break;
+
+        }
+
+
 
     }
 
-    void sendHello()
+    void UART::decodeExecute()
     {
+        // Execute the command when the status permits command processing.
+        // The current status is stored in the UART context.
+        if ( *UART_context->System_status != Busy)
+        {
+            switch (CommandBuffer.cmd)
+            {
+            case CMD_REFERENCE:
+                handleReference();
+                break;
+
+            case CMD_SET_SPEED:
+                handleSetSpeed();
+                break;
+
+            case CMD_GO:
+                handleGo();
+                break;
+
+            case CMD_LEFT:
+                handleLeft();
+                break;
+
+            case CMD_RIGHT:
+                handleRight();
+                break;
+
+            case CMD_SET_POSITION:
+                handleSetPosition();
+                break;
+
+            case CMD_SET_TRACK:
+                handleSetTrack();
+                break;
+
+            case CMD_SET_REMOTE:
+                handleSetRemote();
+                break;
+
+            case CMD_SET_LOCAL:
+                handleSetLocal();
+                break;
+
+            default:
+                // Mark unsupported commands as invalid.
+                CommandBuffer.CMD_valid = false;
+                break;
+            }
+        }
+        else
+        {// ignore Comand 
+         CommandBuffer.CMD_valid = false;
+        // and Send Busy message 
+
+            }
+    }
+    void UART::decodePriority()
+    {
+       switch(CommandBuffer.cmd)
+        {
+        case  CMD_STOPP :
+        handleStop();
+        break;
+        default:
+        CommandBuffer.CMD_valid = false;
+        // Unknown Handle
+        break;
+        }
+    }
+
+     void UART::sendResponse()
+     {
+
+     }
+
+     /// @brief 
+     void UART::sendHello()
+     {
      Serial.println (F("Hello my friend"));
      
+     }
+
+     ///@brief 
+     void UART:: Check_CRC()
+     {
+        /*
+        https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/17
+        */
+         CommandBuffer.CMD_valid= true;
+       return;
+     }
+
+     void UART:: Calc_CRC()
+     {
+          /*
+         https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/18
+         */
+ 
+         return;
+     }
+
+     ///@brief chapter handle fkt 
+
+     /// @brief Stop fuktion Halt wthout any  discussions 
+     void UART::handleStop()
+     {
+        // ENA auf OFF oder 12V  OFF setzen
+
+     }
+    void  UART:: handleGetStatus()
+    {
+
     }
+    void  UART:: handleGetError()
+    {
+        
+    }
+    void  UART:: handleGetPosition()
+    {
+        
+    }
+    void  UART:: handleGetTrack()
+    {
+        
+    }
+    void  UART:: handleHelp()
+    {
+        
+    }
+    void  UART:: handleReference()
+    {
+        
+    }
+    void  UART:: handleSetSpeed()
+    {
+        
+    }
+    void  UART:: handleGo()
+    {
+        
+    }
+    void  UART:: handleLeft()
+    {
+        
+    }
+    void  UART:: handleRight()
+    {
+        
+    }
+    void  UART:: handleSetPosition()
+    {
+        
+    }
+    void  UART:: handleSetTrack()
+    {
+        
+    }
+    void  UART:: handleSetRemote()
+    {
+        
+    }
+    void  UART:: handleSetLocal()
+    {
+        
+    }
+   void UART:: Handle_Busy()
+   {
+
+   }

@@ -28,7 +28,12 @@ constexpr uint8_t UART_ERROR_NO_CONNECTION   = 0x02;
 constexpr uint8_t UART_ERROR_UNKNOWN_COMMAND = 0x04;
 constexpr uint8_t UART_ERROR_INVALID_STATE   = 0x08;
 
-
+enum class ReceiveState : uint8_t
+{
+    FindCommand,
+    ReadData,
+    CheckCRC
+};
 
 
 /**
@@ -50,14 +55,28 @@ public:
     void update();
 
 private:
-    
+    // Internal Variable 
+ 
     uint8_t UART_Error;
 
     UART_Context_t* UART_context; ///< Controller data used by the UART handler.
-    uint8_t commandBuffer[MAX_COMMAND_LENGTH];
+    
     uint8_t commandLength;
     uint8_t expectedLength;
+    struct CommandBuffer_t
+    {
+        uint8_t      cmd;
+        uint8_t      data[MAX_COMMAND_LENGTH - 1];
+        uint8_t      CMD_CRC;
+        CommandType type;
+        uint8_t     response;
+        bool CMD_valid;
+    };
+     CommandBuffer_t CommandBuffer; 
 
+
+    uint8_t dataIndex;
+     ReceiveState receiveState = ReceiveState::FindCommand;
     /** @brief Receives data from the UART interface. */
     void receive();
 
@@ -66,9 +85,23 @@ private:
 
     /** @brief Sends a response to the remote device. */
     void sendResponse();
+    
+    /**@brief Check and create CRC  */
+    void Check_CRC();
+    void Calc_CRC(); 
+
 
     /** @brief Sends the UART handshake message. */
     void sendHello();
+    /**@brief Decode funktionen  für jeden CMD  type */
+    void decodeImmediate(); 
+    void decodeExecute();
+    void decodePriority();
+
+
+
+
+
     /** @brief Command Handler  */
     void handleGetStatus();
     void handleGetError();
@@ -87,4 +120,5 @@ private:
     void handleSetLocal();
 
     void handleStop();
+    void Handle_Busy();
 };

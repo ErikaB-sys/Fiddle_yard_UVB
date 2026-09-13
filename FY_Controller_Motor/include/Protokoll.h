@@ -128,6 +128,7 @@ const CommandDefinition commandDefinitions[] =
     { CMD_STOPP         , CommandType:: PRIORITY,  1, STATUS_System}
   
 };
+constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefinitions[0]);
 
 /** Definitions of all response statuses supported by the UART protocol. */
 const ResponseDefinition ResponseDefinitions[] =
