@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
+#include "SystemStatus.h"
+#include "Config.h"
 #include "Protokoll.h"
 
 /**
@@ -9,19 +11,18 @@
  */
 struct UART_Context_t
 {
-    uint8_t*  System_status;   ///< Pointer to the current controller status.
-    uint8_t*  System_error;    ///< Pointer to the current controller error.
-    uint8_t*  UART_error;
-    int32_t*  Motor_position; ///< Pointer to the current position.
-    uint8_t*  Motor_track;    ///< Pointer to the current track.
-    uint16_t* Motor_speed;    ///< Pointer to the current speed.
-
+    FY_SystemStatus_t* systemStatus;
+    uint8_t*  uartError;
+    int32_t*  motorPosition;
+    uint8_t*  motorTrack;
+    uint16_t* motorSpeed;
 };
 // Speed of Uart communication is 115200 baud, 8 data bits, no parity, 1 stop bit (8N1).
 #define UART_BAUD_RATE 115200
 /**
  * @brief Refence for Uart Modul Error 
  */
+
 /// @brief Error of the Uart modul
 constexpr uint8_t UART_ERROR_NO_CONTENT      = 0x01;
 constexpr uint8_t UART_ERROR_NO_CONNECTION   = 0x02;
@@ -74,6 +75,14 @@ private:
     };
      CommandBuffer_t CommandBuffer; 
 
+      struct ResponseBuffer_t
+     {
+         uint8_t  id;
+         uint8_t* data;
+         uint8_t  length;
+         bool     responsePending;
+     };
+     ResponseBuffer_t ResponseBuffer;
 
     uint8_t dataIndex;
      ReceiveState receiveState = ReceiveState::FindCommand;
@@ -85,10 +94,12 @@ private:
 
     /** @brief Sends a response to the remote device. */
     void sendResponse();
-    
+    void setResponse(uint8_t id, uint8_t* data, uint8_t length);
+
+
     /**@brief Check and create CRC  */
-    void Check_CRC();
-    void Calc_CRC(); 
+    bool Check_CRC();
+    uint8_t Calc_CRC(uint8_t id,const uint8_t* data,uint8_t length); 
 
 
     /** @brief Sends the UART handshake message. */

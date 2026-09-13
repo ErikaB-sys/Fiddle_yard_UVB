@@ -86,7 +86,7 @@ struct CommandDefinition
 {
     uint8_t id;                 ///< Command identifier byte.
     CommandType type;           ///< Command scheduling type.
-    uint8_t telegramLength;    ///< Number of data bytes expected in the telegram.
+    uint8_t telegramLength;     ///< Total telegram length including command byte
     uint8_t response;           ///< Response status identifier.
   
 };
@@ -137,7 +137,7 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Error ,  4  },
 { STATUS_System ,  2  },
 { STATUS_CMD ,   1 },
-{ STATUS_Position ,   3 },
+{ STATUS_Position ,   4 },
 { STATUS_Reference , 1   },
 { STATUS_Track,   3 },
 { STATUS_Motor, 3   },

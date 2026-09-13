@@ -2,15 +2,14 @@
 #include "Protokoll.h"
 #include "UART.h"
 
+
    UART:: UART()
    {
        //Init some Data 
        UART_context= nullptr;
        UART_Error = 0;
-       for (uint8_t i = 0; i < MAX_COMMAND_LENGTH; ++i)
-       {
-           CommandBuffer.data[i] = 0;
-       }
+       uint8_t data[MAX_COMMAND_LENGTH - 1]{};
+
        commandLength =1;
        CommandBuffer.CMD_valid= false;
 
@@ -77,7 +76,7 @@
                    CommandBuffer.response = commandDefinitions[i].response; 
 
                    // Store the expected payload length and prepare for data reception.
-                   expectedLength = commandDefinitions[i].telegramLength-1; // CMd  is memeber  of  the lenght !
+                   expectedLength = commandDefinitions[i].telegramLength-1; // CMd  is member  of  the lenght !
                    receiveState = ReceiveState::ReadData;
                    dataIndex = 0;
                    break;
@@ -174,7 +173,7 @@
     {
         // Execute the command when the status permits command processing.
         // The current status is stored in the UART context.
-        if ( *UART_context->System_status != Busy)
+        if (UART_context->systemStatus->state == FY_SystemState_t::Busy)
         {
             switch (CommandBuffer.cmd)
             {
@@ -244,7 +243,28 @@
      void UART::sendResponse()
      {
 
-     }
+    if (!ResponseBuffer.responsePending)
+        return;
+
+    Serial.write(ResponseBuffer.id);
+
+    for (uint8_t i = 0; i < ResponseBuffer.length; ++i)
+    {
+        Serial.write(ResponseBuffer.data[i]);
+    }
+
+    uint8_t crc = Calc_CRC(
+        ResponseBuffer.id,
+        ResponseBuffer.data,
+        ResponseBuffer.length
+    );
+
+    Serial.write(crc);
+
+    ResponseBuffer.responsePending = false;
+    }
+    
+
 
      /// @brief 
      void UART::sendHello()
@@ -252,25 +272,64 @@
      Serial.println (F("Hello my friend"));
      
      }
-
+     void UART::setResponse(uint8_t id, uint8_t* data, uint8_t length)
+        {
+            ResponseBuffer.id = id;
+            ResponseBuffer.data = data;
+            ResponseBuffer.length = length;
+            ResponseBuffer.responsePending = true;
+        }
      ///@brief 
-     void UART:: Check_CRC()
+     bool UART:: Check_CRC()
      {
         /*
         https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/17
         */
-         CommandBuffer.CMD_valid= true;
-       return;
-     }
+         #ifdef UART_USE_CRC_RX
+         // CRC prüfen
+         #else
+             CommandBuffer.CMD_valid = true;
+         #endif
+             return(CommandBuffer.CMD_valid);
+         }
+   
+     
 
-     void UART:: Calc_CRC()
+     uint8_t UART:: Calc_CRC (uint8_t id,const uint8_t* data,uint8_t length)
      {
           /*
          https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/18
          */
- 
-         return;
+      #ifdef UART_USE_CRC_TX
+
+       uint8_t crc = id;
+      
+          for (uint8_t i = 0; i < length; ++i)
+          {
+              crc ^= data[i];
+      
+              for (uint8_t bit = 0; bit < 8; ++bit)
+              {
+                  if (crc & 0x80)
+                      crc = (crc << 1) ^ 0x07;
+                  else
+                      crc <<= 1;
+              }
+          }
+      
+          return crc;
+      
+      #else
+      
+          return 0xFF;
+      
+      #endif
      }
+
+
+
+
+
 
      ///@brief chapter handle fkt 
 
@@ -288,9 +347,14 @@
     {
         
     }
-    void  UART:: handleGetPosition()
+ void UART::handleGetPosition()
     {
-        
+     setResponse(
+         STATUS_Position,
+         reinterpret_cast<uint8_t*>(UART_context->motorPosition),
+         sizeof(int32_t)
+     );
+
     }
     void  UART:: handleGetTrack()
     {
