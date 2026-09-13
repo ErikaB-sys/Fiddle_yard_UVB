@@ -1,75 +1,77 @@
 #include <Arduino.h>
 #include "Protokoll.h"
 #include "UART.h"
-class UART
-{
+
+   UART:: UART()
+   {// define  some UART data 
+    uint8_t UART_Error = 0;
 
 
-public:
-
-     UART(const char* device, int baud){
-        // Constructor to initialize UART with the specified UART device  and baud rate
-        // This function should store the baud rate for later use
-        };
+    //Init some Data 
+     UART_context= nullptr;
 
 
-    ~UART(){
-        // Destructor to clean up resources
-        // This function should close the UART device if it is open
-        };
 
-    bool begin(unsigned long B_rate){
-        // Initialize UART communication with the specified device and baud rate
-        // This function should open the UART device and configure it for communication
-        // Return true if successful, false otherwise
-       Serial.begin(B_rate);
-       // Check Serial if data avalible 
-       Serial.println (F("Hello my Frend"));
-       Serial.flush();
-       return ( true);
-
+   }
     
-    };
 
-    uint8_t update(uint8_t *buffer,size_t length  ){
-        // Update the UART communication by sending and receiving data
-        // This function should handle the sending of commands and receiving of responses
-        // Return true if successful, false otherwise
+    void begin(UART_Context_t& context)
+    { // Check if  content is set
+          if ( UART_context ==  nullptr)
+        {
+        UART_context = &context;
+         }
+         else
+         {
+         UART_Error |= UART_ERROR_NO_CONTENT;
+         }
+     // try to connect to the master e.g.ESP32
+         Serial.begin( UART_BAUD_RATE);
+        if (Serial.available())
+        {UART::sendHello();}
+     // what will be the Answer ? 
+        
 
 
-    };
+    }
 
-
-  
-    int baud_rate{0};
-    int uart_fd{-1};
-    const char* uart_device{nullptr};
-    bool send_help()
+    /* cyclic funktion to receive and send date from / to the master on serieal */
+    void update()
     {
-        // This function should send a help message over UART
-        // The help message should contain information about the available commands and their usage
-        // Return true if successful, false otherwise
 
 
-    };
-    bool send_Error(uint8_t* error_code){
-        // This function should send an error message over UART
-        // The error message should contain the specified error code
-        // Return true if successful, false otherwise
+    }
 
 
-    };
-    
+
+    void UART::receive()
+    {
+      
+    while (Serial.available())
+    {
+        uint8_t byte = static_cast<uint8_t>(Serial.read());
+
+        // Byte in commandBuffer schreiben
+        // Länge prüfen
+        // Telegramm vollständig?
+    } 
 
 
-    bool sendData(const uint8_t* data, size_t length){
-        // Send data over UART
-        // This function should write the specified data to the UART device
-        // Return true if successful, false otherwise
-    };
-    bool receiveData(uint8_t* buffer, size_t length){
-        // Receive data over UART
-        // This function should read data from the UART device into the specified buffer
-        // Return true if successful, false otherwise
-    };
-}
+
+    }
+
+    void decodeCommand()
+    {   
+
+    }
+
+    void sendResponse()
+    {
+
+    }
+
+    void sendHello()
+    {
+     Serial.println (F("Hello my friend"));
+     
+    }

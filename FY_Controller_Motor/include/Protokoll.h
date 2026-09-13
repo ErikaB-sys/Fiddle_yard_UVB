@@ -1,92 +1,18 @@
 #pragma once
 
 
-// Protokoll.h
-// This file contains the definitions for the communication protocol used in the project.
-// It defines the structure of the messages exchanged between the controller and other components.
-// Only for Uart communication, not for I2C or SPI.
+/**
+ * @file Protokoll.h
+ * @brief Definitions for the controller's UART communication protocol.
+ *
+ * Contains command and response identifiers, message metadata, and the
+ * command/response tables used by the controller. This protocol applies only
+ * to UART communication; it is not used for I2C or SPI.
+ */
 
 
-// ---------------------------------------------------------
-// Command types
-// ---------------------------------------------------------
-
-enum class CommandType : uint8_t
-{
-    IMMEDIATE,
-    EXECUTE,
-    PRIORITY
-};
-
-// ---------------------------------------------------------
-// Command definition
-// ---------------------------------------------------------
-
-struct CommandDefinition
-{
-    uint8_t id;
-    CommandType type;
-    uint8_t telegramLength;  //  telegramLength = DataLength 
-    uint8_t response;
-  
-};
-
-// ---------------------------------------------------------
-// Response Definition
-// ---------------------------------------------------------
-
-struct ResponseDefinition
-{
-    uint8_t id;
-    uint8_t length;
-};
-// ---------------------------------------------------------
-// Command IDs
-// ---------------------------------------------------------
-
-// ---------------------------------------------------------
-//define the commands and responses for the communication protocol
-// ---------------------------------------------------------
-
-
-const CommandDefinition commandDefinitions[] =
-{    // Command,CommandType,Length CMD, Response,length Response
-    { CMD_GET_STATUS    ,  CommandType::IMMEDIATE, 1, STATUS_System },
-    { CMD_GET_ERROR     , CommandType:: IMMEDIATE, 1, STATUS_Error },
-    { CMD_GET_POSITION  , CommandType:: IMMEDIATE, 1, STATUS_Position }, 
-    { CMD_GET_TRACK     , CommandType:: IMMEDIATE, 1, STATUS_Track},
-    { CMD_HELP          , CommandType:: IMMEDIATE, 1, STATUS_Help }, 
-    { CMD_REFERENCE     , CommandType:: EXECUTE,   1, STATUS_Reference },
-    { CMD_SET_SPEED     , CommandType:: EXECUTE,   3, STATUS_Motor }, 
-    { CMD_GO            , CommandType:: EXECUTE,   1, STATUS_ACK   },
-    { CMD_LEFT          , CommandType:: EXECUTE,   1, STATUS_ACK   },   
-    { CMD_RIGHT         , CommandType:: EXECUTE,   1, STATUS_ACK   }, 
-    { CMD_SET_POSITION  , CommandType:: EXECUTE,   1, STATUS_ACK   }, 
-    { CMD_SET_TRACK     , CommandType:: EXECUTE,   1, STATUS_ACK   }, 
-    { CMD_SET_REMOTE    , CommandType:: EXECUTE,   1, STATUS_CMD   }, 
-    { CMD_SET_LOCAL     , CommandType:: EXECUTE,   1, STATUS_CMD   },   
-    { CMD_STOPP         , CommandType:: PRIORITY,  1, STATUS_System}
-  
-};
-
-const ResponseDefinition ResponseDefinitions[] =
-{
-{ STATUS_Alive  , 0   },
-{ STATUS_Error ,  4  },
-{ STATUS_System ,  2  },
-{ STATUS_CMD ,   1 },
-{ STATUS_Position ,   3 },
-{ STATUS_Reference , 1   },
-{ STATUS_Track,   3 },
-{ STATUS_Motor, 3   },
-{ STATUS_ACK,  1  },
-{ STATUS_Help, 1  }  // ! help send a long String 
-};
-
-
-
-//received commands from Uart are stored in a struct and processed by the main loop
-#define MAX_COMMAND_LENGTH  8         // Maximum length of a command received from Uart in Bytes
+/** Maximum length of a command received from UART, in bytes. */
+#define MAX_COMMAND_LENGTH  8
 
 constexpr uint8_t CMD_GET_STATUS   =   0x19   ;    // Command to get the status of the motor
 constexpr uint8_t CMD_GET_ERROR    =   0x1A   ;    // Command to get the current error of the FY-Controller
@@ -112,27 +38,109 @@ constexpr uint8_t CMD_SET_REMOTE   =   0x2A   ;    // Command to set the control
 
 
 
-// Send Status to Uart
-#define MAX_RESPONSE_LENGTH        4             // Maximum length of a response sent to Uart in Bytes
-//general Response Codes
+/** Maximum length of a response sent to UART, in bytes. */
+#define MAX_RESPONSE_LENGTH        4
+
+// General response codes.
+/** Periodic status indicating that the controller is alive. */
 constexpr uint8_t STATUS_Alive                  =  0x03  ;     // Status indicating that the controller is alive Cyclically send this status to Uart every ???ms
-//resonse  for CMD_GET_ERROR 
+/** Error response containing the system status and three error bytes. */
 constexpr uint8_t STATUS_Error                  =  0xF0  ;     // Sending system Status byte and 3 Byte indicating that an error has occurred. The 3 Byte following up  will tell the Modul error Byte
-//response for CMD_GET_STATUS;
+/** Response containing the controller's system status. */
 constexpr uint8_t  STATUS_System                =  0x10;
-//response for CMD_SET_LOCAL / CMD_SET_REMOTE
+/** Response to local/remote mode commands. */
 constexpr uint8_t  STATUS_CMD                   =  0x15;
 
 
-//response for CMD_GET_POSITION in case ref=ence has not been done yet the response will be STATUS_ReferenceNotDONE
+/** Response containing the current motor position. */
 constexpr uint8_t STATUS_Position               =  0x20    ;   // Status ID Position Information
-//response for CMD_REFERENCE
+/** Response containing reference-operation information. */
 constexpr uint8_t STATUS_Reference              =  0x30   ;    // Status ID  Reference Information
-//response for CMD_GET_TRACK /CMD_SET_TRACK=
+/** Response containing track information. */
 constexpr uint8_t STATUS_Track                  =  0x40    ;   // Status ID  Track informatiom
+/** Response containing motor information. */
 constexpr uint8_t STATUS_Motor                  =  0x50;    //Status ID Motor information
+/** Acknowledgement response for movement commands. */
 constexpr uint8_t STATUS_ACK                    =  0x60;     // Answer on mosving Commands 
-
-//response for CMD_HELP
+/** Response indicating that the help text has been sent. */
 constexpr uint8_t STATUS_Help                   =  0x18   ;    // Status indicating that the list of available commands has been sent to Uart
+
+
+
+// ---------------------------------------------------------
+/** How a received command is scheduled for execution. */
+// ---------------------------------------------------------
+
+enum class CommandType : uint8_t
+{
+    IMMEDIATE,  ///< Execute as soon as the command is received.
+    EXECUTE,    ///< Queue for normal command execution.
+    PRIORITY    ///< Execute with priority over queued commands.
+};
+
+// ---------------------------------------------------------
+/** Metadata describing a supported command and its response. */
+// ---------------------------------------------------------
+
+struct CommandDefinition
+{
+    uint8_t id;                 ///< Command identifier byte.
+    CommandType type;           ///< Command scheduling type.
+    uint8_t telegramLength;    ///< Number of data bytes expected in the telegram.
+    uint8_t response;           ///< Response status identifier.
+  
+};
+
+// ---------------------------------------------------------
+/** Metadata describing a response status and its payload length. */
+// ---------------------------------------------------------
+
+struct ResponseDefinition
+{
+    uint8_t id;       ///< Response status identifier byte.
+    uint8_t length;   ///< Response length in bytes.
+};
+// ---------------------------------------------------------
+// Command IDs
+// ---------------------------------------------------------
+
+// ---------------------------------------------------------
+/** Definitions of all commands supported by the UART protocol. */
+// ---------------------------------------------------------
+
+
+const CommandDefinition commandDefinitions[] =
+{    // Command,CommandType,Length CMD, Response
+    { CMD_GET_STATUS    ,  CommandType::IMMEDIATE, 1, STATUS_System },
+    { CMD_GET_ERROR     , CommandType:: IMMEDIATE, 1, STATUS_Error },
+    { CMD_GET_POSITION  , CommandType:: IMMEDIATE, 1, STATUS_Position }, 
+    { CMD_GET_TRACK     , CommandType:: IMMEDIATE, 1, STATUS_Track},
+    { CMD_HELP          , CommandType:: IMMEDIATE, 1, STATUS_Help }, 
+    { CMD_REFERENCE     , CommandType:: EXECUTE,   1, STATUS_Reference },
+    { CMD_SET_SPEED     , CommandType:: EXECUTE,   3, STATUS_Motor }, 
+    { CMD_GO            , CommandType:: EXECUTE,   1, STATUS_ACK   },
+    { CMD_LEFT          , CommandType:: EXECUTE,   1, STATUS_ACK   },   
+    { CMD_RIGHT         , CommandType:: EXECUTE,   1, STATUS_ACK   }, 
+    { CMD_SET_POSITION  , CommandType:: EXECUTE,   1, STATUS_ACK   }, 
+    { CMD_SET_TRACK     , CommandType:: EXECUTE,   1, STATUS_ACK   }, 
+    { CMD_SET_REMOTE    , CommandType:: EXECUTE,   1, STATUS_CMD   }, 
+    { CMD_SET_LOCAL     , CommandType:: EXECUTE,   1, STATUS_CMD   },   
+    { CMD_STOPP         , CommandType:: PRIORITY,  1, STATUS_System}
+  
+};
+
+/** Definitions of all response statuses supported by the UART protocol. */
+const ResponseDefinition ResponseDefinitions[] =
+{
+{ STATUS_Alive  , 0   },
+{ STATUS_Error ,  4  },
+{ STATUS_System ,  2  },
+{ STATUS_CMD ,   1 },
+{ STATUS_Position ,   3 },
+{ STATUS_Reference , 1   },
+{ STATUS_Track,   3 },
+{ STATUS_Motor, 3   },
+{ STATUS_ACK,  1  },
+{ STATUS_Help, 1  }  // ! help send a long String 
+};
 
