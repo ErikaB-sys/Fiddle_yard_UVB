@@ -1,4 +1,10 @@
 #include <Arduino.h>
+
+#include <Arduino.h>
+#include <HardwareSerial.h>
+#include "System.h"
+#include "Config.h"
+#include "Protokoll.h"
 #include "UART.h"
 
 

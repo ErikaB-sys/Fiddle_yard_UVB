@@ -1,6 +1,9 @@
 
+#include "System.h"
 #include "Config.h"
-#include "Main.h"
+//#include "Main.h"
+#include "UART.h"
+
 
 // Variables for the project
 //FY_System is a variable of type FY_SystemStatus that represents the current status of the system. It is defined to hold system-related information, allowing for monitoring and management of system operations.

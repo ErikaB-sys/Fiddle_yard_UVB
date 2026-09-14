@@ -1,6 +1,7 @@
 #pragma once
 // Library includes
 #include <Arduino.h>
+
 // Config.h
 // magig switche
 
@@ -13,11 +14,7 @@
 
 // Project includes
 #include <Arduino.h>
-#include "Display.h"
-#include "UART.h" // also includes "Protokoll.h"
-#include "Buttons.h"
-#include "Switches.h"
-#include "Motor.h"
+
 
 // Configuration constants
 // Modul configuration see  Modul header !

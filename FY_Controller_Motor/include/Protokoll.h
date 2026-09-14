@@ -12,7 +12,7 @@
 
 
 /** Maximum length of a command received from UART, in bytes. */
-#define MAX_COMMAND_LENGTH  8
+#define MAX_COMMAND_LENGTH  5
 
 constexpr uint8_t CMD_GET_STATUS   =   0x19   ;    // Command to get the status of the motor
 constexpr uint8_t CMD_GET_ERROR    =   0x1A   ;    // Command to get the current error of the FY-Controller

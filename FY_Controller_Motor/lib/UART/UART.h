@@ -1,9 +1,4 @@
 #pragma once
-
-#include <Arduino.h>
-#include <HardwareSerial.h>
-#include "SystemStatus.h"
-#include "Config.h"
 #include "Protokoll.h"
 
 /**
