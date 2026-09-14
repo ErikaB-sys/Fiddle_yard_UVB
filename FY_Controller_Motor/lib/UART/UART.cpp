@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include "Protokoll.h"
 #include "UART.h"
 
 
@@ -386,12 +385,18 @@
         // Special 
     }
 
-   void UART:: Handle_Busy()
+   void UART:: handle_Busy()
    {
+    //setResponse(STATUS_NACK, 0xFF ,1);
     
 
    }
+     void UART:: handle_ACK()
+   {
+    //setResponse(STATUS_NACK, 0xFF ,1);
+    
 
+   }
 
 
 

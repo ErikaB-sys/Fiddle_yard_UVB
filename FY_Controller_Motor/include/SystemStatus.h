@@ -48,3 +48,9 @@ struct FY_Movement
     uint8_t  Speed_max;
     bool     Refrence;
 };
+/// @brief 
+struct FY_Trak_t
+{
+  uint8_t target_trak{1};
+  uint8_t akt_track{1} ; 
+};
