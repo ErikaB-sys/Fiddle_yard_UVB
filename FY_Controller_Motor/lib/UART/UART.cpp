@@ -1,4 +1,3 @@
-#include <Arduino.h>
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
@@ -6,6 +5,22 @@
 #include "Config.h"
 #include "Protokoll.h"
 #include "UART.h"
+/// @todo  bool _ResponsePending; um die korekte antwort zu senden 
+///UART empfängt CMD
+///        ↓
+///Command an Motor
+///        ↓
+///Motor.Update()
+///        ↓
+///Ergebnis / Fehler
+///        ↓
+///ResponsePending = true
+///        ↓
+///UART.update()
+///        ↓
+///Response senden
+///        ↓
+///ResponsePending = false
 
 
    UART:: UART()

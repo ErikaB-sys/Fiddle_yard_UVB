@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 #include "Motor.h"
+#include "Protokoll.h"
+
 
 
 // -----------------------------------------------------------------------------
@@ -72,13 +74,63 @@ void Motor::Update()
     {
     case IDLE :
     // wait  for Job 
-    // -> Moving  
+    
+             switch (cmd)
+             { // all checks  -> Moving 
+             case CMD_REFERENCE:
+                  
+             case CMD_LEFT:
+                  if ( true == prepareLeft())
+                  {     _State = MOVING;             }
+                  else 
+                  { // Error setzen 
+                      _State = ERROR; }
+             case CMD_RIGHT:
+             if ( true == prepareLeft())
+                  {     _State = MOVING;             }
+                  else 
+                  { //pos  Error setzen 
+                      _State = ERROR; }
 
-    //or config data
-    // -> Config 
+             case CMD_SET_POSITION:
+                   if (true == prepareSetPosition())
+                   {     _State = MOVING;             }
+                  else 
+                  { //pos  Error setzen 
+                      _State = ERROR; }
+             break;      
+             case CMD_SET_TRACK: 
+                   if (true == prepareSetTrack())
+                   {     _State = MOVING;             }
+                  else 
+                  { //pos  Error setzen 
+                      _State = ERROR; }
+                break;
+             case CMD_SET_SPEED : 
+              //or config data
+               // -> Config 
+               if  (true ==  prepareParameter())
+                   {     _State = CONF;             }
+                  else 
+                  { //pos  Error setzen 
+                      _State = ERROR; }
+             break;
 
+             default:
+               _State = ERROR; 
+                break;
+             }
+    
+   
+  
         break;
     case CONF :
+      // Parameter  ist in range ?
+      if (setParameter())
+      {
+         _State = IDLE;
+      };
+
      //-> Idle 
 
     break;
@@ -98,7 +150,7 @@ void Motor::Update()
     break;
     default:
      _State = ERROR;
-     
+
         break;
     
     } //end  of Switch motorstate 
@@ -112,7 +164,7 @@ void Motor::Update()
 // Movement commands
 // -----------------------------------------------------------------------------
 
-void Motor::move2Pos(long targetPosition)
+void Motor::move2Pos(int16_t targetPosition)
 {
     // TODO:
     // - check reference state
@@ -122,7 +174,7 @@ void Motor::move2Pos(long targetPosition)
     // - start movement
 }
 
-void Motor::moveSteps(long Steps)
+void Motor::moveSteps(int16_t Steps)
 {
     // TODO:
     // - calculate target from current position
@@ -165,7 +217,61 @@ bool Motor::Reference()
 
     return false;
 }
+//-----------------------------------------------------------------------------
+//   Helping functions 
+//-----------------------------------------------------------------------------
 
+
+   bool Motor::prepareSetPosition()
+   {
+    // refernziert ?   -> missing ref Error 
+
+        // position innerhalb ?  --> out of range Error 
+
+    // calcprofil() ; 
+     return (true)
+
+   };
+   bool Motor::prepareLeft()
+   {
+    // refernziert ?   -> missing ref Error   
+     // akt pos  + TrackSTEP ( ein gleis ? ) 
+         // position innerhalb ?  --> out of range Error 
+
+    // calcprofil() ; 
+     return (true)  
+   };
+   bool Motor::prepareRight()
+   {
+      // refernziert ?   -> missing ref Error   
+     // akt pos  +  TrackSTEP ( ein gleis ? ) 
+         // position innerhalb ?  --> out of range Error 
+
+    // calcprofil() ; 
+     return (true) 
+   };
+   bool Motor::prepareSetTrack()
+   {
+     // refernziert ?   -> missing ref Error  
+         // TRACK innerhalb ?  --> TRACKout of range Error  
+     // Track2Pos ( );
+        
+    // calcprofil() ; 
+     return (true);
+
+   };
+   bool Motor::CheckBorder()
+   {
+      
+    
+   };
+   bool prepareParameter()
+   {
+        // valider parameter?  --> invalidparamError 
+        // parameter in range   --> OORParamError 
+         return (true);
+        
+   };
 
 // -----------------------------------------------------------------------------
 // Status / information

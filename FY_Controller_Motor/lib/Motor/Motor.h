@@ -40,18 +40,17 @@ class Motor
 public:
     Motor();
 
-
+    // Initialize the motor control pins.
+    bool begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin);
+    
     // Update the motor control state.
     void Update();
 
-    // Initialize the motor control pins.
-    bool begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin);
-
     // Start a move to the target position. Requires the motor to be referenced.
-    void move2Pos(long targetPosition);
+    void move2Pos(int16_t targetPosition);
 
     // Move the specified number of steps. Referencing is not required.
-    void moveSteps(long Steps);
+    void moveSteps(int16_t Steps);
 
     // Immediately disable the motor using the enable pin.
     void Emergency_break();
@@ -67,6 +66,9 @@ public:
     uint16_t motor_getPosition();
     uint16_t motor_getTargetPosition();
     MotorState_t motor_getState();
+    
+
+
 
 private:
   // Hardware
@@ -92,7 +94,17 @@ private:
     MotorProfile_t _Profile;
     uint8_t  _ProfileElement;
     */
+   // Prüfungen der Daten  
+   bool prepareSetPosition();
+   bool prepareLeft();
+   bool prepareRight();
+   bool prepareSetTrack();
+   bool CheckBorder();
+   bool calcProfile();
+   bool prepareParameter();
 
+
+   
     // TODO: timing / step counter
     // Calculate the movement profile.
     bool calcprofil( );
