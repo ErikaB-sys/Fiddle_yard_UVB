@@ -7,10 +7,12 @@
 ///@brief uncommen if CRC check is activ 
 //#define UART_USE_CRC_TX
 //#define UART_USE_CRC_RX
-
+///@brief debug componets 
+//#define DebugSwitches
 
 
 // Project includes
+#include <Arduino.h>
 #include "Display.h"
 #include "UART.h" // also includes "Protokoll.h"
 #include "Buttons.h"
@@ -35,39 +37,39 @@
 #define SWITCH_TRIM_RIGHT_NAME   "SWITCH_TRIM_RIGHT"
 #define SWITCH_TIMING_BELT_NAME  "SWITCH_TIMING_BELT"
 // define of Switch IDs
-#define SWITCH_REF_ID             0x01
-#define SWITCH_TRIM_LEFT_ID      0x02
-#define SWITCH_TRIM_RIGHT_ID     0x03
-#define SWITCH_TIMING_BELT_ID    0x04
+constexpr uint8_t SWITCH_REF_ID         =   0x01;
+constexpr uint8_t SWITCH_TRIM_LEFT_ID   =   0x02;
+constexpr uint8_t SWITCH_TRIM_RIGHT_ID  =   0x03;
+constexpr uint8_t SWITCH_TIMING_BELT_ID =   0x04;
 // Analog channels for switches and buttons on the Arduino board
-#define SWITCH_REF_A            A0
-#define SWITCH_TRIM_LEFT_A      A1
-#define SWITCH_TRIM_RIGHT_A     A2
-#define SWITCH_TIMING_BELT_A    A3
+constexpr uint8_t SWITCH_REF_A         =   A0 ;
+constexpr uint8_t SWITCH_TRIM_LEFT_A   =   A1;
+constexpr uint8_t SWITCH_TRIM_RIGHT_A  =   A2;
+constexpr uint8_t SWITCH_TIMING_BELT_A =   A3;
 
 
 // Digital pins for buttons and LEDs on the Arduino board
-#define SWITCH_REF_D            D10
-#define SWITCH_TRIM_LEFT_D      D11
-#define SWITCH_TRIM_RIGHT_D     D12
-#define SWITCH_TIMING_BELT_D    D13
+constexpr uint8_t SWITCH_REF_D         =  PB1; // D09
+constexpr uint8_t SWITCH_TRIM_LEFT_D   =  PB2; // D10
+constexpr uint8_t SWITCH_TRIM_RIGHT_D  =  PB3; // D11
+constexpr uint8_t SWITCH_TIMING_BELT_D =  PB4; // D12
 
 // Motor control pins on the Arduino board
-#define MOTOR_PWM_PIN           D3
-#define MOTOR_DIR_PIN           D4
-#define MOTOR_ENABLE_PIN        D5
+constexpr uint8_t MOTOR_PWM_PIN      =     PD3;
+constexpr uint8_t MOTOR_DIR_PIN      =     PD4;
+constexpr uint8_t MOTOR_ENABLE_PIN   =     PD2;
 
 // Virtual pins for the expander
 // All pin numbers are defined as >=100 to avoid conflicts with normal Arduino pins
 
-#define BUTTON_STOP     100
-#define BUTTON_GO       101
-#define BUTTON_LEFT     102
-#define BUTTON_RIGHT    103
-#define LED1            104
-#define LED2            105
-#define LED3            106
-#define LED4            107
+constexpr uint8_t BUTTON_STOP =    100;
+constexpr uint8_t BUTTON_GO   =    101;
+constexpr uint8_t BUTTON_LEFT =    102;
+constexpr uint8_t BUTTON_RIGHT=    103;
+constexpr uint8_t LED1        =    104;
+constexpr uint8_t LED2        =    105;
+constexpr uint8_t LED3        =    106;
+constexpr uint8_t LED4        =    107;
 
 
 

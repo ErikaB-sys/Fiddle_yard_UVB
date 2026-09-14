@@ -96,6 +96,10 @@ private:
     void sendResponse();
     void setResponse(uint8_t id, uint8_t* data, uint8_t length);
 
+  /** @brief übertragung der Fahrbefehle  */
+    bool CheckError(); // wenn störung motor dann auch keine Bewegung 
+    bool CheckBusy();    // wenn bewegung  dann kein anderer Befehl ausser Stop 
+    bool SetCommand();   // eintragen der daten in Movment struct und valid flag setzen wenn gültig rückgabe  ok / nok für antwort 
 
     /**@brief Check and create CRC  */
     bool Check_CRC();

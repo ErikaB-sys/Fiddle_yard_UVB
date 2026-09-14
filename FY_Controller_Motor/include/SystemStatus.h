@@ -26,9 +26,25 @@ struct FY_SystemInitStatus_t
     bool systemError{false};
 };
 
+struct FY_System_Error_t
+{
+  bool uart {false};
+  bool motor {false};
+  bool switches{false};
+};
+
 
 struct FY_SystemStatus_t
+{   FY_SystemInitStatus_t   init;
+    FY_SystemState_t        state{FY_SystemState_t::INIT};
+    FY_System_Error_t       error;
+};
+
+struct FY_Movement
 {
-    FY_SystemState_t state{FY_SystemState_t::INIT};
-    FY_SystemInitStatus_t init;
+    uint16_t  POS_Min;
+    uint16_t  POS_Max;
+    uint8_t  Speed_min;
+    uint8_t  Speed_max;
+    bool     Refrence;
 };

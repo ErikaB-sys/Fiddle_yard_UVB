@@ -279,6 +279,28 @@
             ResponseBuffer.length = length;
             ResponseBuffer.responsePending = true;
         }
+     bool UART::CheckBusy()
+     {
+        return (true);
+     }
+
+     bool UART::CheckError()
+     {
+        return (true);
+     }
+
+     bool UART::SetCommand()
+     { 
+      // übeträgt die daten in die MOVE Struktur 
+
+
+       return( true);
+     }
+     
+
+
+
+
      ///@brief 
      bool UART:: Check_CRC()
      {
@@ -337,70 +359,109 @@
      void UART::handleStop()
      {
         // ENA auf OFF oder 12V  OFF setzen
+        setResponse(STATUS_System,reinterpret_cast<uint8_t*>(UART_context->systemStatus),sizeof(FY_SystemStatus_t));
 
      }
     void  UART:: handleGetStatus()
     {
-
+        setResponse(STATUS_System,reinterpret_cast<uint8_t*>(UART_context->systemStatus),sizeof(FY_SystemStatus_t));
     }
     void  UART:: handleGetError()
     {
-        
+         setResponse(STATUS_System,reinterpret_cast<uint8_t*>(UART_context->systemStatus->state),sizeof(FY_SystemState_t));
     }
  void UART::handleGetPosition()
     {
      setResponse(
-         STATUS_Position,
-         reinterpret_cast<uint8_t*>(UART_context->motorPosition),
-         sizeof(int32_t)
-     );
+         STATUS_Position, reinterpret_cast<uint8_t*>(UART_context->motorPosition),sizeof(int32_t));
 
     }
     void  UART:: handleGetTrack()
     {
+        setResponse(STATUS_Track,reinterpret_cast<uint8_t*>(UART_context->motorTrack),1);
         
     }
     void  UART:: handleHelp()
     {
-        
+        // Special 
     }
+
+   void UART:: Handle_Busy()
+   {
+    
+
+   }
+
+
+
+
+
     void  UART:: handleReference()
-    {
+    {   // test Fehler 
+        // Test  Busy 
+        //testen ob  Referenziert 
+        //SetCommand();
+        
         
     }
     void  UART:: handleSetSpeed()
-    {
+    {    // test Fehler 
+        // Test  Busy
+        //Test on Speed im bereich MIN/ MAX
+        //SetCommand();
+
         
     }
     void  UART:: handleGo()
-    {
+    {  // test Fehler 
+        // Test  Busy
+        //Test ob Steps >0 ( oder Steps min) 
+        //SetCommand();
         
     }
     void  UART:: handleLeft()
-    {
+    {  // test Fehler 
+        // Test  Busy
+        // Refernziert ?
+        // Test ob noch Move Left möglich 
+        //SetCommand();
         
     }
     void  UART:: handleRight()
-    {
+    { // test Fehler 
+        // Test  Busy
+        // Refernziert ?
+        // Test ob noch Move Right möglich 
+        //SetCommand();
         
     }
     void  UART:: handleSetPosition()
-    {
-        
+    {   // test Fehler 
+        // Test  Busy
+        // Refernziert ?
+        // Test ob POS im Bereich  MIN / Max Position
+        //SetCommand();
     }
     void  UART:: handleSetTrack()
-    {
+    {  // test Fehler 
+        // Test  Busy
+        // Refernziert ?
+        // Test ob Gleis Kombi plausibel / aktuell
+        //SetCommand();
         
     }
     void  UART:: handleSetRemote()
-    {
-        
+    {   
+
+
     }
     void  UART:: handleSetLocal()
     {
-        
+       // test Fehler 
+        // Test  Busy
+        // Refernziert ?
+        // Test ob Lokales Befhels gerät da 
+        //SetCommand();
+      
     }
-   void UART:: Handle_Busy()
-   {
 
-   }
