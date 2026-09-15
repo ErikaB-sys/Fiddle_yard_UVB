@@ -113,7 +113,7 @@ private:
    bool CheckBorder();
    bool calcProfile();
    bool prepareParameter();
-   void setJob(MotorJob_t newjob);
+   bool setJob(Motor::MotorJob_t newjob);
 
    
     // TODO: timing / step counter

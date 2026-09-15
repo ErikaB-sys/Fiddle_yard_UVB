@@ -57,6 +57,10 @@ bool Motor::begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin)
     _StepsRemaining = 0;
     _TimerValue     = 0;
 
+
+    Timer1_Init();// prepair timer 1  for creating  Steps 
+    Timer1_Stop(); // dont move!!
+
     return true;
 }
 
@@ -221,7 +225,7 @@ void Motor::Emergency_break()
     // - immediately disable motor
     // - stop Timer2 / STEP generation
     // - update state
-    
+
 }
 
 
