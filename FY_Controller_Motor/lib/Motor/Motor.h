@@ -2,7 +2,7 @@
 // Motor.h
 // Declarations for motor control used by the project.
 
-enum MotorState_t
+enum class MotorState_t
 {
     IDLE,       // Motor is idle.
     CONF,       // Change of motor & moving parameter
@@ -16,7 +16,7 @@ enum MotorState_t
 
 
 
-enum MotorProfile_t
+enum class MotorProfile_t
 {
     ACC1,      // Start acceleration.
     ACC2,      // Increase speed.
@@ -34,7 +34,7 @@ enum MotorProfile_t
 struct Profilelement_t
 {
     uint16_t Steps; // Number of steps in this profile element.
-    uint8_t Accel;  // Acceleration for this profile element.
+    uint16_t Accel;  // Acceleration for this profile element.
 };
 
 
@@ -92,7 +92,7 @@ private:
         };
     MotorJob_t _Job;
 
-    bool Motor::setJob(MotorJob_t newjob);
+   
 
 
     // State
@@ -103,12 +103,8 @@ private:
     uint8_t _ProfileElement;
     uint16_t _StepsRemaining;
 
-    // Timer
-    uint16_t _TimerValue;
-    /*
-    MotorProfile_t _Profile;
-    uint8_t  _ProfileElement;
-    */
+   
+
    // Prüfungen der Daten  
    bool prepareSetPosition();
    bool prepareLeft();
@@ -117,13 +113,52 @@ private:
    bool CheckBorder();
    bool calcProfile();
    bool prepareParameter();
-
+   void setJob(MotorJob_t newjob);
 
    
     // TODO: timing / step counter
     // Calculate the movement profile.
     bool calcprofil( );
+     // Timer
+     uint16_t _TimerValue;
 
+    // ----------------------------------------------------------------
+    // Timer 1
+    // ----------------------------------------------------------------
+    void Timer1_Init();
+    void Timer1_Start();
+    void Timer1_Stop();
+
+    //------------------------------------------------------------------------------------
+    /// @defgroup Fahrprofil 
+    //------------------------------------------------------------------------------------
+    volatile bool _TimerValid = false;
+
+    // Motorprofil: ACC1, ACC2, KONST, BRE1, BRE2, POSI
+    Profilelement_t Motor_profil[6];
+
+   volatile MotorProfile_t _ProfileElement = MotorProfile_t::ACC1;
+   volatile uint16_t _StepsRemaining = 0;
+volatile uint16_t _TimerValue = 0;
+
+    // ----------------------------------------------------------------
+    // Bewegungsgrenzen
+    // ----------------------------------------------------------------
+
+    // Mechanischer Bewegungsbereich in Schritten
+    static constexpr uint16_t POS_MIN = 0;
+    static constexpr uint16_t POS_MAX = 6400;
+
+    // Timergrenzen
+    // Kleinerer Wert = höhere Geschwindigkeit
+    static constexpr uint16_t TIMER_MIN = 100;
+    static constexpr uint16_t TIMER_MAX = 30000;
+
+    // Timeränderung pro Schritt
+    // negativ = schneller
+    // positiv = langsamer
+    static constexpr int16_t ACCEL_MIN = -100;
+    static constexpr int16_t ACCEL_MAX = 100;
 
 };
 
