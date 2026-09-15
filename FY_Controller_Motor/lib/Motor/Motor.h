@@ -6,15 +6,11 @@ enum class MotorState_t
 {
     IDLE,       // Motor is idle.
     CONF,       // Change of motor & moving parameter
+    REFRUN,     // Refrun as  new state 
     MOVING,     // Motor is moving.
     STOPPED,    // Motor has been stopped.
     ERROR       // Motor is in an error state.
 };
-
-
-
-
-
 
 enum  class MotorProfile_t
 {
@@ -149,6 +145,16 @@ private:
    volatile MotorProfile_t _ProfileElement = MotorProfile_t::ACC1;
    volatile uint16_t _StepsRemaining = 0;
    volatile uint16_t _TimerValue = 0;
+   
+    // ------------------------------------------------------------
+    // Verbindung zwischen Hardware-ISR und Motor-Objekt
+    // ------------------------------------------------------------
+    //
+    // Timer1_ISR() ist static und besitzt deshalb kein "this".
+    // Über diesen Zeiger findet sie das eine Motor-Objekt,
+    // dessen Timer1 sie bedienen soll.
+    //
+    static Motor* _TimerMotor;
 
     // ----------------------------------------------------------------
     // Bewegungsgrenzen

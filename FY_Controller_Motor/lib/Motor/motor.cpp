@@ -47,19 +47,26 @@ bool Motor::begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin)
 
     // Motor initially disabled
     digitalWrite(_ENA_pin, HIGH);
+// Bewegungs und ISR Daten 
 
-    _Position       = 0;
-    _TargetPosition = 0;
-
-    _State = MotorState_t::IDLE;
-
-    _ProfileElement = MotorProfile_t::ACC1;
-    _StepsRemaining = 0;
-    _TimerValue     = 0;
-
+    // Dieses Motor-Objekt ist dasjenige, das Timer1 verwendet.
+    _TimerMotor = this;
 
     Timer1_Init();// prepair timer 1  for creating  Steps 
     Timer1_Stop(); // dont move!!
+
+    // Daten 
+    _State = MotorState_t::IDLE;
+    _ProfileElement = MotorProfile_t::ACC1;
+    _StepsRemaining = 0;
+    _TimerValue     = 0;
+    _Position       = 0;
+    _TargetPosition = 0;
+
+
+
+
+
 
     return true;
 }
@@ -357,7 +364,7 @@ bool Motor::calcprofil()
 
 
 
-_TimerValid = true;
+ _TimerValid = true;
 
     return false;
 }
@@ -388,6 +395,14 @@ void Motor::Timer1_Init()
 
 void Motor::Timer1_Start()
 {
+        // Profil immer am Anfang beginnen
+    _ProfileElement = MotorProfile_t::ACC1;
+
+    // Anzahl der Schritte des ersten Profilelements laden
+    _StepsRemaining =
+        Motor_profil[static_cast<uint8_t>(_ProfileElement)].Steps;
+
+
     TCCR1B |= (1 << CS10);
 }
 
@@ -396,41 +411,118 @@ void Motor::Timer1_Stop()
     TCCR1B &= ~((1 << CS12) | (1 << CS11) | (1 << CS10));
 }
 
- void Motor::Timer1_ISR()
- {
-    /*      ↓
-ISR
- ├─ Valid prüfen
- ├─ STEP erzeugen
- ├─ Schritt zählen
- ├─ StepsRemaining--
- ├─ Timerwert anpassen
- ├─ ggf. nächstes Profilelement
- └─ bei Ende → Valid = false / Timer stoppen */
+void Motor::Timer1_ISR()
 {
-    static bool ticktack = false; // danke  Dingsda :D
+    // ------------------------------------------------------------
+    // Timer1_ISR() wird direkt vom AVR-Interrupt aufgerufen.
+    //
+    // Da die Funktion static ist, gibt es hier kein "this".
+    // _TimerMotor zeigt deshalb auf das Motor-Objekt, dessen
+    // Timerdaten wir bearbeiten müssen.
+    // ------------------------------------------------------------
 
-    if (true == Motor::_TimerValid)
-     { 
+    Motor* motor = _TimerMotor;
+
+    // Sicherheitsprüfung:
+    // Falls noch kein Motor-Objekt mit Timer1 verbunden wurde,
+    // gibt es hier nichts zu tun.
+    if (motor == nullptr)
+    {
+        return;
+    }
+
+    if (!motor->_TimerValid)
+    {
+        return;
+    }
+
+    // ------------------------------------------------------------
+    // Hier arbeitet die ISR jetzt ganz normal mit den Membern
+    // des Motor-Objektes.
+    // ------------------------------------------------------------
+
+    static bool ticktack = false;
 
     ticktack = !ticktack;
 
     if (ticktack)
     {
         // STEP HIGH
+
     }
     else
     {
         // STEP LOW
-        // Step--
-        // Profil prüfen
-        // Timerwert anpassen
-        // OCR1A setzen
-    }
-}
+
+        // Ein vollständiger STEP ist abgeschlossen.
+        motor->_StepsRemaining--;
+
+      if (motor->_StepsRemaining == 0)
+          {
+           // Zum nächsten Profilelement wechseln
+          for (uint8_t i = 0; i < 6; i++)
+           {
+             // nächstes Profilelement bestimmen
+             switch (motor->_ProfileElement)
+               {
+                 case MotorProfile_t::ACC1:
+                     motor->_ProfileElement = MotorProfile_t::ACC2;
+                     break;
+         
+                 case MotorProfile_t::ACC2:
+                     motor->_ProfileElement = MotorProfile_t::KONST;
+                     break;
+         
+                 case MotorProfile_t::KONST:
+                     motor->_ProfileElement = MotorProfile_t::BRE1;
+                     break;
+         
+                 case MotorProfile_t::BRE1:
+                     motor->_ProfileElement = MotorProfile_t::BRE2;
+                     break;
+         
+                 case MotorProfile_t::BRE2:
+                     motor->_ProfileElement = MotorProfile_t::POSI;
+                     break;
+         
+                 case MotorProfile_t::POSI:
+                     // Kein weiteres Profilelement vorhanden.
+                     motor->_TimerValid = false;
+                     motor->Timer1_Stop();
+                     return;
+                }
+   
+             // Schritte des neuen Profilelements laden
+             uint8_t element =
+                 static_cast<uint8_t>(motor->_ProfileElement);
+         
+             motor->_StepsRemaining =
+                 motor->Motor_profil[element].Steps;
+         
+                // Profilelement gefunden
+              if (motor->_StepsRemaining > 0)
+                {
+                    break;
+                }
+            }
+            // Jetzt steht fest, welches Profilelement für
+            // den NÄCHSTEN Schritt gilt.
+            
+            motor->_TimerValue +=
+                motor->Motor_profil[
+                    static_cast<uint8_t>(motor->_ProfileElement)
+                ].Accel;
+            
+            // Timerwert für den nächsten Interrupt übernehmen.
+            OCR1A = motor->_TimerValue;
+      
+        }
+     }
 }
 
- }
+
+
+
 
 ISR(TIMER1_COMPA_vect)
 {/// @brief  Compare
