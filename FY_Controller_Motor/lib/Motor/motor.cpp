@@ -351,6 +351,13 @@ bool Motor::calcprofil()
     // BRE1
     // BRE2
     // POSI
+// test profil in den declaration !!
+
+
+
+
+
+_TimerValid = true;
 
     return false;
 }
@@ -389,10 +396,9 @@ void Motor::Timer1_Stop()
     TCCR1B &= ~((1 << CS12) | (1 << CS11) | (1 << CS10));
 }
 
-
-ISR(TIMER1_COMPA_vect)
-{/// @brief  Compare
-/*      ↓
+ void Motor::Timer1_ISR()
+ {
+    /*      ↓
 ISR
  ├─ Valid prüfen
  ├─ STEP erzeugen
@@ -400,7 +406,35 @@ ISR
  ├─ StepsRemaining--
  ├─ Timerwert anpassen
  ├─ ggf. nächstes Profilelement
- └─ bei Ende → Valid = false / Timer stoppen
- */
+ └─ bei Ende → Valid = false / Timer stoppen */
+{
+    static bool ticktack = false; // danke  Dingsda :D
+
+    if (true == Motor::_TimerValid)
+     { 
+
+    ticktack = !ticktack;
+
+    if (ticktack)
+    {
+        // STEP HIGH
+    }
+    else
+    {
+        // STEP LOW
+        // Step--
+        // Profil prüfen
+        // Timerwert anpassen
+        // OCR1A setzen
+    }
+}
+}
+
+ }
+
+ISR(TIMER1_COMPA_vect)
+{/// @brief  Compare
+
+Motor::Timer1_ISR();
 
 }

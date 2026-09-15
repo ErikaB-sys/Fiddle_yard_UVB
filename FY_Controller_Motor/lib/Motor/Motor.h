@@ -16,7 +16,7 @@ enum class MotorState_t
 
 
 
-enum class MotorProfile_t
+enum  MotorProfile_t
 {
     ACC1,      // Start acceleration.
     ACC2,      // Increase speed.
@@ -34,7 +34,7 @@ enum class MotorProfile_t
 struct Profilelement_t
 {
     uint16_t Steps; // Number of steps in this profile element.
-    uint16_t Accel;  // Acceleration for this profile element.
+    int16_t Accel;  // Acceleration for this profile element.!! vorzeichen behaftet !!!
 };
 
 
@@ -44,6 +44,8 @@ class Motor
 {
 public:
     Motor();
+    // Isr is member  of motor ....
+    static void Timer1_ISR();
 
     // Initialize the motor control pins.
     bool begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin);
@@ -118,7 +120,7 @@ private:
    
     // TODO: timing / step counter
     // Calculate the movement profile.
-    bool calcprofil( );
+     bool calcprofil( );
      // Timer
      uint16_t _TimerValue;
 
@@ -135,11 +137,20 @@ private:
     volatile bool _TimerValid = false;
 
     // Motorprofil: ACC1, ACC2, KONST, BRE1, BRE2, POSI
-    Profilelement_t Motor_profil[6];
+    // testtabelle als default wert 
+    Profilelement_t Motor_profil[6]=
+    {
+    {100, -2},   // ACC1
+    {100, -1},   // ACC2
+    {200,  0},   // KONST
+    {100, +1},   // BRE1
+    {100, +2},   // BRE2
+    { 10,  0}    // POSI
+    };
 
    volatile MotorProfile_t _ProfileElement = MotorProfile_t::ACC1;
    volatile uint16_t _StepsRemaining = 0;
-volatile uint16_t _TimerValue = 0;
+   volatile uint16_t _TimerValue = 0;
 
     // ----------------------------------------------------------------
     // Bewegungsgrenzen
