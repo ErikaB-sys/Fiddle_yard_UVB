@@ -16,7 +16,7 @@ enum class MotorState_t
 
 
 
-enum  MotorProfile_t
+enum  class MotorProfile_t
 {
     ACC1,      // Start acceleration.
     ACC2,      // Increase speed.
@@ -101,9 +101,9 @@ private:
     MotorState_t _State;
 
     // Movement profile
-    Profilelement_t Motor_profil [6];
+  
     uint8_t _ProfileElement;
-    uint16_t _StepsRemaining;
+
 
    
 
@@ -121,8 +121,6 @@ private:
     // TODO: timing / step counter
     // Calculate the movement profile.
      bool calcprofil( );
-     // Timer
-     uint16_t _TimerValue;
 
     // ----------------------------------------------------------------
     // Timer 1
