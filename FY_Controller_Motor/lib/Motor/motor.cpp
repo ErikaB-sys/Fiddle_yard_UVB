@@ -401,8 +401,10 @@ void Motor::Timer1_Start()
     // Anzahl der Schritte des ersten Profilelements laden
     _StepsRemaining =
         Motor_profil[static_cast<uint8_t>(_ProfileElement)].Steps;
-
-
+        // timer einstellen 
+      _TimerValue= TIMER_V_MIN;
+       OCR1A = _TimerValue;
+       // und ab geht die wilde  Fahrt .....
     TCCR1B |= (1 << CS10);
 }
 

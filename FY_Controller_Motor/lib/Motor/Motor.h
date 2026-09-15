@@ -1,5 +1,30 @@
 #pragma once
 // Motor.h
+//defalut declarations 
+// mm  je Umdrehung typischer  20mm 
+#ifndef MM_PER_UMD
+#define MM_PER_UMD 20.0
+#endif
+
+#ifndef STEPS_PER_UMD
+#define STEPS_PER_UMD 1600
+#endif
+
+#define TIMER_FREQUENCY 16000000UL
+#define TIMER_PRESCALER 1
+
+#define SPEED_TO_TIMER(v) \
+    (TIMER_FREQUENCY / (TIMER_PRESCALER * 2UL * \
+    ((v) * STEPS_PER_UMD / MM_PER_UMD)))
+
+constexpr uint16_t V_MIN = 1;
+constexpr uint16_t V_MAX = 50;
+
+constexpr uint16_t TIMER_V_MIN = SPEED_TO_TIMER(V_MIN);
+constexpr uint16_t TIMER_V_MAX = SPEED_TO_TIMER(V_MAX);
+
+
+
 // Declarations for motor control used by the project.
 
 enum class MotorState_t
