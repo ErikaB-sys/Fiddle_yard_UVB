@@ -2,6 +2,7 @@
 // Motor control implementation
 
 #include <Arduino.h>
+#include "FY_System.h"
 #include "Motor.h"
 #include "Protokoll.h"
 
@@ -184,6 +185,18 @@ void Motor::moveSteps(int16_t Steps)
 }
 
 
+void setJob(MotorJob_t newjob)
+{ // 
+{
+    if (_State != IDLE && _State != STOPPED)
+        return false;
+
+    _Job = newjob;       // bewusst kopieren
+    return true;
+}
+
+}
+
 // -----------------------------------------------------------------------------
 // Stop / emergency
 // -----------------------------------------------------------------------------
@@ -262,6 +275,7 @@ bool Motor::Reference()
    };
    bool Motor::CheckBorder()
    {
+
       
     
    };
@@ -279,26 +293,31 @@ bool Motor::Reference()
 
 bool Motor::motor_isMoving()
 {
-    // TODO
+    if (MOVING == _State)
+       {return true;}
+       else
+       {
     return false;
+       }
 }
 
 uint16_t Motor::motor_getPosition()
 {
-    // TODO
-    return 0;
+ // ggf  den zähler aus demIntrrupt mit kurzer Interrupt Sperre  holen
+
+    return _Position;
 }
 
 uint16_t Motor::motor_getTargetPosition()
 {
-    // TODO
-    return 0;
+  
+    return   _TargetPosition;
 }
 
 MotorState_t Motor::motor_getState()
 {
-    // TODO
-    return IDLE;
+    
+    return _State;
 }
 
 
@@ -326,11 +345,9 @@ bool Motor::calcprofil()
 // Timer2 interrupt
 // -----------------------------------------------------------------------------
 
-ISR(TIMER2_OVF_vect)
+ISR(TIMER1_COMPA_vect)
 {
-    // TODO:
-    // Generate STEP pulse according to current profile element.
-    //
-    // IMPORTANT:
-    // Keep ISR as short as possible.
+    // STEP-Erzeugung
+    // Schrittzähler
+    // Timerwert/Profilelement anpassen
 }

@@ -5,6 +5,11 @@
 #include "Config.h"
 #include "Protokoll.h"
 #include "UART.h"
+
+
+
+
+
 /// @todo  bool _ResponsePending; um die korekte antwort zu senden 
 ///UART empfängt CMD
 ///        ↓
@@ -21,6 +26,8 @@
 ///Response senden
 ///        ↓
 ///ResponsePending = false
+/// @todo set job einbauen 
+
 
 
    UART:: UART()

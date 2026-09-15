@@ -1,0 +1,14 @@
+
+This directory is intended for project header files.
+
+alle  global includes werden hier abgelegt 
+und  in der INI  ist 
+build_flags =
+    -I include
+    ergänzt 
+
+include/
+├── Config.h
+├── FY_System.h
+├── ...
+└── Protokoll.h

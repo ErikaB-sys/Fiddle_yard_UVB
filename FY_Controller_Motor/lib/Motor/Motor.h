@@ -11,6 +11,11 @@ enum MotorState_t
     ERROR       // Motor is in an error state.
 };
 
+
+
+
+
+
 enum MotorProfile_t
 {
     ACC1,      // Start acceleration.
@@ -79,6 +84,16 @@ private:
     // Position
     uint16_t _Position;
     uint16_t _TargetPosition;
+    struct MotorJob_t
+        {
+            uint8_t      cmd;
+            uint8_t      data[MAX_COMMAND_LENGTH - 1];
+        
+        };
+    MotorJob_t _Job;
+
+    bool Motor::setJob(MotorJob_t newjob);
+
 
     // State
     MotorState_t _State;
