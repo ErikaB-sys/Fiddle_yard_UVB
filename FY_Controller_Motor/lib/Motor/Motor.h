@@ -17,11 +17,11 @@
 #endif
 
 // Profil default werte 
-#ifndef POS_x
+#ifndef POS_MIN
 #define POS_MIN 2.0
 #endif
-#ifndef KONST_min
-#define KONST_min 5.0
+#ifndef KONST_MIN
+#define KONST_MIN 5.0
 #endif 
 
 constexpr uint16_t MM_TO_STEPS(float mm)
@@ -54,6 +54,16 @@ constexpr uint16_t TIMER_V_MAX = static_cast<uint16_t>(SPEED_TO_TIMER(V_MAX));
 
 
 
+
+struct MotorJob_t
+        {
+            uint8_t      cmd;
+            uint8_t      data[MAX_COMMAND_LENGTH - 1];
+        
+        };
+MotorJob_t _Job;
+
+
 // Declarations for motor control used by the project.
 
 enum class MotorState_t
@@ -65,6 +75,7 @@ enum class MotorState_t
     STOPPED,    // Motor has been stopped.
     ERROR       // Motor is in an error state.
 };
+
 
 // -----------------------------------------------------------------------------
 // Fahrprofil-Parameter
@@ -112,7 +123,7 @@ struct MotorProfileParam_t
 MotorProfileParam_t _ProfileParam =
 {
     MM_TO_STEPS(POS_x),     // PosiMin
-    MM_TO_STEPS(KONST_min), // KonstMin
+    MM_TO_STEPS(KONST_MIN), // KonstMin
 
     100,                    // Acc1Steps
     100,                    // Acc2Steps
@@ -136,6 +147,8 @@ public:
     
     // Update the motor control state.
     void Update();
+
+    bool  setJob(MotorJob_t newjob); // set Job after the condition was  checked  extern....!!
 
     // Start a move to the target position. Requires the motor to be referenced.
     void move2Pos(int16_t targetPosition);
@@ -170,13 +183,7 @@ private:
     // Position
     uint16_t _Position;
     uint16_t _TargetPosition;
-    struct MotorJob_t
-        {
-            uint8_t      cmd;
-            uint8_t      data[MAX_COMMAND_LENGTH - 1];
-        
-        };
-    MotorJob_t _Job;
+
 
    
 
@@ -197,14 +204,13 @@ private:
    bool prepareRight();
    bool prepareSetTrack();
    bool CheckBorder();
-   bool calcProfile();
    bool prepareParameter();
-   bool setJob(Motor::MotorJob_t newjob);
+   
 
    
     // TODO: timing / step counter
     // Calculate the movement profile.
-     bool calcprofil( );
+     bool calcProfile(uint16_t distance );
 
     // ----------------------------------------------------------------
     // Timer 1

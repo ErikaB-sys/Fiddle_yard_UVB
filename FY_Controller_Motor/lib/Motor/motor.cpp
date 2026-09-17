@@ -102,8 +102,9 @@ void Motor::Update()
                   else 
                   { // Error setzen 
                       _State = MotorState_t::ERROR; }
+                 break;       
              case CMD_RIGHT:
-             if ( true == prepareLeft())
+             if ( true == prepareRight())
                   {     _State = MotorState_t::MOVING;             }
                   else 
                   { //pos  Error setzen 
@@ -201,7 +202,7 @@ void Motor::moveSteps(int16_t Steps)
 }
 
 
-bool Motor::setJob(Motor::MotorJob_t newjob)
+bool setJob(MotorJob_t newjob)
 
 {
     if (_State != MotorState_t::IDLE && _State != MotorState_t::STOPPED)
@@ -297,9 +298,10 @@ bool Motor::Reference()
    {
 
       
-    
+    return (true);
+
    };
-   bool prepareParameter()
+   bool Motor::prepareParameter()
    {
         // valider parameter?  --> invalidparamError 
         // parameter in range   --> OORParamError 
@@ -424,20 +426,20 @@ MotorState_t Motor::motor_getState()
 
     uint16_t outer = remaining / 2;
 
-    if (outer > ACC1_STEPS)
-        outer = ACC1_STEPS;
+    if (outer > _ProfileParam.Acc1Steps)
+        outer = _ProfileParam.Acc1Steps;
 
-    Motor::[static_cast<uint8_t>(MotorProfile_t::ACC1)].Steps =
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Steps =
         outer;
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Accel =
-        ACC1_ACCEL;
+       _ProfileParam.Acc1Accel;
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Steps =
         outer;
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Accel =
-        BRE2_ACCEL;
+        _ProfileParam.Bre2Accel;
 
     remaining -= outer * 2;
 
@@ -448,20 +450,20 @@ MotorState_t Motor::motor_getState()
 
     uint16_t inner = remaining / 2;
 
-    if (inner > ACC2_STEPS)
-        inner = ACC2_STEPS;
+    if (inner > _ProfileParam.Acc2Steps)
+        inner = _ProfileParam.Acc2Steps;
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Steps =
         inner;
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Accel =
-        ACC2_ACCEL;
+        _ProfileParam.Acc2Accel;
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Steps =
         inner;
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Accel =
-        BRE1_ACCEL;
+        _ProfileParam.Bre1Accel;
 
     remaining -= inner * 2;
 
@@ -493,14 +495,11 @@ MotorState_t Motor::motor_getState()
         Motor_profil[static_cast<uint8_t>(MotorProfile_t::POSI)].Steps +=
             distance - sum;
     }
-
+_TimerValid = true;
     return true;
 }
 
- _TimerValid = true;
 
-    return false;
-}
 
 
 // -----------------------------------------------------------------------------
