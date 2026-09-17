@@ -20,8 +20,9 @@
 constexpr uint16_t V_MIN = 1;
 constexpr uint16_t V_MAX = 50;
 
-constexpr uint16_t TIMER_V_MIN = SPEED_TO_TIMER(V_MIN);
-constexpr uint16_t TIMER_V_MAX = SPEED_TO_TIMER(V_MAX);
+constexpr uint16_t TIMER_V_MIN = static_cast<uint16_t>(SPEED_TO_TIMER(V_MIN));
+
+constexpr uint16_t TIMER_V_MAX = static_cast<uint16_t>(SPEED_TO_TIMER(V_MAX));
 
 
 

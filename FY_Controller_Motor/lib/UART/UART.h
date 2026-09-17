@@ -7,10 +7,10 @@
 struct UART_Context_t
 {
     FY_SystemStatus_t* systemStatus;
-    uint8_t*  uartError;
-    int32_t*  motorPosition;
-    uint8_t*  motorTrack;
-    uint16_t* motorSpeed;
+    uint8_t*    uartError;
+    int32_t*     motorPosition;
+    FY_Track_t*  Track_INFO;
+    uint16_t*    motorSpeed;
 };
 // UART communication speed: 115200 baud, 8 data bits, no parity, 1 stop bit (8N1).
 #define UART_BAUD_RATE 115200

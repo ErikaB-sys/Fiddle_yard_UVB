@@ -179,7 +179,7 @@
               handleGetPosition();
         break;
         case  CMD_GET_TRACK   :
-                handleGetTrack();
+             handleGetTrack();
         break;
         case CMD_HELP         :
                 handleHelp();
@@ -395,7 +395,7 @@
     }
     void  UART:: handleGetError()
     {
-         setResponse(STATUS_System,reinterpret_cast<uint8_t*>(UART_context->systemStatus->state),sizeof(FY_SystemState_t));
+         setResponse(STATUS_System,reinterpret_cast<uint8_t*>(UART_context->systemStatus-> error),sizeof(FY_SystemState_t));
     }
  void UART::handleGetPosition()
     {
@@ -405,7 +405,7 @@
     }
     void  UART:: handleGetTrack()
     {
-        setResponse(STATUS_Track,reinterpret_cast<uint8_t*>(UART_context->motorTrack),1);
+        setResponse(STATUS_Track,reinterpret_cast<uint8_t*>(UART_context->Track_INFO),1);
         
     }
     void  UART:: handleHelp()
@@ -476,11 +476,20 @@
         //SetCommand();
     }
     void  UART:: handleSetTrack()
-    {  // test Fehler 
-        // Test  Busy
-        // Refernziert ?
-        // Test ob Gleis Kombi plausibel / aktuell
-        //SetCommand();
+    {  // CMD | Tracknummer | (CRC)
+        
+        // test SYSTEM Fehler 
+        // Test MOTOR Busy
+        // SYSTEM Refernziert 
+        // (CRC OK ) 
+        // CommandBuffer.data[0] == UART_context->Track_INFO ->akt_track !! type casten 
+                
+        if (( FY_Track::BG1 < CommandBuffer.data[0] )
+          &&( FY_Track::BG5 > CommandBuffer.data[0]))
+          {
+           
+          }
+   
         
     }
     void  UART:: handleSetRemote()

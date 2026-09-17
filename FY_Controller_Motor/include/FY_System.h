@@ -9,6 +9,7 @@
 enum class FY_SystemState_t : uint8_t
 {
     INIT,   ///< System has not completed initialization.
+    REF,    /// refenziert 
     Idle,   ///< System is waiting for commands.
     Busy,   ///< System is processing a task.
     Error   ///< System is in an error state.
@@ -38,6 +39,7 @@ struct FY_System_Error_t
     bool uart{false};      ///< UART communication error.
     bool motor{false};     ///< Motor driver or movement error.
     bool switches{false};  ///< Switch detection or input error.
+    bool reference {false}; // refernce detection error
 };
 
 /**
@@ -59,17 +61,48 @@ struct FY_Movement
     uint16_t POS_Max;      ///< Maximum valid position.
     uint8_t  Speed_min;    ///< Minimum movement speed.
     uint8_t  Speed_max;    ///< Maximum movement speed.
-    bool     Refrence;     ///< Reference or calibration flag.
+    bool     Reference;    ///< Reference or calibration flag.
 };
 
 /**
  * @brief Stores the current and target track information.
  */
-struct FY_Trak_t
+/*
+    Index gesehen vom Zufahrtsgleis
+
+    ------- AB1 -------|
+    ------- AB2 -------|
+    ------- AB3 -------| ------ BG1 -----|
+    ------- AB4 -------| ------ BG2 -----|
+    ------- AB5 -------| ------ BG3 -----|--------- Zufahrt
+    ------- AB6 -------| ------ BG4 -----|
+    ------- AB7 -------| ------ BG5 -----|
+    ------- AB8 -------|                 --- BB1 ---
+    ------- AB9 -------|                 --- BB2 ---
+
+    BG1 bedient AB1 bis AB5
+    BG5 bedient AB5 bis AB9
+
+    BG2, BG3 und BG4 sind Abstellgleise
+    für lange Garnituren (max. 48 cm)
+In der  Abbildung wäre akt_track BG3!
+
+*/
+
+enum class FY_Track : uint8_t
 {
-    uint8_t target_trak{1}; ///< Requested destination track.
-    uint8_t akt_track{1};   ///< Currently active track.
+    BG1 = 1,
+    BG2 = 2,
+    BG3 = 3,
+    BG4 = 4,
+    BG5 = 5
 };
+
+struct FY_Track_t
+{
+    FY_Track target_track{FY_Track::BG1}; ///< Requested destination track.
+    FY_Track akt_track   {FY_Track::BG1};    ///< Currently active track.
+};  
 struct FY_Command_t
 {
 
@@ -77,5 +110,4 @@ struct FY_Command_t
     uint8_t data[MAX_COMMAND_LENGTH];
     bool pending;
 };
-
 
