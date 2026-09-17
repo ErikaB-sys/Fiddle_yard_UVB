@@ -1,6 +1,12 @@
 #pragma once
 // Motor.h
-//defalut declarations 
+//default declarations 
+
+
+// -----------------------------------------------------------------------------
+// Mechanik
+// -----------------------------------------------------------------------------
+
 // mm  je Umdrehung typischer  20mm 
 #ifndef MM_PER_UMD
 #define MM_PER_UMD 20.0
@@ -9,6 +15,28 @@
 #ifndef STEPS_PER_UMD
 #define STEPS_PER_UMD 1600
 #endif
+
+// Profil default werte 
+#ifndef POS_x
+#define POS_MIN 2.0
+#endif
+#ifndef KONST_min
+#define KONST_min 5.0
+#endif 
+
+constexpr uint16_t MM_TO_STEPS(float mm)
+{
+    return static_cast<uint16_t>(
+        (mm * STEPS_PER_UMD) / MM_PER_UMD
+    );
+}
+
+// -----------------------------------------------------------------------------
+// Geschwindigkeit
+// -----------------------------------------------------------------------------
+
+
+
 
 #define TIMER_FREQUENCY 16000000UL
 #define TIMER_PRESCALER 1
@@ -38,6 +66,12 @@ enum class MotorState_t
     ERROR       // Motor is in an error state.
 };
 
+// -----------------------------------------------------------------------------
+// Fahrprofil-Parameter
+// -----------------------------------------------------------------------------
+
+
+
 enum  class MotorProfile_t
 {
     ACC1,      // Start acceleration.
@@ -58,8 +92,36 @@ struct Profilelement_t
     uint16_t Steps; // Number of steps in this profile element.
     int16_t Accel;  // Acceleration for this profile element.!! vorzeichen behaftet !!!
 };
+struct MotorProfileParam_t
+{  
+    uint16_t PosiMin ;
+    uint16_t KonstMin;
+ 
+    uint16_t Acc1Steps;
+    uint16_t Acc2Steps;
 
+    int16_t Acc1Accel;
+    int16_t Acc2Accel;
+    int16_t Bre1Accel;
+    int16_t Bre2Accel;
 
+};
+
+//default Parameter 
+
+MotorProfileParam_t _ProfileParam =
+{
+    MM_TO_STEPS(POS_x),     // PosiMin
+    MM_TO_STEPS(KONST_min), // KonstMin
+
+    100,                    // Acc1Steps
+    100,                    // Acc2Steps
+
+    -2,                     // Acc1Accel
+    -1,                     // Acc2Accel
+    +1,                     // Bre1Accel
+    +2                      // Bre2Accel
+};
 
 
 class Motor
@@ -154,6 +216,23 @@ private:
     //------------------------------------------------------------------------------------
     /// @defgroup Fahrprofil 
     //------------------------------------------------------------------------------------
+    /*                      Motorprofil
+                         V
+                         ^
+                         |
+                    Vmax |              ┌───────────────┐
+                         |            /                  \
+                         |          /                      \
+                    Vmin |─────────┘                        └──────────
+                         |
+                         +------------------------------------------------> Weg
+                           |       |       |            |       |       |
+                           | ACC1  | ACC2  |   KONST    | BRE1  | BRE2  | POSI
+                           |       |       |            |       |       |
+                           <------> <------> <----------> <------> <------> <---->
+                             Steps   Steps     Steps       Steps   Steps    Steps
+   
+   */
     volatile bool _TimerValid = false;
 
     // Motorprofil: ACC1, ACC2, KONST, BRE1, BRE2, POSI
