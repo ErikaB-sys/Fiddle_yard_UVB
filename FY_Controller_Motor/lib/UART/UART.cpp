@@ -38,7 +38,7 @@
        uint8_t data[MAX_COMMAND_LENGTH - 1]{};
 
        commandLength =1;
-       CommandBuffer.CMD_valid= false;
+       CommandBuffer.status = UART_CommandStatus_t::VALID;
 
 
 
@@ -68,8 +68,15 @@
             Serial.println(F("No content. The UART is feeling lonely."));
             return;
              }
+    
+
+        
         receive();
-        decodeCommand();
+        if (CommandBuffer.status == UART_CommandStatus_t::VALID)
+            {
+                decodeCommand();
+            }
+       
         sendResponse();
              
 
@@ -88,55 +95,93 @@
     void UART::receive()
     {
     switch (receiveState)
+        {case ReceiveState::FindCommand:
+    // Read and validate a command byte when data is available.
+    if (Serial.available())
+    {
+        uint8_t cmd = Serial.read();
+
+        // Start a new command telegram.
+        CommandBuffer.status = UART_CommandStatus_t::VALID;
+        CommandBuffer.cmd = cmd;
+
+        // Compare the received byte with all known command definitions.
+        bool commandFound = false;
+
+        for (uint8_t i = 0; i < COMMAND_COUNT; i++)
         {
-         case ReceiveState::FindCommand:
-          // Read and validate a command byte when data is available.
+            if (commandDefinitions[i].id == cmd)
+            {
+                CommandBuffer.type = commandDefinitions[i].type;
+                CommandBuffer.response = commandDefinitions[i].response;
+
+                // Store the expected payload length and prepare for data reception.
+                expectedLength = commandDefinitions[i].telegramLength - 1;
+                dataIndex = 0;
+                lastByteTime = millis(); // Start für Timout überwachung 
+                receiveState = ReceiveState::ReadData;
+
+                commandFound = true;
+                break;
+            }
+        }
+
+        // No valid command was found.
+        if (!commandFound)
+        {
+            CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
+        }
+       }
+       break;
+       case ReceiveState::ReadData:
           if (Serial.available())
           {
-          uint8_t cmd = Serial.read();
-          // Compare the received byte with all known command definitions.
-          for (uint8_t i = 0; i < COMMAND_COUNT; i++)
-           {
-               if (commandDefinitions[i].id == cmd)
-               {   CommandBuffer.cmd = cmd;
-                   CommandBuffer.type = commandDefinitions[i].type;
-                   CommandBuffer.response = commandDefinitions[i].response; 
-
-                   // Store the expected payload length and prepare for data reception.
-                   expectedLength = commandDefinitions[i].telegramLength-1; // CMd  is member  of  the lenght !
-                   receiveState = ReceiveState::ReadData;
-                   dataIndex = 0;
-                   break;
-               }
-            }
-           // No valid command was found; remain in the command-search state.
-           }
-             break;
-            case ReceiveState::ReadData:
-
-                // Read payload bytes while data is available.
-                if (Serial.available())
-                {
-                    CommandBuffer.data[dataIndex] = Serial.read();
-                    dataIndex++;
-                
-                    // Move to CRC validation after the complete payload is received.
-                    if (dataIndex >= expectedLength)
-                    {
-                        receiveState = ReceiveState::CheckCRC;
-                    }
-                }
-
-             break;
+              CommandBuffer.data[dataIndex++] = Serial.read();
+      
+              // A byte was received, so restart the inter-byte timeout.
+              lastByteTime = micros();
+      
+              // All expected data bytes received.
+              if (dataIndex >= expectedLength)
+              {
+                  receiveState = ReceiveState::CheckCRC;
+              }
+          }
+          else if (micros() - lastByteTime > UART_TIMEOUT_US)
+          {
+              // Telegram incomplete.
+              CommandBuffer.status = UART_CommandStatus_t::DATA_INVALID;
+              receiveState = ReceiveState::FindCommand;
+          }
+        break;
      
-         case ReceiveState::CheckCRC:
-                    // Validate the received telegram checksum.
-               Check_CRC();
-                        // Return to command detection for the next telegram.
-              receiveState = ReceiveState:: FindCommand ;
-             break;
-
-           default: 
+        case ReceiveState::CheckCRC:
+           if (Serial.available())
+           {
+               CommandBuffer.CMD_CRC = Serial.read();
+       
+               // CRC byte received.
+               lastByteTime = micros();
+       
+               if (Check_CRC())
+               {
+                   CommandBuffer.status = UART_CommandStatus_t::VALID;
+               }
+               else
+               {
+                   CommandBuffer.status = UART_CommandStatus_t::CRC_INVALID;
+               }
+       
+               receiveState = ReceiveState::FindCommand;
+           }
+           else if (micros() - lastByteTime > UART_TIMEOUT_US)
+           {
+               // CRC byte missing.
+               CommandBuffer.status = UART_CommandStatus_t::CRC_INVALID;
+               receiveState = ReceiveState::FindCommand;
+           }
+           break;
+        default: 
            break;
 
         }
@@ -186,7 +231,7 @@
         break;
 
         default     :
-          CommandBuffer.CMD_valid = false;
+          CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
         // Unknown Handle
         break;
 
@@ -242,13 +287,13 @@
 
             default:
                 // Mark unsupported commands as invalid.
-                CommandBuffer.CMD_valid = false;
+                CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
                 break;
             }
         }
         else
         {// ignore Comand 
-         CommandBuffer.CMD_valid = false;
+         CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
         // and Send Busy message 
 
             }
@@ -261,7 +306,7 @@
         handleStop();
         break;
         default:
-        CommandBuffer.CMD_valid = false;
+        CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
         // Unknown Handle
         break;
         }
@@ -329,53 +374,58 @@
 
 
      ///@brief 
-     bool UART:: Check_CRC()
-     {
-        /*
-        https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/17
-        */
-         #ifdef UART_USE_CRC_RX
-         // CRC prüfen
-         #else
-             CommandBuffer.CMD_valid = true;
-         #endif
-             return(CommandBuffer.CMD_valid);
-         }
+     bool UART::Check_CRC()
+{
+   #ifdef UART_USE_RX_CRC
+    uint8_t crc = Calc_CRC(
+        CommandBuffer.cmd,
+        CommandBuffer.data,
+        expectedLength
+    );
+
+    return crc == CommandBuffer.CMD_CRC;
+    #else
+    return true ;
+    #endif
+
+}
    
      
 
-     uint8_t UART:: Calc_CRC (uint8_t id,const uint8_t* data,uint8_t length)
-     {
-          /*
-         https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/18
-         */
-      #ifdef UART_USE_CRC_TX
+uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
+{
+    uint8_t crc = id;
 
-       uint8_t crc = id;
-      
-          for (uint8_t i = 0; i < length; ++i)
-          {
-              crc ^= data[i];
-      
-              for (uint8_t bit = 0; bit < 8; ++bit)
-              {
-                  if (crc & 0x80)
-                      crc = (crc << 1) ^ 0x07;
-                  else
-                      crc <<= 1;
-              }
-          }
-      
-          return crc;
-      
-      #else
-      
-          return 0xFF;
-      
-      #endif
-     }
+    for (uint8_t i = 0; i < length; ++i)
+    {
+        crc ^= data[i];
 
+        for (uint8_t bit = 0; bit < 8; ++bit)
+        {
+            if (crc & 0x80)
+            {
+                crc = (crc << 1) ^ 0x07;
+            }
+            else
+            {
+                crc <<= 1;
+            }
+        }
+    }
 
+    return crc;
+}
+     ///@brief  Errorhandling 
+         UART_CommandStatus_t UART::getCommandStatus() 
+    {
+        return commandStatus;
+    }
+    
+    void UART::clearCommandStatus()
+    {
+        commandStatus = UART_CommandStatus_t::VALID;
+    }
+    
 
 
 
