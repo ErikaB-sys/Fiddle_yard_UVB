@@ -191,22 +191,22 @@
      /// @brief decode the Type 
 
      void UART::decodeCommand()
-     {   
-           switch (CommandBuffer.type)
-         {
-       case CommandType::IMMEDIATE :
-         decodeImmediate();
-         break;
-   
-       case CommandType::EXECUTE:
-           decodeExecute();
-           break;
-   
-       case CommandType::PRIORITY:
-           decodePriority();
-           break;
-        }
-     }
+    {
+       switch (CommandBuffer.type)
+       {
+        case CommandType::IMMEDIATE:
+            decodeImmediate();
+            break;
+
+        case CommandType::EXECUTE:
+            decodeExecute();
+            break;
+
+        case CommandType::PRIORITY:
+            decodePriority();
+            break;
+       }
+    }
 
 
     void UART::decodeImmediate()
@@ -245,8 +245,13 @@
     {
         // Execute the command when the status permits command processing.
         // The current status is stored in the UART context.
-        if (UART_context->systemStatus->state == FY_SystemState_t::Busy)
-        {
+           if (UART_context->systemStatus->state == FY_SystemState_t::Busy)
+             {
+                 handle_Busy();
+                 return;
+             }
+
+
             switch (CommandBuffer.cmd)
             {
             case CMD_REFERENCE:
@@ -290,27 +295,24 @@
                 CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
                 break;
             }
-        }
-        else
-        {// ignore Comand 
-         CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
-        // and Send Busy message 
-
-            }
-    }
+     }
+    
+     
     void UART::decodePriority()
     {
-       switch(CommandBuffer.cmd)
+        switch (CommandBuffer.cmd)
         {
-        case  CMD_STOPP :
-        handleStop();
-        break;
-        default:
-        CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
-        // Unknown Handle
-        break;
+            case CMD_STOPP:
+                handleStop();
+                break;
+
+            default:
+                CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
+                break;
         }
     }
+
+    
 
      void UART::sendResponse()
      {
