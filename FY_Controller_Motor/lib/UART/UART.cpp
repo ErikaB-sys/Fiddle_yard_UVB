@@ -68,14 +68,15 @@
             Serial.println(F("No content. The UART is feeling lonely."));
             return;
              }
-    
+    if (true == commandReady)
+    return;
         receive();
 
         if (true == commandReady)
         {
             decodeCommand();
             sendResponse();
-            
+
         commandReady = false; 
             // erst jetzt darf der nächste Command kommen
         
@@ -116,7 +117,7 @@
                 // Store the expected payload length and prepare for data reception.
                 expectedLength = commandDefinitions[i].telegramLength - 1;
                 dataIndex = 0;
-                lastByteTime = millis(); // Start für Timout überwachung 
+                lastByteTime = micros(); // Start für Timout überwachung 
                 receiveState = ReceiveState::ReadData;
 
                 commandFound = true;
@@ -419,12 +420,12 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
      ///@brief  Errorhandling 
          UART_CommandStatus_t UART::getCommandStatus() 
     {
-        return commandStatus;
+        return CommandBuffer.status;
     }
     
     void UART::clearCommandStatus()
     {
-        commandStatus = UART_CommandStatus_t::VALID;
+        CommandBuffer.status = UART_CommandStatus_t::VALID;
     }
     
 
