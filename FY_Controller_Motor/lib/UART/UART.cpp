@@ -69,19 +69,17 @@
             return;
              }
     
-
-        
         receive();
-        if (CommandBuffer.status == UART_CommandStatus_t::VALID)
-            {
-                decodeCommand();
-            }
-       
-        sendResponse();
-             
 
-
-
+        if (true == commandReady)
+        {
+            decodeCommand();
+            sendResponse();
+            
+        commandReady = false; 
+            // erst jetzt darf der nächste Command kommen
+        
+        }
     }
 
 
@@ -166,6 +164,7 @@
                if (Check_CRC())
                {
                    CommandBuffer.status = UART_CommandStatus_t::VALID;
+                   commandReady =true; 
                }
                else
                {
@@ -312,7 +311,7 @@
         }
     }
 
-    
+
 
      void UART::sendResponse()
      {
