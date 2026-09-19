@@ -101,7 +101,7 @@ void Motor::Update()
               break ;   
 
              case CMD_REFERENCE:
-
+                 // start reference run 
                   break;
              case CMD_LEFT:
                   if ( true == prepareLeft())

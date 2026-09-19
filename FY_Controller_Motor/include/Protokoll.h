@@ -62,7 +62,7 @@ constexpr uint8_t STATUS_Track                  =  0x40    ;   // Status ID  Tra
 constexpr uint8_t STATUS_Motor                  =  0x50;    //Status ID Motor information
 /** Acknowledgement response for movement commands. */
 constexpr uint8_t STATUS_ACK                    =  0x60;      // Answer on moving Commands  if accepted
-constexpr uint8_t STATUS_NACK                    =  0x60;     // Answer on moving Commands if Busy
+constexpr uint8_t STATUS_NACK                    =  0x70;     // Answer on moving Commands if Busy
 /** Response indicating that the help text has been sent. */
 constexpr uint8_t STATUS_Help                   =  0x18   ;    // Status indicating that the list of available commands has been sent to Uart
 

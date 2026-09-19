@@ -371,7 +371,7 @@
      }
 
     bool UART::SetCommand()
-     { MotorJob_t job{};
+     {  MotorJob_t job{};
 
         // Das modul Motor  muss bekannt wein  sonst wirds  nix  
         if (FY_ModuleContext == nullptr || FY_ModuleContext->motor == nullptr)
@@ -387,9 +387,6 @@
     return (FY_ModuleContext ->motor->setJob(job));
     }
      
-
-
-
 
      ///@brief 
      bool UART::Check_CRC()
@@ -503,7 +500,7 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
     {   // test Fehler 
         // Test  Busy 
         //testen ob  Referenziert 
-        //SetCommand();
+        SetCommand();
         
         
     }
@@ -511,7 +508,7 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
     {    // test Fehler 
         // Test  Busy
         //Test on Speed im bereich MIN/ MAX
-        //SetCommand();
+        SetCommand();
 
         
     }
@@ -519,7 +516,7 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
     {  // test Fehler 
         // Test  Busy
         //Test ob Steps >0 ( oder Steps min) 
-        //SetCommand();
+         SetCommand();
         
     }
     void  UART:: handleLeft()
@@ -527,7 +524,7 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
         // Test  Busy
         // Refernziert ?
         // Test ob noch Move Left möglich 
-        //SetCommand();
+        SetCommand();
         
     }
     void  UART:: handleRight()
@@ -535,7 +532,7 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
         // Test  Busy
         // Refernziert ?
         // Test ob noch Move Right möglich 
-        //SetCommand();
+        SetCommand();
         
     }
     void  UART:: handleSetPosition()
@@ -543,7 +540,7 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
         // Test  Busy
         // Refernziert ?
         // Test ob POS im Bereich  MIN / Max Position
-        //SetCommand();
+        SetCommand();
     }
     void  UART:: handleSetTrack()
     {  // CMD | Tracknummer | (CRC)
