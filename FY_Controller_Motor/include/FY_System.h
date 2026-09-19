@@ -42,6 +42,19 @@ struct FY_System_Error_t
     bool reference {false}; // refernce detection error
 };
 
+//**Refernrun  class */
+
+enum class REF_STATE : uint8_t
+{
+    REF_REQ,       // Referenzierung erforderlich / angefordert
+    REFR_EXEC,     // Referenzlauf läuft
+    REF_VALID,     // Referenzierung erfolgreich
+    REF_ERROR      // Referenzierung fehlgeschlagen
+};
+
+REF_STATE FY_Refrun = REF_STATE::REF_REQ;
+
+
 /**
  * @brief Represents the overall runtime status of the controller.
  */

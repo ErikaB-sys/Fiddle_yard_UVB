@@ -56,7 +56,7 @@ constexpr uint16_t TIMER_V_MAX = static_cast<uint16_t>(SPEED_TO_TIMER(V_MAX));
 
 
 struct MotorJob_t
-        {
+        {   bool         valid;
             uint8_t      cmd;
             uint8_t      data[MAX_COMMAND_LENGTH - 1];
         

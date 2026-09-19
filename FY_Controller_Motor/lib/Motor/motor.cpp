@@ -15,6 +15,8 @@
 Motor::Motor()
 {
     // Initial state
+    _Job.valid = false;
+
     // TODO
 }
 
@@ -80,6 +82,11 @@ bool Motor::begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin)
 void Motor::Update()
 {
     // Called cyclically from loop()
+    //IDLE → Auftrag angenommen → MOVING → IDLE
+ //no  new  job ? 
+      if (false == _Job.valid)
+                  return;
+ // wenn  valider Job dann  vorbereiten 
 
     // TODO:
     switch (_State)
@@ -202,13 +209,32 @@ void Motor::moveSteps(int16_t Steps)
 }
 
 
-bool setJob(MotorJob_t newjob)
-
+bool Motor::setJob(MotorJob_t newjob)
 {
-    if (_State != MotorState_t::IDLE && _State != MotorState_t::STOPPED)
+    if (_State != MotorState_t::IDLE)
         return false;
 
-    _Job = newjob;       // bewusst kopieren
+    const CommandDefinition* definition = nullptr;
+
+    for (const auto& entry : commandDefinitions)
+    {
+        if (entry.id == newjob.cmd)
+        {
+            definition = &entry;
+            break;
+        }
+    }
+
+    if (definition == nullptr)
+        return false;
+
+    if (definition->requiresReference &&
+        FY_Refrun != REF_STATE::REF_VALID)
+        return false;
+
+    _Job = newjob;
+    _Job.valid = true;
+
     return true;
 }
 
@@ -265,7 +291,10 @@ bool Motor::Reference()
 
    }
    bool Motor::prepareLeft()
-   {
+   {   // 
+
+
+
     // refernziert ?   -> missing ref Error   
      // akt pos  + TrackSTEP ( ein gleis ? ) 
          // position innerhalb ?  --> out of range Error 
@@ -344,7 +373,7 @@ MotorState_t Motor::motor_getState()
     return _State;
 }
 
-
+/// @brief 
 // -----------------------------------------------------------------------------
 // Movement profile 
 // -----------------------------------------------------------------------------
@@ -372,7 +401,18 @@ MotorState_t Motor::motor_getState()
 // Summe aller Steps == angeforderte Strecke
 // ================================================================
 
- bool Motor::calcProfile(uint16_t distance)
+/**
+ * @brief Berechnet das Fahrprofil für die angeforderte Strecke.
+ *
+ * Das Profil wird in die sechs Phasen ACC1, ACC2, KONST, BRE1, BRE2 und POSI
+ * aufgeteilt. Beschleunigungs- und Bremsphasen werden dabei symmetrisch
+ * berücksichtigt. Bei sehr kurzen Strecken wird die gesamte Strecke mit der
+ * Mindestgeschwindigkeit gefahren.
+ *
+ * @param distance Angeforderte Strecke in Schritten.
+ * @return true, wenn das Fahrprofil erfolgreich berechnet wurde.
+ */
+bool Motor::calcProfile(uint16_t distance)
 {
     // -------------------------------------------------
     // Profil zunächst vollständig löschen

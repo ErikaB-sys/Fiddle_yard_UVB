@@ -89,6 +89,7 @@ struct CommandDefinition
     CommandType type;           ///< Command scheduling type.
     uint8_t telegramLength;     ///< Total telegram length including command byte
     uint8_t response;           ///< Response status identifier.
+     bool requiresReference;      /// need reference run 
   
 };
 
@@ -111,23 +112,23 @@ struct ResponseDefinition
 
 
 const CommandDefinition commandDefinitions[] =
-{    // Command,CommandType,Length CMD, Response
-    { CMD_GET_STATUS    ,  CommandType::IMMEDIATE, 1, STATUS_System },
-    { CMD_GET_ERROR     , CommandType:: IMMEDIATE, 1, STATUS_Error },
-    { CMD_GET_POSITION  , CommandType:: IMMEDIATE, 1, STATUS_Position }, 
-    { CMD_GET_TRACK     , CommandType:: IMMEDIATE, 1, STATUS_Track},
-    { CMD_HELP          , CommandType:: IMMEDIATE, 1, STATUS_Help }, 
-    { CMD_REFERENCE     , CommandType:: EXECUTE,   1, STATUS_Reference },
-    { CMD_SET_SPEED     , CommandType:: EXECUTE,   3, STATUS_Motor }, 
-    { CMD_GO            , CommandType:: EXECUTE,   1, STATUS_ACK   },
-    { CMD_LEFT          , CommandType:: EXECUTE,   1, STATUS_ACK   },   
-    { CMD_RIGHT         , CommandType:: EXECUTE,   1, STATUS_ACK   }, 
-    { CMD_SET_POSITION  , CommandType:: EXECUTE,   1, STATUS_ACK   }, 
-    { CMD_SET_TRACK     , CommandType:: EXECUTE,   1, STATUS_ACK   }, 
-    { CMD_SET_REMOTE    , CommandType:: EXECUTE,   1, STATUS_CMD   }, 
-    { CMD_SET_LOCAL     , CommandType:: EXECUTE,   1, STATUS_CMD   },   
-    { CMD_STOPP         , CommandType:: PRIORITY,  1, STATUS_System}
-  
+{
+    // Command,          CommandType,          Length, Response,         Requires reference
+    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1, STATUS_System,       false },
+    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 1, STATUS_Error,        false },
+    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 1, STATUS_Position,     false },
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1, STATUS_Track,        false },
+    { CMD_HELP,          CommandType::IMMEDIATE, 1, STATUS_Help,         false },
+    { CMD_REFERENCE,     CommandType::EXECUTE,   1, STATUS_Reference,    false },
+    { CMD_SET_SPEED,     CommandType::EXECUTE,   3, STATUS_Motor,        false },
+    { CMD_GO,            CommandType::EXECUTE,   1, STATUS_ACK,           true },
+    { CMD_LEFT,          CommandType::EXECUTE,   1, STATUS_ACK,           true },
+    { CMD_RIGHT,         CommandType::EXECUTE,   1, STATUS_ACK,           true },
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   1, STATUS_ACK,           true },
+    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, STATUS_ACK,           true },
+    { CMD_SET_REMOTE,    CommandType::EXECUTE,   1, STATUS_CMD,          false },
+    { CMD_SET_LOCAL,     CommandType::EXECUTE,   1, STATUS_CMD,          false },
+    { CMD_STOPP,         CommandType::PRIORITY,  1, STATUS_System,       false }
 };
 constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefinitions[0]);
 
