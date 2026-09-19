@@ -1,7 +1,7 @@
 
 #include "FY_System.h"
 #include "Config.h"
-//#include "Main.h"
+#include "Main.h"
 #include "UART.h"
 
 
@@ -9,16 +9,19 @@
 //FY_System is a variable of type FY_SystemStatus that represents the current status of the system. It is defined to hold system-related information, allowing for monitoring and management of system operations.
 FY_SystemInitStatus_t FY_System; // System status variables
 
-// FY instances of the classes for the project
+// FY instances of the classes for the project ( forwart declarations )
 // Display       FY_display(DISPLAY_ADDRESS); // Create a Display object with the specified I2C address
 // PortExpander  FY_portexpander(PORT_EXPANDER_ADDRESS); // Create a PortExpander object with the specified I2C address
 // Buttons       FY_buttons(&FY_portexpander); // Create a Buttons object and pass the PortExpander object to it for button management
 //Switches       FY_Switches; // Create a Switches object for managing switches
 UART             FY_uart;  // Create a UART object with the specified device and baud rate
-UART_Context_t   Main_Context;
-//Motor            FY_motor();
+Motor            FY_motor; //  Forwart  from Motor 
+
+UART_Context_t   Main_Context;  // See https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/73
+
 
 FY_SystemStatus_t systemStatus;
+FY_ModuleContext_t FY_Modules{};
 
 void setup() {
 // first of all setup data structurs 
@@ -31,9 +34,13 @@ UART_Context_t uartContext
   //  &motorSpeed
 };
 
+FY_ModuleContext_t FY_Modules{
+    &FY_motor,
+    &FY_uart
+};
 
   // Initialize serial communication
-  FY_uart.begin(Main_Context);
+  FY_uart.begin(Main_Context, FY_Modules);
   // UART error abfragen !
 
 

@@ -6,6 +6,9 @@
 #include "Protokoll.h"
 #include "UART.h"
 
+// daten typen der module 
+#include "Motor.h"
+
 
 
 
@@ -47,10 +50,13 @@
   
     ///@brief 
     /// @param context 
-    void UART:: begin(UART_Context_t& context)
-    { // Check if  content is set
+    void UART::begin(UART_Context_t& context,FY_ModuleContext_t& modules)
+    {
+         // Check if  content is set
          Serial.begin( UART_BAUD_RATE);
          this-> UART_context = &context;
+         this-> FY_ModuleContext = &modules;
+
       // try to connect to the master e.g.ESP32
             sendHello();
             
@@ -62,7 +68,7 @@
     /* cyclic funktion to receive and send date from / to the master on serieal */
     void UART::update()
     {
-     if ( this -> UART_context ==  nullptr)
+     if ( this-> UART_context ==  nullptr)
              {       
             UART_Error |= UART_ERROR_NO_CONTENT;
             Serial.println(F("No content. The UART is feeling lonely."));
@@ -353,6 +359,7 @@
             ResponseBuffer.length = length;
             ResponseBuffer.responsePending = true;
         }
+
      bool UART::CheckBusy()
      {
         return (true);
@@ -363,13 +370,22 @@
         return (true);
      }
 
-     bool UART::SetCommand()
-     { 
-      // übeträgt die daten in die MOVE Struktur 
+    bool UART::SetCommand()
+     { MotorJob_t job{};
 
+        // Das modul Motor  muss bekannt wein  sonst wirds  nix  
+        if (FY_ModuleContext == nullptr || FY_ModuleContext->motor == nullptr)
+         return false;
 
-       return( true);
-     }
+    
+
+    job.cmd = CommandBuffer.cmd;
+
+    for (uint8_t i = 0; i < MAX_COMMAND_LENGTH - 1; i++)
+        job.data[i] = CommandBuffer.data[i];
+
+    return (FY_ModuleContext ->motor->setJob(job));
+    }
      
 
 
@@ -441,6 +457,8 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
         setResponse(STATUS_System,reinterpret_cast<uint8_t*>(UART_context->systemStatus),sizeof(FY_SystemStatus_t));
 
      }
+
+
     void  UART:: handleGetStatus()
     {
         setResponse(STATUS_System,reinterpret_cast<uint8_t*>(UART_context->systemStatus),sizeof(FY_SystemStatus_t));

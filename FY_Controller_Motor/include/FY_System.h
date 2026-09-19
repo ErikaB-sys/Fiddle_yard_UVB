@@ -111,3 +111,30 @@ struct FY_Command_t
     bool pending;
 };
 
+
+// Die brücke zwischen den Modulen  
+// forwar declaration 
+class Motor;
+class UART;
+
+
+struct FY_SystemStatus_t
+{
+    FY_SystemInitStatus_t init;
+    FY_SystemState_t      state{FY_SystemState_t::INIT};
+    FY_System_Error_t     error;
+};
+
+
+// Verbindungen zwischen den Modulen
+struct FY_ModuleContext_t
+{
+    Motor* motor;
+    UART*  uart;
+    // später:
+    // Display* display;
+    // Buttons* buttons;
+    // Switches* switches;
+};
+
+
