@@ -61,7 +61,7 @@ if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
         // OLED initialization failed.
     }
 }
-
+display.setRotation(2);
 // Clear display buffer
 display.clearDisplay();
 
@@ -110,18 +110,19 @@ void read_buttons()
     display.clearDisplay();
     display.setCursor(0, 0);
 
-    display.print(F("K1: "));
+    display.print(F("Rot  : "));
     display.println(key1 ? F("ON") : F("OFF"));
+    expander.digitalWrite(P3, !key1);
 
-    display.print(F("K2: "));
+    display.print(F("Blau1: "));                 // blau  über rot 
     display.println(key2 ? F("ON") : F("OFF"));
-
-    display.print(F("K3: "));
-    display.println(key3 ? F("ON") : F("OFF"));
-
-    display.print(F("K4: "));
+    expander.digitalWrite(P2, !key2);
+    display.print(F("Gruen: "));
+    display.println(key3 ? F("ON") : F("OFF"));  // Grün 
+    expander.digitalWrite(P1, !key3);
+    display.print(F("Blau2: "));                 // Blau über Grün
     display.println(key4 ? F("ON") : F("OFF"));
-
+    expander.digitalWrite(P0, !key4);
     display.display();
 }
 
