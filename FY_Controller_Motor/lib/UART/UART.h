@@ -11,6 +11,7 @@ struct UART_Context_t  // see  https://github.com/ErikaB-sys/Fiddle_yard_UVB/iss
     int32_t*     motorPosition;
     FY_Track_t*  Track_INFO;
     uint16_t*    motorSpeed;
+    
 };
  enum class UART_CommandStatus_t : uint8_t
     {
