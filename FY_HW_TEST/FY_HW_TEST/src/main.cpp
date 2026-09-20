@@ -1,5 +1,8 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
 
 // LED Test für Testplatine
 // D2, D3, D4 + Built-in LED
@@ -8,6 +11,10 @@ const uint8_t LED1 = 2;
 const uint8_t LED2 = 3;
 const uint8_t LED3 = 4;
 const uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
+
+Adafruit_SSD1306 display(128, 32, &Wire, -1);
+
+
 
 void scanI2C()
 {
@@ -35,14 +42,53 @@ void scanI2C()
   Serial.println(found);
 }
 
+
+//Start Oled 
+void InitOLED()
+{
+  // Initialize the SSD1306 OLED display.
+// I2C address: 0x3C
+// Resolution: 128 x 32 pixels
+if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
+{
+    Serial.println(F("Error initializing OLED!"));
+    while (true)
+    {
+        // OLED initialization failed.
+    }
+}
+
+// Clear display buffer
+display.clearDisplay();
+
+// Text configuration
+display.setTextSize(1);
+display.setTextColor(SSD1306_WHITE);
+display.setCursor(0, 0);
+
+// First simple display test
+display.println(F("FY HW TEST"));
+display.println(F("OLED: OK"));
+display.println(F("I2C: 0x3C"));
+
+// Send buffer to OLED
+display.display();
+}
+
+
+
+
+
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   Wire.begin();
   delay(100);
 
   scanI2C();
+
+  InitOLED();
 
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
