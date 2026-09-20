@@ -373,9 +373,9 @@ MotorState_t Motor::motor_getState()
     return _State;
 }
 
-MotorJobResult_t motor::getJobResult()
+MotorJobResult_t Motor::getJobResult() const
 {
-    return  _JobResult ;
+    return _JobResult;
 }
 /// @brief 
 // -----------------------------------------------------------------------------
@@ -387,7 +387,7 @@ MotorJobResult_t motor::getJobResult()
 // Geschwindigkeit
 //      ^
 // Vmax |                 +-------------+
-//      |              /                 \
+//      |              /                 /
 // Vmin |-------------+                   +----------------
 //      +--------------------------------------------------> Weg
 //             ACC1   ACC2    KONST      BRE1   BRE2   POSI
