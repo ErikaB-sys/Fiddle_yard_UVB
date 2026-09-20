@@ -201,7 +201,7 @@ private:
 
     // Movement profile
   
-    uint8_t _ProfileElement;  // Akives Element 
+   volatile  MotorProfile_t  _ProfileElement;  // Akives Element 
 
     // Position
 

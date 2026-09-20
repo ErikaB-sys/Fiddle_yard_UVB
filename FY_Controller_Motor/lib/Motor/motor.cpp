@@ -373,7 +373,7 @@ MotorState_t Motor::motor_getState()
     return _State;
 }
 
-MotorJobResult_t getJobResult()
+MotorJobResult_t motor::getJobResult()
 {
     return  _JobResult ;
 }
