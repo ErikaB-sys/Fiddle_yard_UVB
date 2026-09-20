@@ -6,6 +6,20 @@
 #include "Motor.h"
 #include "Protokoll.h"
 
+Motor* Motor::_TimerMotor = nullptr;
+
+MotorProfileParam_t Motor::_ProfileParam =
+{
+    POS_MIN,                 // PosiMin
+    KONST_MIN,               // KonstMin
+    100,                     // Acc1Steps
+    100,                     // Acc2Steps
+    -2,                      // Acc1Accel
+    -1,                      // Acc2Accel
+    +1,                      // Bre1Accel
+    +2                       // Bre2Accel
+};
+
 
 
 // -----------------------------------------------------------------------------
