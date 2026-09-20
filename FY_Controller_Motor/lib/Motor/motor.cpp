@@ -344,7 +344,7 @@ bool Motor::Reference()
 // Status / information
 // -----------------------------------------------------------------------------
 
-bool Motor::motor_isMoving()
+bool Motor::isMoving()
 {
     if (MotorState_t::MOVING == _State)
        {return true;}
@@ -354,7 +354,7 @@ bool Motor::motor_isMoving()
        }
 }
 
-uint16_t Motor::motor_getPosition()
+uint16_t Motor::getPosition()
 {
  // ggf  den zähler aus demIntrrupt mit kurzer Interrupt Sperre  holen
 
@@ -373,6 +373,10 @@ MotorState_t Motor::motor_getState()
     return _State;
 }
 
+MotorJobResult_t getJobResult()
+{
+    return  _JobResult ;
+}
 /// @brief 
 // -----------------------------------------------------------------------------
 // Movement profile 

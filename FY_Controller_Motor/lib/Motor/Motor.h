@@ -134,6 +134,14 @@ MotorProfileParam_t _ProfileParam =
     +2                      // Bre2Accel
 };
 
+enum class MotorJobResult_t
+{
+    NONE,
+    DONE,           // Profil vollständig gefahren
+    ENDSTOP_LEFT,   // durch linken Endschalter beendet
+    ENDSTOP_RIGHT   // durch rechten Endschalter beendet
+};
+
 
 class Motor
 {
@@ -166,8 +174,10 @@ public:
     bool Reference();
 
     // Return motor information.
-    bool motor_isMoving();
-    uint16_t motor_getPosition();
+    bool             isMoving();
+    uint16_t         getPosition();
+    MotorJobResult_t getJobResult() const;
+  
     uint16_t motor_getTargetPosition();
     MotorState_t motor_getState();
     
@@ -180,13 +190,6 @@ private:
     uint8_t _Step_pin;
     uint8_t _ENA_pin;
 
-    // Position
-    uint16_t _Position;
-    uint16_t _TargetPosition;
-
-
-   
-
 
     // State
     MotorState_t _State;
@@ -195,8 +198,12 @@ private:
   
     uint8_t _ProfileElement;
 
-
-   
+    // Position
+    uint16_t _Position;
+    uint16_t _TargetPosition;
+    // Results of Movment 
+    MotorJobResult_t _JobResult;
+    int32_t _Position;
 
    // Prüfungen der Daten  
    bool prepareSetPosition();
