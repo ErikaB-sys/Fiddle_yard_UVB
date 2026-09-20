@@ -69,7 +69,7 @@ public:
      * @brief Initializes the handler with controller data.
      * @param context References to the controller state.
      */
-    void UART::begin(UART_Context_t& context,FY_ModuleContext_t& modules); // updated  by #54
+    void begin(UART_Context_t& context,FY_ModuleContext_t& modules); // updated  by #54
 
     /** @brief Processes incoming commands and outgoing responses. */
     void update();

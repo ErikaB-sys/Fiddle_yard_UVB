@@ -17,13 +17,6 @@
 #endif
 
 // Profil default werte 
-#ifndef POS_MIN
-#define POS_MIN 2.0
-#endif
-#ifndef KONST_MIN
-#define KONST_MIN 5.0
-#endif 
-
 constexpr uint16_t MM_TO_STEPS(float mm)
 {
     return static_cast<uint16_t>(
@@ -31,6 +24,18 @@ constexpr uint16_t MM_TO_STEPS(float mm)
     );
 }
 
+#ifndef POS_MIN
+constexpr uint16_t POS_MIN = MM_TO_STEPS(2.0);
+#endif
+#ifndef KONST_MIN
+constexpr uint16_t KONST_MIN = MM_TO_STEPS(5.0);
+
+#endif 
+
+
+
+
+static constexpr uint16_t POSITION_UNKNOWN = UINT16_MAX / 2;
 // -----------------------------------------------------------------------------
 // Geschwindigkeit
 // -----------------------------------------------------------------------------
@@ -122,7 +127,7 @@ struct MotorProfileParam_t
 
 MotorProfileParam_t _ProfileParam =
 {
-    MM_TO_STEPS(POS_x),     // PosiMin
+    MM_TO_STEPS(POS_MIN),     // PosiMin
     MM_TO_STEPS(KONST_MIN), // KonstMin
 
     100,                    // Acc1Steps
@@ -196,14 +201,14 @@ private:
 
     // Movement profile
   
-    uint8_t _ProfileElement;
+    uint8_t _ProfileElement;  // Akives Element 
 
     // Position
-    uint16_t _Position;
+
     uint16_t _TargetPosition;
     // Results of Movment 
     MotorJobResult_t _JobResult;
-    int32_t _Position;
+    uint32_t _Position;    // ! _position  ist immer  Positiv 
 
    // Prüfungen der Daten  
    bool prepareSetPosition();
@@ -260,7 +265,7 @@ private:
     { 10,  0}    // POSI
     };
 
-   volatile MotorProfile_t _ProfileElement = MotorProfile_t::ACC1;
+
    volatile uint16_t _StepsRemaining = 0;
    volatile uint16_t _TimerValue = 0;
    

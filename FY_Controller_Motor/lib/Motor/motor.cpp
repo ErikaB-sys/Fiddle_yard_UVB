@@ -59,10 +59,10 @@ bool Motor::begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin)
 
     // Daten 
     _State = MotorState_t::IDLE;
-    _ProfileElement = MotorProfile_t::ACC1;
+    _ProfileElement =  MotorProfile_t::ACC1;
     _StepsRemaining = 0;
     _TimerValue     = 0;
-    _Position       = 0;
+    _Position       = POSITION_UNKNOWN;
     _TargetPosition = 0;
 
 
