@@ -462,7 +462,7 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
     }
     void  UART:: handleGetError()
     {
-         setResponse(STATUS_System,reinterpret_cast<uint8_t*>(UART_context->systemStatus-> error),sizeof(FY_SystemState_t));
+         setResponse(STATUS_System, reinterpret_cast<uint8_t*>(&UART_context->systemStatus->error), sizeof(FY_System_Error_t));
     }
  void UART::handleGetPosition()
     {
@@ -551,8 +551,8 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
         // (CRC OK ) 
         // CommandBuffer.data[0] == UART_context->Track_INFO ->akt_track !! type casten 
                 
-        if (( FY_Track::BG1 < CommandBuffer.data[0] )
-          &&( FY_Track::BG5 > CommandBuffer.data[0]))
+        if ((CommandBuffer.data[0] >= static_cast<uint8_t>(FY_Track::BG1))
+          && (CommandBuffer.data[0] <= static_cast<uint8_t>(FY_Track::BG5)))
           {
            
           }
