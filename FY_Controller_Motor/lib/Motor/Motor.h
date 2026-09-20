@@ -127,8 +127,8 @@ struct MotorProfileParam_t
 
 MotorProfileParam_t _ProfileParam =
 {
-    MM_TO_STEPS(POS_MIN),     // PosiMin
-    MM_TO_STEPS(KONST_MIN), // KonstMin
+    POS_MIN,                 // PosiMin
+    KONST_MIN,              // KonstMin
 
     100,                    // Acc1Steps
     100,                    // Acc2Steps
@@ -208,7 +208,7 @@ private:
     uint16_t _TargetPosition;
     // Results of Movment 
     MotorJobResult_t _JobResult;
-    uint32_t _Position;    // ! _position  ist immer  Positiv 
+    uint16_t _Position;    // Absolute position, valid after reference run 
 
    // Prüfungen der Daten  
    bool prepareSetPosition();
