@@ -2,6 +2,8 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <PCF8574.h>
+
 
 
 // LED Test für Testplatine
@@ -12,8 +14,8 @@ const uint8_t LED2 = 3;
 const uint8_t LED3 = 4;
 const uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
 
-Adafruit_SSD1306 display(128, 32, &Wire, -1);
-
+Adafruit_SSD1306 display(128, 32, &Wire, -1);  //OLED dispaly 
+PCF8574 expander(0x27);                        // LED und Tasten
 
 
 void scanI2C()
@@ -77,6 +79,46 @@ display.display();
 
 
 
+void init_extendeder()
+{
+  if (!expander.begin())
+{
+    Serial.println(F("Error initializing PCF8574!"));
+    while (true)
+    {
+    }
+}
+
+expander.pinMode(P7, INPUT);
+expander.pinMode(P6, INPUT);
+expander.pinMode(P5, INPUT);
+expander.pinMode(P4, INPUT);
+}
+
+void read_buttons()
+{
+    bool key1 = !expander.digitalRead(P7);
+    bool key2 = !expander.digitalRead(P6);
+    bool key3 = !expander.digitalRead(P5);
+    bool key4 = !expander.digitalRead(P4);
+
+    display.clearDisplay();
+    display.setCursor(0, 0);
+
+    display.print(F("K1: "));
+    display.println(key1 ? F("ON") : F("--"));
+
+    display.print(F("K2: "));
+    display.println(key2 ? F("ON") : F("--"));
+
+    display.print(F("K3: "));
+    display.println(key3 ? F("ON") : F("--"));
+
+    display.print(F("K4: "));
+    display.println(key4 ? F("ON") : F("--"));
+
+    display.display();
+}
 
 
 void setup()
@@ -89,6 +131,7 @@ void setup()
   scanI2C();
 
   InitOLED();
+  init_extendeder();
 
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
@@ -129,7 +172,9 @@ void loop()
   {
     PWM = F_min;
   }
+   read_buttons();
 
+   
   digitalWrite(LED1, LOW);
   digitalWrite(LED3, LOW);
   setPWM(PWM);
