@@ -41,7 +41,7 @@ FY_ModuleContext_t FY_Modules{
 };
 
   // Initialize serial communication
-  FY_uart.begin(Main_Context, FY_Modules);
+  FY_uart.begin(uartContext, FY_Modules);
   // UART error abfragen !
 
 
