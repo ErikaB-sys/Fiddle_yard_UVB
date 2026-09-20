@@ -1,6 +1,6 @@
 # MOTOR – PREFRUN first version
 
-Erstes Diagramm für den Reference-Run.
+Erstes Diagramm für den Reference-Run. 
 
 Der Flow ist bewusst eine erste Version. Offene Detailentscheidungen bleiben sichtbar und werden vor der Implementierung geklärt.
 
