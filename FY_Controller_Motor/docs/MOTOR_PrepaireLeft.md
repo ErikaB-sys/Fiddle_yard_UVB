@@ -1,31 +1,30 @@
-# MOTOR  – Prepaire LEFT Flow
+# MOTOR – Prepare LEFT Flow
 
-Flow of the UART receive state machine.
+Flow of the motor preparation logic for a LEFT movement.
+
+The flow is intentionally used as a **coding guide**: it defines the decision order and makes safety/definition gaps visible before implementation.
 
 ```mermaid
 flowchart TD
 
-     
-
     B{MOTOR Busy}
-    B -->|NO| A[Referenziert ?]
-    B -->|YES| G[ Send NAK ]
- 
-    A[Referenziert ?]   
-    A --> |Yes| E[Check RANGE]
-    A --> |No| C[Check Steps ]
-   
-    C --> F{Steps <=200?}
-    F -->|Yes| K{CHECK ENDlage L}
-    F -->|No| G[ Send NAK ]
-    
-   
-    
- 
-    
-    E --> K{ENDSCHALTER L?}
-    K -->|Yes| G[ Send NAK ]
-    K -->|No| L[CALC_Profil]
-    
+    B -->|YES| G[return false]
+    B -->|NO| A{Referenziert?}
 
-    L--> D[Start_Timer]
+    A -->|No| C{Requested Steps <= 200?}
+    C -->|No| G
+    C -->|Yes| K{ENDSCHALTER LEFT aktiv?}
+
+    A -->|Yes| E{Requested Steps <= available RANGE?}
+    E -->|No| G
+    E -->|Yes| K
+
+    K -->|Yes| G
+    K -->|No| L[CALC_PROFILE]
+    L --> D[Start Timer]
+    D --> R[return true]
+```
+
+`MOTOR_PrepaireRight.md` is intended to follow the same logic, mirrored for the RIGHT direction.
+
+The diagrams are also intended as a basis for visualizing the reference run later and for identifying missing or ambiguous definitions before coding.
