@@ -66,9 +66,6 @@ struct MotorJob_t
             uint8_t      data[MAX_COMMAND_LENGTH - 1];
         
         };
-MotorJob_t _Job;
-
-
 // Declarations for motor control used by the project.
 
 enum class MotorState_t
@@ -198,10 +195,11 @@ private:
 
     // State
     MotorState_t _State;
+    MotorJob_t _Job;
 
     // Movement profile
   
-   volatile  MotorProfile_t  _ProfileElement;  // Akives Element 
+   volatile  MotorProfile_t  _ProfileElement;  // Aktives Element 
 
     // Position
 
@@ -220,6 +218,8 @@ private:
    
 
    
+    static MotorProfileParam_t _ProfileParam;
+
     // TODO: timing / step counter
     // Calculate the movement profile.
      bool calcProfile(uint16_t distance );
