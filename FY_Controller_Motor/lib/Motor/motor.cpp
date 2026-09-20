@@ -6,6 +6,8 @@
 #include "Motor.h"
 #include "Protokoll.h"
 
+REF_STATE FY_Refrun = REF_STATE::REF_REQ;
+
 Motor* Motor::_TimerMotor = nullptr;
 
 MotorProfileParam_t Motor::_ProfileParam =
