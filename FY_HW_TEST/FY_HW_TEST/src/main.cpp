@@ -13,6 +13,8 @@ const uint8_t LED1 = 2;
 const uint8_t LED2 = 3;
 const uint8_t LED3 = 4;
 const uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
+#define ON  1
+#define OFF 0
 
 Adafruit_SSD1306 display(128, 32, &Wire, -1);  //OLED dispaly 
 PCF8574 expander(0x27);                        // LED und Tasten
@@ -78,44 +80,47 @@ display.display();
 }
 
 
-
 void init_extendeder()
 {
-  if (!expander.begin())
-{
-    Serial.println(F("Error initializing PCF8574!"));
-    while (true)
+    expander.pinMode(P7, INPUT);
+    expander.pinMode(P6, INPUT);
+    expander.pinMode(P5, INPUT);
+    expander.pinMode(P4, INPUT);
+    expander.pinMode(P0, OUTPUT);
+    expander.pinMode(P1, OUTPUT);
+    expander.pinMode(P2, OUTPUT);
+    expander.pinMode(P3, OUTPUT);
+    
+    if (!expander.begin())
     {
+        Serial.println(F("Error initializing PCF8574!"));
+        while (true)
+        {
+        }
     }
-}
-
-expander.pinMode(P7, INPUT);
-expander.pinMode(P6, INPUT);
-expander.pinMode(P5, INPUT);
-expander.pinMode(P4, INPUT);
 }
 
 void read_buttons()
 {
-    bool key1 = !expander.digitalRead(P7);
-    bool key2 = !expander.digitalRead(P6);
-    bool key3 = !expander.digitalRead(P5);
-    bool key4 = !expander.digitalRead(P4);
+    bool key1 = expander.digitalRead(P7) == LOW ? ON : OFF;
+    bool key2 = expander.digitalRead(P6) == LOW ? ON : OFF;
+    bool key3 = expander.digitalRead(P5) == LOW ? ON : OFF;
+    bool key4 = expander.digitalRead(P4) == LOW ? ON : OFF;
 
     display.clearDisplay();
     display.setCursor(0, 0);
 
     display.print(F("K1: "));
-    display.println(key1 ? F("ON") : F("--"));
+    display.println(key1 ? F("ON") : F("OFF"));
 
     display.print(F("K2: "));
-    display.println(key2 ? F("ON") : F("--"));
+    display.println(key2 ? F("ON") : F("OFF"));
 
     display.print(F("K3: "));
-    display.println(key3 ? F("ON") : F("--"));
+    display.println(key3 ? F("ON") : F("OFF"));
 
     display.print(F("K4: "));
-    display.println(key4 ? F("ON") : F("--"));
+    display.println(key4 ? F("ON") : F("OFF"));
 
     display.display();
 }
@@ -174,7 +179,7 @@ void loop()
   }
    read_buttons();
 
-   
+
   digitalWrite(LED1, LOW);
   digitalWrite(LED3, LOW);
   setPWM(PWM);
