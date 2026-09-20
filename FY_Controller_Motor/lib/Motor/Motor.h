@@ -50,7 +50,7 @@ static constexpr uint16_t POSITION_UNKNOWN = UINT16_MAX / 2;
     (TIMER_FREQUENCY / (TIMER_PRESCALER * 2UL * \
     ((v) * STEPS_PER_UMD / MM_PER_UMD)))
 
-constexpr uint16_t V_MIN = 1;
+constexpr uint16_t V_MIN = 2;
 constexpr uint16_t V_MAX = 50;
 
 constexpr uint16_t TIMER_V_MIN = static_cast<uint16_t>(SPEED_TO_TIMER(V_MIN));
