@@ -120,22 +120,6 @@ struct MotorProfileParam_t
 
 };
 
-//default Parameter 
-
-MotorProfileParam_t _ProfileParam =
-{
-    POS_MIN,                 // PosiMin
-    KONST_MIN,              // KonstMin
-
-    100,                    // Acc1Steps
-    100,                    // Acc2Steps
-
-    -2,                     // Acc1Accel
-    -1,                     // Acc2Accel
-    +1,                     // Bre1Accel
-    +2                      // Bre2Accel
-};
-
 enum class MotorJobResult_t
 {
     NONE,
