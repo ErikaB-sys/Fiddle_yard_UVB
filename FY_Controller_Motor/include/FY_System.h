@@ -52,7 +52,7 @@ enum class REF_STATE : uint8_t
     REF_ERROR      // Referenzierung fehlgeschlagen
 };
 
-REF_STATE FY_Refrun = REF_STATE::REF_REQ;
+extern REF_STATE FY_Refrun;
 
 
 /**
