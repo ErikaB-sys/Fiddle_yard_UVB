@@ -4,6 +4,8 @@
 #include "Main.h"
 #include "Motor.h"
 #include "UART.h"
+#include "Error.h"
+
 
 
 // Variables for the project
