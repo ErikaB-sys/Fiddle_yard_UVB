@@ -15,9 +15,9 @@ const uint8_t LED3 = 4;
 const uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
 
 // Lichtschranken am Arduino
-const uint8_t LS1 = 13;
-const uint8_t LS2 = 12;
-const uint8_t LS3 = 11;
+const uint8_t LSL = 9;
+const uint8_t LSR = 12;
+const uint8_t LSREF = 11;
 const uint8_t LS4 = 10;
 
 #define ON  1
@@ -116,9 +116,9 @@ void read_buttons()
 
     // Lichtschranken direkt als Rohzustand lesen.
     // INPUT ohne internen Pull-up: die Beschaltung der LS liefert den Pegel.
-    bool ls1 = digitalRead(LS1);
-    bool ls2 = digitalRead(LS2);
-    bool ls3 = digitalRead(LS3);
+    bool ls1 = digitalRead(LSL);
+    bool ls2 = digitalRead(LSR);
+    bool ls3 = digitalRead(LSREF);
     bool ls4 = digitalRead(LS4);
 
     display.clearDisplay();
@@ -126,25 +126,25 @@ void read_buttons()
 
     display.print(F("K1:"));
     display.print(key1 ? F("ON ") : F("OFF"));
-    display.print(F(" LS13:"));
+    display.print(F(" LSL  :"));
     display.println(ls1 ? F("1") : F("0"));
     expander.digitalWrite(P3, !key1);
 
     display.print(F("K2:"));
     display.print(key2 ? F("ON ") : F("OFF"));
-    display.print(F(" LS12:"));
+    display.print(F(" LSR  :"));
     display.println(ls2 ? F("1") : F("0"));
     expander.digitalWrite(P2, !key2);
 
     display.print(F("K3:"));
     display.print(key3 ? F("ON ") : F("OFF"));
-    display.print(F(" LS11:"));
+    display.print(F(" LSREF:"));
     display.println(ls3 ? F("1") : F("0"));
     expander.digitalWrite(P1, !key3);
 
     display.print(F("K4:"));
     display.print(key4 ? F("ON ") : F("OFF"));
-    display.print(F(" LS10:"));
+    display.print(F(" LS12 :"));
     display.println(ls4 ? F("1") : F("0"));
     expander.digitalWrite(P0, !key4);
 
@@ -164,9 +164,9 @@ void setup()
   InitOLED();
   init_extendeder();
 
-  pinMode(LS1, INPUT);
-  pinMode(LS2, INPUT);
-  pinMode(LS3, INPUT);
+  pinMode(LSL, INPUT);
+  pinMode(LSR, INPUT);
+  pinMode(LSREF, INPUT);
   pinMode(LS4, INPUT);
 
   pinMode(LED1, OUTPUT);
