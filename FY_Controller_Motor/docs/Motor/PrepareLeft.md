@@ -4,11 +4,16 @@ Flow of the motor preparation logic for a LEFT movement.
 
 The flow is intentionally used as a **coding guide**: it defines the decision order and makes safety/definition gaps visible before implementation.
 
+The **first check is always the logical motor power state**. If the motor is OFF, no movement profile is prepared. The motor power state is tracked separately from the reference state; see **#86 – Motor Enable / Disable und Referenzverlust**.
+
 ```mermaid
 flowchart TD
 
-    B{MOTOR Busy}
-    B -->|YES| G[return false]
+    M{Motor ON?}
+    M -->|NO| G[return false]
+    M -->|YES| B{MOTOR Busy}
+
+    B -->|YES| G
     B -->|NO| A{Referenziert?}
 
     A -->|No| C{Requested Steps <= 200?}
