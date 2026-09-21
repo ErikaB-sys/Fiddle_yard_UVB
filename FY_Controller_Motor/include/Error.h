@@ -25,6 +25,24 @@
  */
 
 // -----------------------------------------------------------------------------
+// Fehlerstatus – zentrale API
+// -----------------------------------------------------------------------------
+
+constexpr uint8_t FY_ERROR_NONE = 0x00;
+
+/*
+ * Zentraler Systemfehler.
+ *
+ * Module setzen Fehler über setError().
+ * Der aktuelle Fehler kann über getError() abgefragt werden.
+ * clearError() setzt den Fehlerzustand wieder auf FY_ERROR_NONE.
+ */
+void setError(uint8_t errorCode);
+uint8_t getError();
+bool hasError();
+void clearError();
+
+// -----------------------------------------------------------------------------
 // Fehler 0x01 – UART (Modul: UART/Protokoll)
 // -----------------------------------------------------------------------------
 //
