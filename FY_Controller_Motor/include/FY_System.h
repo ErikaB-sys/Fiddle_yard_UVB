@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include "Protokoll.h"
+#include "Error.h"
 
 /**
  * @brief Represents the current operating state of the system controller.
@@ -32,7 +33,10 @@ struct FY_SystemInitStatus_t
 };
 
 /**
- * @brief Stores error flags for major system modules.
+ * @brief Stores legacy/module error flags for the system status.
+ *
+ * System-wide error code definitions are maintained in Error.h.
+ * See Issue #80.
  */
 struct FY_System_Error_t
 {
