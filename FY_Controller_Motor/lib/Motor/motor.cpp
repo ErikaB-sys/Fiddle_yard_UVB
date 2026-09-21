@@ -5,6 +5,8 @@
 #include "FY_System.h"
 #include "Motor.h"
 #include "Protokoll.h"
+#include "Error.h"
+
 
 REF_STATE FY_Refrun = REF_STATE::REF_REQ;
 

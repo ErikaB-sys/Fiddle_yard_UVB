@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include "Protokoll.h"
-#include "Error.h"
+
 
 /**
  * @brief Represents the current operating state of the system controller.

@@ -5,6 +5,7 @@
 #include "Config.h"
 #include "Protokoll.h"
 #include "UART.h"
+#include "Error.h"
 
 // daten typen der module 
 #include "Motor.h"
