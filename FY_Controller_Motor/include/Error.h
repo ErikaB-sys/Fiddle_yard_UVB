@@ -25,28 +25,28 @@
  */
 
 // -----------------------------------------------------------------------------
-// Fehler 0x01 – UART
+// Fehler 0x01 – UART (Modul: UART/Protokoll)
 // -----------------------------------------------------------------------------
 //
 // Fehlerarten werden hier später ergänzt.
 //
 
 // -----------------------------------------------------------------------------
-// Fehler 0x02 – Motor
+// Fehler 0x02 – Motor (Modul: motor.cpp)
 // -----------------------------------------------------------------------------
 //
 // Fehlerarten werden hier später ergänzt.
 //
 
 // -----------------------------------------------------------------------------
-// Fehler 0x03
+// Fehler 0x03 – Referenzierung (Modul: Referenzierungslogik)
 // -----------------------------------------------------------------------------
 //
 // Fehlerarten werden hier später ergänzt.
 //
 
 // -----------------------------------------------------------------------------
-// Fehler 0x04
+// Fehler 0x04 – Endschalter / Positionssensorik (Modul: Endschalter/Sensorik)
 // -----------------------------------------------------------------------------
 //
 // Fehlerarten werden hier später ergänzt.
