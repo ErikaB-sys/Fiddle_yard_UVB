@@ -12,7 +12,7 @@
 
 Quelle: \`FY_Controller_Motor/include/FY_System.h\`
 
-\`\`\`mermaid
+```mermaid
 stateDiagram-v2
     [*] --> INIT
     INIT --> REF
@@ -22,7 +22,7 @@ stateDiagram-v2
     Busy --> Error
     Idle --> Error
     Error --> INIT
-\`\`\`
+```
 
 Aktuell definierte Zustände:
 
@@ -38,7 +38,7 @@ Aktuell definierte Zustände:
 
 Quelle: \`FY_Controller_Motor/lib/Motor/Motor.h\`
 
-\`\`\`mermaid
+```mermaid
 stateDiagram-v2
     [*] --> IDLE
     IDLE --> CONF
@@ -51,7 +51,7 @@ stateDiagram-v2
     STOPPED --> IDLE
     STOPPED --> MOVING
     ERROR --> IDLE
-\`\`\`
+```
 
 Aktuell definierte Zustände:
 
@@ -71,7 +71,7 @@ Das Diagramm zeigt daher den aktuellen Arbeitsstand und ist **nicht** als endgü
 
 Quelle: \`FY_Controller_Motor/include/FY_System.h\`
 
-\`\`\`mermaid
+```mermaid
 stateDiagram-v2
     [*] --> REF_REQ
     REF_REQ --> REFR_EXEC
@@ -79,7 +79,7 @@ stateDiagram-v2
     REFR_EXEC --> REF_ERROR
     REF_ERROR --> REF_REQ
     REF_VALID --> REF_REQ
-\`\`\`
+```
 
 Aktuell definierte Zustände:
 
@@ -97,14 +97,14 @@ werden über den normalen Statusweg (z. B. \`GETSTATUS\`) abgefragt bzw. gemelde
 
 Quelle: \`FY_Controller_Motor/lib/UART/UART.h\`
 
-\`\`\`mermaid
+```mermaid
 stateDiagram-v2
     [*] --> FindCommand
     FindCommand --> ReadData
     ReadData --> CheckCRC
     CheckCRC --> FindCommand
     CheckCRC --> ReadData
-\`\`\`
+```
 
 Aktuell definierte Zustände:
 
@@ -118,13 +118,13 @@ Aktuell definierte Zustände:
 
 Quelle: \`FY_Controller_Motor/lib/UART/UART.h\`
 
-\`\`\`mermaid
+```mermaid
 stateDiagram-v2
     [*] --> VALID
     VALID --> CMD_INVALID
     VALID --> DATA_INVALID
     VALID --> CRC_INVALID
-\`\`\`
+```
 
 Aktuell definierte Ergebnisse:
 
@@ -149,7 +149,7 @@ eigenes Kapitel ergänzt.
 
 ## 7. Systemweite Übersicht
 
-\`\`\`mermaid
+```mermaid
 flowchart TB
     SYS["System<br/>FY_SystemState_t"]
     MOTOR["Motor<br/>MotorState_t"]
@@ -164,7 +164,7 @@ flowchart TB
     UART_RX --> UART_CMD
     MOTOR --> REF
     MOTOR --> SENSOR
-\`\`\`
+```
 
 ### Grundsatz
 
