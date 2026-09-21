@@ -13,6 +13,13 @@ const uint8_t LED1 = 2;
 const uint8_t LED2 = 3;
 const uint8_t LED3 = 4;
 const uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
+
+// Lichtschranken am Arduino
+const uint8_t LS1 = 13;
+const uint8_t LS2 = 12;
+const uint8_t LS3 = 11;
+const uint8_t LS4 = 10;
+
 #define ON  1
 #define OFF 0
 
@@ -107,22 +114,40 @@ void read_buttons()
     bool key3 = expander.digitalRead(P5) == LOW ? ON : OFF;
     bool key4 = expander.digitalRead(P4) == LOW ? ON : OFF;
 
+    // Lichtschranken direkt als Rohzustand lesen.
+    // INPUT ohne internen Pull-up: die Beschaltung der LS liefert den Pegel.
+    bool ls1 = digitalRead(LS1);
+    bool ls2 = digitalRead(LS2);
+    bool ls3 = digitalRead(LS3);
+    bool ls4 = digitalRead(LS4);
+
     display.clearDisplay();
     display.setCursor(0, 0);
 
-    display.print(F("Rot  : "));
-    display.println(key1 ? F("ON") : F("OFF"));
+    display.print(F("K1:"));
+    display.print(key1 ? F("ON ") : F("OFF"));
+    display.print(F(" LS13:"));
+    display.println(ls1 ? F("1") : F("0"));
     expander.digitalWrite(P3, !key1);
 
-    display.print(F("Blau1: "));                 // blau  über rot 
-    display.println(key2 ? F("ON") : F("OFF"));
+    display.print(F("K2:"));
+    display.print(key2 ? F("ON ") : F("OFF"));
+    display.print(F(" LS12:"));
+    display.println(ls2 ? F("1") : F("0"));
     expander.digitalWrite(P2, !key2);
-    display.print(F("Gruen: "));
-    display.println(key3 ? F("ON") : F("OFF"));  // Grün 
+
+    display.print(F("K3:"));
+    display.print(key3 ? F("ON ") : F("OFF"));
+    display.print(F(" LS11:"));
+    display.println(ls3 ? F("1") : F("0"));
     expander.digitalWrite(P1, !key3);
-    display.print(F("Blau2: "));                 // Blau über Grün
-    display.println(key4 ? F("ON") : F("OFF"));
+
+    display.print(F("K4:"));
+    display.print(key4 ? F("ON ") : F("OFF"));
+    display.print(F(" LS10:"));
+    display.println(ls4 ? F("1") : F("0"));
     expander.digitalWrite(P0, !key4);
+
     display.display();
 }
 
@@ -138,6 +163,11 @@ void setup()
 
   InitOLED();
   init_extendeder();
+
+  pinMode(LS1, INPUT);
+  pinMode(LS2, INPUT);
+  pinMode(LS3, INPUT);
+  pinMode(LS4, INPUT);
 
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
