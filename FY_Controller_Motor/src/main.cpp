@@ -6,10 +6,6 @@
 #include "UART.h"
 #include "Error.h"
 #include "Keyboard.h"
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
 
 
 
@@ -24,11 +20,7 @@ FY_SystemInitStatus_t FY_System; // System status variables
 //Switches       FY_Switches; // Create a Switches object for managing switches
 UART             FY_uart;  // Create a UART object with the specified device and baud rate
 Motor            FY_motor; //  Forwart  from Motor 
-<<<<<<< Updated upstream
-Keyboard         FY_Keyboard; // lokal Keyboard for  pc less mofment .... 
-=======
-Keyboard         FY_Keyboard;
->>>>>>> Stashed changes
+Keyboard         FY_Keyboard (BUTTON_LEFT,BUTTON_RIGHT,BUTTON_GO,BUTTON_STOP,PIN_A4,PIN_A5,DISPLAY_ADDRESS,PORT_EXPANDER_ADDRESS); // lokal Keyboard for  pc less movment .... 
 UART_Context_t   Main_Context;  // See https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/73
 
 
@@ -50,56 +42,26 @@ FY_ModuleContext_t FY_Modules{
     &FY_motor,
     &FY_uart,
     &FY_Keyboard
-<<<<<<< Updated upstream
     //&Swiches
-=======
->>>>>>> Stashed changes
+
 };
 
   // Initialize serial communication
   FY_uart.begin(uartContext, FY_Modules);
+  // init Motor driver
+  FY_motor.begin(MOTOR_DIR_PIN , MOTOR_PWM_PIN , MOTOR_ENABLE_PIN);
 
   // UART error abfragen !
    FY_Keyboard.begin();
- 
-/*
-  // init I2C Display (small OLED 128x64)
-  if (FY_display.begin()) {
-    FY_System.setDisplayStatus(true);
-    FY_display.INITScreen();
-  } else {
-    FY_System.setDisplayStatus(false);
-  }
 
-  // init I2C Portexpander (MCP23017)
-  FY_portexpander.begin();
-  if (FY_portexpander.isConnected()) {
-    FY_System.setPortExpanderStatus(true);
-  } else {
-    FY_System.setPortExpanderStatus(false);
-  }
-
-  // If no Uart and no Display / Portexpander is connected, the system will not work properly.
-  if (!FY_System.getUartStatus() && !FY_System.getDisplayStatus() && !FY_System.getExpanderStatus()) {
-    FY_System.setSystemError(true);
-  } else {
-    FY_System.setSystemError(false);
-  }
-
-  // and stop here, because the system will not work properly without Uart and Display / Portexpander
-  if (FY_System.systemError) {
-    while (true) {
-      delay(400);
-    }
-  }
+ /*
   // Init switches and controls
   FY_Switches.beginn();
 */
   // init buttons and LED
   //FY_Keyboard.begin();
 
-  // init Motor driver
-  FY_motor.begin(MOTOR_DIR_PIN , MOTOR_PWM_PIN , MOTOR_ENABLE_PIN);
+
 
   #ifdef DebugSwitches
   // send init result on Uart
@@ -126,12 +88,7 @@ FY_ModuleContext_t FY_Modules{
 
 
 Serial.println(F("init done "));
-/*
-  // Clear screen
-  FY_display.clearDisplay();
-  FY_display.display();
 
-  */
 }
 
 void loop() {
