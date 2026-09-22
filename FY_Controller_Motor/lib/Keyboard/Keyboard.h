@@ -1,48 +1,91 @@
 #pragma once
 
 #include <Arduino.h>
+#include <U8g2lib.h>
 
-enum class Button_ID_t
-{
-    NONE,
-    GRUEN,
-    ROT,
-    GELB_1,
-    GELB_2
+/**
+ * FY UVB local keyboard and status display.
+ *
+ * The module deliberately keeps the public interface small:
+ * - four local buttons generate events
+ * - the controller supplies the status shown on the OLED
+ * - LOCAL/REMOTE is a controller state, not a UI-only state
+ *
+ * The implementation uses a page-buffered U8g2 display to keep RAM usage
+ * suitable for the ATmega328P.
+ */
+class Keyboard {
+public:
+    enum class Mode : uint8_t {
+        LOCAL,
+        REMOTE
     };
 
-enum class LED_ID_t 
-{
-    NONE,
-    GRUEN,
-    ROT,
-    GELB_1,
-    GELB_2
+    enum class Event : uint8_t {
+        NONE,
+        TRACK_PREVIOUS,
+        TRACK_NEXT,
+        OK,
+        STOP
     };
 
+    Keyboard(uint8_t leftPin,
+             uint8_t rightPin,
+             uint8_t okPin,
+             uint8_t stopPin,
+             uint8_t sdaPin,
+             uint8_t sclPin,
+             uint8_t displayAddress = 0x3C);
 
+    void begin();
+    Event update();
 
-uint8_t KeyboardAdress;
-// Keybord  describtor 
-struct Button_t 
-{
-    LED_ID_t LED_ID;
-    Button_ID_t Button_ID;
-    uint8_t LED_Pin;
-    uint8_t Button_Pin;
+    void setMode(Mode mode);
+    void setTrack(uint8_t track);
+    void setMoving(bool moving);
+    void setError(uint8_t errorCode);
+    void clearError();
+    void setLastCommand(uint8_t commandId);
+
+    bool hasError() const;
+    Mode mode() const;
+
+private:
+    class Button {
+    public:
+        explicit Button(uint8_t pin);
+
+        void begin();
+        bool pressed();
+
+    private:
+        uint8_t _pin;
+        bool _lastState;
+        uint32_t _lastDebounceTime;
+        static constexpr uint16_t DEBOUNCE_MS = 50;
+    };
+
+    Button _left;
+    Button _right;
+    Button _ok;
+    Button _stop;
+
+    U8G2_SSD1306_128X64_NONAME_1_HW_I2C _display;
+
+    Mode _mode = Mode::LOCAL;
+    uint8_t _track = 0;
+    uint8_t _errorCode = 0;
+    uint8_t _lastCommand = 0;
+    bool _moving = false;
+    bool _hasError = false;
+
+    void draw();
+    void drawHeader();
+    void drawReady();
+    void drawMoving();
+    void drawError();
+    void drawDiagnostic();
+
+    static const char* modeText(Mode mode);
 };
-
-
-
-
-// Initialisierung
-void Buttons_init(const uint8_t Pin_gruen, const uint8_t Pin_rot,const uint8_t Pin_gelb_1,const uint8_t Pin_gelb_2);
-void LED_init(const uint8_t LED_gruen, const uint8_t LED_rot,const uint8_t LED_gelb_1,const uint8_t LED_gelb_2);
-
-// Get  funktions 
-uint8_t  Get_KB_Adress(); 
-
-Button_t buttons_get();
-bool Set_LED(LED_ID_t ID);
-
 
