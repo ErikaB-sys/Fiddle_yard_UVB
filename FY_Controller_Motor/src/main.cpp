@@ -6,6 +6,10 @@
 #include "UART.h"
 #include "Error.h"
 #include "Keyboard.h"
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 
 
 
@@ -20,6 +24,7 @@ FY_SystemInitStatus_t FY_System; // System status variables
 //Switches       FY_Switches; // Create a Switches object for managing switches
 UART             FY_uart;  // Create a UART object with the specified device and baud rate
 Motor            FY_motor; //  Forwart  from Motor 
+<<<<<<< Updated upstream
 Keyboard         FY_Keyboard; // lokal Keyboard for  pc less mofment .... 
 =======
 Keyboard         FY_Keyboard;
@@ -45,7 +50,10 @@ FY_ModuleContext_t FY_Modules{
     &FY_motor,
     &FY_uart,
     &FY_Keyboard
+<<<<<<< Updated upstream
     //&Swiches
+=======
+>>>>>>> Stashed changes
 };
 
   // Initialize serial communication
