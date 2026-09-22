@@ -73,12 +73,13 @@ private:
         static constexpr uint16_t DEBOUNCE_MS = 50;
     };
 
+    PCF8574 _extender;
+
     Button _left;
     Button _right;
     Button _ok;
     Button _stop;
 
-    PCF8574 _extender;
     U8G2_SSD1306_128X64_NONAME_1_HW_I2C _display;
 
     uint8_t _displayAddress;
