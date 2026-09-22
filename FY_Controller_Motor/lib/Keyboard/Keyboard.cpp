@@ -1,18 +1,20 @@
 #include "Keyboard.h"
 #include <Wire.h>
 
-Keyboard::Button::Button(uint8_t pin)
-    : _pin(pin),
+Keyboard::Button::Button(PCF8574* extender, uint8_t pin)
+    : _extender(extender),
+      _pin(pin),
       _lastState(HIGH),
       _lastDebounceTime(0) {
 }
 
 void Keyboard::Button::begin() {
-    pinMode(_pin, INPUT_PULLUP);
+    _extender->pinMode(_pin, INPUT);
+    _lastState = _extender->digitalRead(_pin);
 }
 
 bool Keyboard::Button::pressed() {
-    const bool reading = digitalRead(_pin);
+    const bool reading = _extender->digitalRead(_pin);
     bool pressedNow = false;
 
     if (reading != _lastState) {
@@ -38,32 +40,85 @@ Keyboard::Keyboard(uint8_t leftPin,
                    uint8_t stopPin,
                    uint8_t sdaPin,
                    uint8_t sclPin,
-                   uint8_t displayAddress)
-    : _left(leftPin),
-      _right(rightPin),
-      _ok(okPin),
-      _stop(stopPin),
-      _display(U8G2_R0, U8X8_PIN_NONE) {
-    (void)sdaPin;
-    (void)sclPin;
+                   uint8_t displayAddress,
+                   uint8_t extenderAddress)
+    : _extender(extenderAddress),
+      _left(&_extender, buttonToExtenderPin(leftPin)),
+      _right(&_extender, buttonToExtenderPin(rightPin)),
+      _ok(&_extender, buttonToExtenderPin(okPin)),
+      _stop(&_extender, buttonToExtenderPin(stopPin)),
+      _display(U8G2_R0, U8X8_PIN_NONE),
+      _displayAddress(displayAddress),
+      _extenderAddress(extenderAddress),
+      _sdaPin(sdaPin),
+      _sclPin(sclPin) {
+    (void)_sdaPin;
+    (void)_sclPin;
 
-    // The current Nano implementation uses the AVR Wire pins.
-    // The constructor keeps SDA/SCL explicit so the hardware mapping
-    // can be changed later without changing the public module concept.
-    _display.setI2CAddress(displayAddress * 2);
+    // U8g2 expects the I2C address multiplied by two.
+    _display.setI2CAddress(_displayAddress * 2);
+}
+
+bool Keyboard::i2cDevicePresent(uint8_t address) {
+    Wire.beginTransmission(address);
+    return Wire.endTransmission() == 0;
+}
+
+uint8_t Keyboard::buttonToExtenderPin(uint8_t virtualPin) {
+    // Virtual button definitions are part of Config.h.
+    // Physical assignment follows the tested FY hardware:
+    // STOP=P7, GO=P6, LEFT=P5, RIGHT=P4.
+    switch (virtualPin) {
+        case BUTTON_STOP:
+            return P7;
+        case BUTTON_GO:
+            return P6;
+        case BUTTON_LEFT:
+            return P5;
+        case BUTTON_RIGHT:
+            return P4;
+        default:
+            return P7;
+    }
 }
 
 void Keyboard::begin() {
-    _left.begin();
-    _right.begin();
-    _ok.begin();
-    _stop.begin();
-
     Wire.begin();
 
-    _display.begin();
-    _display.setFont(u8g2_font_6x12_tf);
-    draw();
+    _displayConnected = i2cDevicePresent(_displayAddress);
+    _extenderConnected = i2cDevicePresent(_extenderAddress);
+
+    if (_extenderConnected) {
+        // P0..P3 are LEDs, P4..P7 are the four buttons.
+        _extender.pinMode(P0, OUTPUT);
+        _extender.pinMode(P1, OUTPUT);
+        _extender.pinMode(P2, OUTPUT);
+        _extender.pinMode(P3, OUTPUT);
+
+        _extender.pinMode(P4, INPUT);
+        _extender.pinMode(P5, INPUT);
+        _extender.pinMode(P6, INPUT);
+        _extender.pinMode(P7, INPUT);
+
+        // LEDs are active LOW on the tested hardware.
+        _extender.digitalWrite(P0, HIGH);
+        _extender.digitalWrite(P1, HIGH);
+        _extender.digitalWrite(P2, HIGH);
+        _extender.digitalWrite(P3, HIGH);
+
+        _extenderConnected = _extender.begin();
+    }
+
+    if (_displayConnected) {
+        _display.begin();
+        _display.setFont(u8g2_font_6x12_tf);
+    }
+
+    _connected = _displayConnected && _extenderConnected;
+
+    if (_displayConnected) {
+        draw();
+    }
 }
 
 Keyboard::Event Keyboard::update() {
@@ -129,6 +184,10 @@ void Keyboard::setLastCommand(uint8_t commandId) {
 
 bool Keyboard::hasError() const {
     return _hasError;
+}
+
+bool Keyboard::is_connected() const {
+    return _connected;
 }
 
 Keyboard::Mode Keyboard::mode() const {
@@ -199,10 +258,14 @@ void Keyboard::drawDiagnostic() {
 }
 
 void Keyboard::draw() {
+    if (!_displayConnected) {
+        return;
+    }
+
     _display.firstPage();
 
     do {
-        _display.clearBuffer();
+        // Page-buffer mode clears the current page automatically.
         drawHeader();
 
         if (_hasError) {
