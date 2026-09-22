@@ -1,27 +1,46 @@
+
 #include "Switches.h"
 
-
-Switches::Switches()
+void Switches::begin(uint8_t Ref_in ,uint8_t end_L_in ,uint8_t end_R_in ,uint8_t  Belt_in )
 {
+    pinMode(Ref_in, INPUT);
+    pinMode(end_L_in, INPUT);
+    pinMode(end_R_in, INPUT);
+    pinMode(Belt_in, INPUT);
 }
 
-void Switches::update()
-{
-
-
+int Switches::getAnalogValue(Id id) const
+{   if (No_ANALOG == analogPin(id))
+    return 0xFF;
+    else
+    return analogRead(analogPin(id));
 }
 
-void Switches::begin(uint8_t analogPin, uint8_t digitalPin, uint8_t switchId)
+bool Switches::getDigitalValue(Id id) const
 {
+    return digitalRead(digitalPin(id)) == HIGH;
 }
 
-bool  Switches::readDigitalValue(int switchId)
-{
-	return false;
+uint8_t Switches::analogPin(Id id)
+{  
+    switch (id) {
+        case Id::REF:         return SWITCH_REF_A;
+        case Id::TRIM_LEFT:   return SWITCH_TRIM_LEFT_A;
+        case Id::TRIM_RIGHT:  return SWITCH_TRIM_RIGHT_A;
+        case Id::TIMING_BELT: return SWITCH_TIMING_BELT_A;
+    }
+
+    return 0xFF;
 }
 
-int  Switches::readAnalogValue(int switchId)
+uint8_t Switches::digitalPin(Id id)
 {
-	return 0;
-}
+    switch (id) {
+        case Id::REF:         return SWITCH_REF_D;
+        case Id::TRIM_LEFT:   return SWITCH_TRIM_LEFT_D;
+        case Id::TRIM_RIGHT:  return SWITCH_TRIM_RIGHT_D;
+        case Id::TIMING_BELT: return SWITCH_TIMING_BELT_D;
+    }
 
+    return SWITCH_REF_D;
+}

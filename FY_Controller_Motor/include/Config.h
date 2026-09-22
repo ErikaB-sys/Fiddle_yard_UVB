@@ -41,10 +41,11 @@ constexpr uint8_t SWITCH_TRIM_LEFT_ID   =   0x02;
 constexpr uint8_t SWITCH_TRIM_RIGHT_ID  =   0x03;
 constexpr uint8_t SWITCH_TIMING_BELT_ID =   0x04;
 // Analog channels for switches and buttons on the Arduino board
-constexpr uint8_t SWITCH_REF_A         =   A0 ;
-constexpr uint8_t SWITCH_TRIM_LEFT_A   =   A1;
-constexpr uint8_t SWITCH_TRIM_RIGHT_A  =   A2;
-constexpr uint8_t SWITCH_TIMING_BELT_A =   A3;
+#define No_ANALOG                        0xFF 
+constexpr uint8_t SWITCH_REF_A         =   No_ANALOG ;
+constexpr uint8_t SWITCH_TRIM_LEFT_A   =   No_ANALOG;
+constexpr uint8_t SWITCH_TRIM_RIGHT_A  =   No_ANALOG;
+constexpr uint8_t SWITCH_TIMING_BELT_A =   No_ANALOG;
 
 
 // Digital pins for buttons and LEDs on the Arduino board
