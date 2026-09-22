@@ -20,7 +20,7 @@ FY_SystemInitStatus_t FY_System; // System status variables
 //Switches       FY_Switches; // Create a Switches object for managing switches
 UART             FY_uart;  // Create a UART object with the specified device and baud rate
 Motor            FY_motor; //  Forwart  from Motor 
-Keyboard         FY_Keyboard (BUTTON_LEFT,BUTTON_RIGHT,BUTTON_GO,BUTTON_STOP,PIN_A4,PIN_A5,DISPLAY_ADDRESS,PORT_EXPANDER_ADDRESS); // lokal Keyboard for  pc less movment .... 
+Keyboard         FY_Keyboard; // local keyboard for PC-less operation 
 UART_Context_t   Main_Context;  // See https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/73
 
 
@@ -52,7 +52,16 @@ FY_ModuleContext_t FY_Modules{
   FY_motor.begin(MOTOR_DIR_PIN , MOTOR_PWM_PIN , MOTOR_ENABLE_PIN);
 
   // UART error abfragen !
-   FY_Keyboard.begin();
+  FY_Keyboard.begin(
+      BUTTON_LEFT,
+      BUTTON_RIGHT,
+      BUTTON_GO,
+      BUTTON_STOP,
+      A4,
+      A5,
+      DISPLAY_ADDRESS,
+      PORT_EXPANDER_ADDRESS
+  );
 
  /*
   // Init switches and controls
