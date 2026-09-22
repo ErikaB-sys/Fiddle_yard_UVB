@@ -34,16 +34,16 @@ public:
         STOP
     };
 
-    Keyboard(uint8_t leftPin,
-             uint8_t rightPin,
-             uint8_t okPin,
-             uint8_t stopPin,
-             uint8_t sdaPin,
-             uint8_t sclPin,
-             uint8_t displayAddress = DISPLAY_ADDRESS,
-             uint8_t extenderAddress = PORT_EXPANDER_ADDRESS);
+    Keyboard();
 
-    void begin();
+    void begin(uint8_t leftPin,
+               uint8_t rightPin,
+               uint8_t okPin,
+               uint8_t stopPin,
+               uint8_t sdaPin,
+               uint8_t sclPin,
+               uint8_t displayAddress = DISPLAY_ADDRESS,
+               uint8_t extenderAddress = PORT_EXPANDER_ADDRESS);
     Event update();
 
     void setMode(Mode mode);
