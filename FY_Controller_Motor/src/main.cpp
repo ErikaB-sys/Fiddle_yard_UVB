@@ -21,6 +21,9 @@ FY_SystemInitStatus_t FY_System; // System status variables
 UART             FY_uart;  // Create a UART object with the specified device and baud rate
 Motor            FY_motor; //  Forwart  from Motor 
 Keyboard         FY_Keyboard; // lokal Keyboard for  pc less mofment .... 
+=======
+Keyboard         FY_Keyboard;
+>>>>>>> Stashed changes
 UART_Context_t   Main_Context;  // See https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/73
 
 
@@ -49,8 +52,8 @@ FY_ModuleContext_t FY_Modules{
   FY_uart.begin(uartContext, FY_Modules);
 
   // UART error abfragen !
-
-
+   FY_Keyboard.begin();
+ 
 /*
   // init I2C Display (small OLED 128x64)
   if (FY_display.begin()) {
