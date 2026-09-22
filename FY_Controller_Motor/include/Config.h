@@ -33,6 +33,8 @@
 #define SWITCH_TRIM_LEFT_NAME    "SWITCH_TRIM_LEFT"
 #define SWITCH_TRIM_RIGHT_NAME   "SWITCH_TRIM_RIGHT"
 #define SWITCH_TIMING_BELT_NAME  "SWITCH_TIMING_BELT"
+
+
 // define of Switch IDs
 constexpr uint8_t SWITCH_REF_ID         =   0x01;
 constexpr uint8_t SWITCH_TRIM_LEFT_ID   =   0x02;

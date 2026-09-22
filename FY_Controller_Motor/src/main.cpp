@@ -5,6 +5,7 @@
 #include "Motor.h"
 #include "UART.h"
 #include "Error.h"
+#include "Keyboard.h"
 
 
 
@@ -19,7 +20,7 @@ FY_SystemInitStatus_t FY_System; // System status variables
 //Switches       FY_Switches; // Create a Switches object for managing switches
 UART             FY_uart;  // Create a UART object with the specified device and baud rate
 Motor            FY_motor; //  Forwart  from Motor 
-
+Keyboard         FY_Keyboard; // lokal Keyboard for  pc less mofment .... 
 UART_Context_t   Main_Context;  // See https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/73
 
 
@@ -39,11 +40,14 @@ UART_Context_t uartContext
 
 FY_ModuleContext_t FY_Modules{
     &FY_motor,
-    &FY_uart
+    &FY_uart,
+    &FY_Keyboard
+    //&Swiches
 };
 
   // Initialize serial communication
   FY_uart.begin(uartContext, FY_Modules);
+
   // UART error abfragen !
 
 
@@ -77,14 +81,15 @@ FY_ModuleContext_t FY_Modules{
       delay(400);
     }
   }
-
-  // init buttons and LED
-  FY_buttons.begin();
   // Init switches and controls
   FY_Switches.beginn();
-  // init Motor driver
-  FY_motor.begin();
 */
+  // init buttons and LED
+  //FY_Keyboard.begin();
+
+  // init Motor driver
+  FY_motor.begin(MOTOR_DIR_PIN , MOTOR_PWM_PIN , MOTOR_ENABLE_PIN);
+
   #ifdef DebugSwitches
   // send init result on Uart
   Serial.print(F("Display adress: "));

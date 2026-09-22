@@ -133,7 +133,8 @@ struct FY_Command_t
 // forwar declaration 
 class Motor;
 class UART;
-
+class Keyboard;
+// class Switches;
 
 
 // Verbindungen zwischen den Modulen
@@ -141,10 +142,8 @@ struct FY_ModuleContext_t
 {
     Motor* motor;
     UART*  uart;
-    // später:
-    // Display* display;
-    // Buttons* buttons;
-    // Switches* switches;
+    Keyboard* keyboard;
+     // Switches* switches;
 };
 
 
