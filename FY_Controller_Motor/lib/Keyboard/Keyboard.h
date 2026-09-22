@@ -44,15 +44,16 @@ public:
                uint8_t sclPin,
                uint8_t displayAddress = DISPLAY_ADDRESS,
                uint8_t extenderAddress = PORT_EXPANDER_ADDRESS);
-    Event update();
 
+    Event update();
+  
     void setMode(Mode mode);
     void setTrack(uint8_t track);
     void setMoving(bool moving);
     void setError(uint8_t errorCode);
     void clearError();
     void setLastCommand(uint8_t commandId);
-
+    void Write_to_display (  const int8_t *string,uint8_t pos_x , uint8_t pos_y);
     bool hasError() const;
     bool is_connected() const;
     Mode mode() const;

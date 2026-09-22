@@ -293,3 +293,9 @@ void Keyboard::draw() {
         }
     } while (_display.nextPage());
 }
+
+
+void Keyboard::Write_to_display ( const int8_t *string ,uint8_t pos_x , uint8_t pos_y)
+{
+
+}

@@ -10,10 +10,13 @@ void Switches::begin(uint8_t Ref_in ,uint8_t end_L_in ,uint8_t end_R_in ,uint8_t
 }
 
 int Switches::getAnalogValue(Id id) const
-{   if (No_ANALOG == analogPin(id))
-    return 0xFF;
-    else
-    return analogRead(analogPin(id));
+{
+    const uint8_t pin = analogPin(id);
+
+    if (pin == No_ANALOG)
+        return No_ANALOG;
+
+    return analogRead(pin);
 }
 
 bool Switches::getDigitalValue(Id id) const

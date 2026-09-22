@@ -134,7 +134,7 @@ struct FY_Command_t
 class Motor;
 class UART;
 class Keyboard;
-// class Switches;
+class Switches;
 
 
 // Verbindungen zwischen den Modulen
@@ -143,7 +143,7 @@ struct FY_ModuleContext_t
     Motor* motor;
     UART*  uart;
     Keyboard* keyboard;
-     // Switches* switches;
+    Switches* switches;
 };
 
 

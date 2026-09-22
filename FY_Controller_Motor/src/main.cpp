@@ -6,6 +6,8 @@
 #include "UART.h"
 #include "Error.h"
 #include "Keyboard.h"
+#include "Switches.h"
+
 
 
 
@@ -14,10 +16,7 @@
 FY_SystemInitStatus_t FY_System; // System status variables
 
 // FY instances of the classes for the project ( forwart declarations )
-// Display       FY_display(DISPLAY_ADDRESS); // Create a Display object with the specified I2C address
-// PortExpander  FY_portexpander(PORT_EXPANDER_ADDRESS); // Create a PortExpander object with the specified I2C address
-// Buttons       FY_buttons(&FY_portexpander); // Create a Buttons object and pass the PortExpander object to it for button management
-//Switches       FY_Switches; // Create a Switches object for managing switches
+Switches         FY_Switches; // Create a Switches object for managing switches
 UART             FY_uart;  // Create a UART object with the specified device and baud rate
 Motor            FY_motor; //  Forwart  from Motor 
 Keyboard         FY_Keyboard; // local keyboard for PC-less operation 
@@ -41,9 +40,8 @@ UART_Context_t uartContext
 FY_ModuleContext_t FY_Modules{
     &FY_motor,
     &FY_uart,
-    &FY_Keyboard
-    //&Swiches
-
+    &FY_Keyboard,
+    &FY_Switches
 };
 
   // Initialize serial communication
@@ -53,7 +51,7 @@ FY_ModuleContext_t FY_Modules{
 
   // UART error abfragen !
 
-  
+
   FY_Keyboard.begin(
       BUTTON_LEFT,
       BUTTON_RIGHT,
@@ -65,12 +63,14 @@ FY_ModuleContext_t FY_Modules{
       PORT_EXPANDER_ADDRESS
   );
 
- /*
-  // Init switches and controls
-  FY_Switches.beginn();
-*/
-  // init buttons and LED
-  //FY_Keyboard.begin();
+    FY_Switches.begin(
+        SWITCH_REF_D,
+        SWITCH_TRIM_LEFT_D,
+        SWITCH_TRIM_RIGHT_D,
+        SWITCH_TIMING_BELT_D
+    );
+
+
 
 
 
@@ -96,7 +96,6 @@ FY_ModuleContext_t FY_Modules{
   Serial.print(F("  "));
   Serial.println(FY_Switches.GetDigitalValue(SWITCH_TRIM_RIGHT), DEC);
 #endif
-
 
 Serial.println(F("init done "));
 
