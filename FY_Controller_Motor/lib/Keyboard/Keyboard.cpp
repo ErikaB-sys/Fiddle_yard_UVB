@@ -34,27 +34,17 @@ bool Keyboard::Button::pressed() {
     return pressedNow;
 }
 
-Keyboard::Keyboard(uint8_t leftPin,
-                   uint8_t rightPin,
-                   uint8_t okPin,
-                   uint8_t stopPin,
-                   uint8_t sdaPin,
-                   uint8_t sclPin,
-                   uint8_t displayAddress,
-                   uint8_t extenderAddress)
-    : _extender(extenderAddress),
-      _left(&_extender, buttonToExtenderPin(leftPin)),
-      _right(&_extender, buttonToExtenderPin(rightPin)),
-      _ok(&_extender, buttonToExtenderPin(okPin)),
-      _stop(&_extender, buttonToExtenderPin(stopPin)),
+Keyboard::Keyboard()
+    : _extender(PORT_EXPANDER_ADDRESS),
+      _left(&_extender, buttonToExtenderPin(BUTTON_LEFT)),
+      _right(&_extender, buttonToExtenderPin(BUTTON_RIGHT)),
+      _ok(&_extender, buttonToExtenderPin(BUTTON_GO)),
+      _stop(&_extender, buttonToExtenderPin(BUTTON_STOP)),
       _display(U8G2_R0, U8X8_PIN_NONE),
-      _displayAddress(displayAddress),
-      _extenderAddress(extenderAddress),
-      _sdaPin(sdaPin),
-      _sclPin(sclPin) {
-    (void)_sdaPin;
-    (void)_sclPin;
-
+      _displayAddress(DISPLAY_ADDRESS),
+      _extenderAddress(PORT_EXPANDER_ADDRESS),
+      _sdaPin(A4),
+      _sclPin(A5) {
     // U8g2 expects the I2C address multiplied by two.
     _display.setI2CAddress(_displayAddress * 2);
 }
@@ -82,7 +72,28 @@ uint8_t Keyboard::buttonToExtenderPin(uint8_t virtualPin) {
     }
 }
 
-void Keyboard::begin() {
+void Keyboard::begin(uint8_t leftPin,
+                     uint8_t rightPin,
+                     uint8_t okPin,
+                     uint8_t stopPin,
+                     uint8_t sdaPin,
+                     uint8_t sclPin,
+                     uint8_t displayAddress,
+                     uint8_t extenderAddress) {
+    _displayAddress = displayAddress;
+    _extenderAddress = extenderAddress;
+    _sdaPin = sdaPin;
+    _sclPin = sclPin;
+
+    // Button mapping is configured explicitly at system startup.
+    _left = Button(&_extender, buttonToExtenderPin(leftPin));
+    _right = Button(&_extender, buttonToExtenderPin(rightPin));
+    _ok = Button(&_extender, buttonToExtenderPin(okPin));
+    _stop = Button(&_extender, buttonToExtenderPin(stopPin));
+
+    // U8g2 expects the I2C address multiplied by two.
+    _display.setI2CAddress(_displayAddress * 2);
+
     Wire.begin();
 
     _left.begin();
