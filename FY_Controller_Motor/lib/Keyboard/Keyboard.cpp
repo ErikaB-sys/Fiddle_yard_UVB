@@ -85,6 +85,11 @@ uint8_t Keyboard::buttonToExtenderPin(uint8_t virtualPin) {
 void Keyboard::begin() {
     Wire.begin();
 
+    _left.begin();
+    _right.begin();
+    _ok.begin();
+    _stop.begin();
+
     _displayConnected = i2cDevicePresent(_displayAddress);
     _extenderConnected = i2cDevicePresent(_extenderAddress);
 
