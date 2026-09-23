@@ -16,7 +16,7 @@ void test_motor_initial_state()
     Motor motor;
 
     TEST_ASSERT_TRUE(motor.begin(4, 3, 2));
-    TEST_ASSERT_EQUAL(MotorState_t::IDLE, motor.motor_getState());
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(MotorState_t::IDLE), static_cast<int>(motor.motor_getState()));
     TEST_ASSERT_FALSE(motor.isMoving());
     TEST_ASSERT_EQUAL_UINT16(POSITION_UNKNOWN, motor.getPosition());
 }
