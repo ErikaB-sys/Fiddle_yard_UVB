@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <unity.h>
 #include "Protokoll.h"
+#include "FY_System.h"
 #include "Motor.h"
 
 extern REF_STATE FY_Refrun;
@@ -99,7 +100,7 @@ void test_setJob_rejects_job_while_motor_is_busy()
     TEST_ASSERT_TRUE(motor.setJob(first));
     motor.Update();
 
-    TEST_ASSERT_EQUAL(MotorState_t::MOVING, motor.motor_getState());
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(MotorState_t::MOVING), static_cast<int>(motor.motor_getState()));
     TEST_ASSERT_TRUE(motor.isMoving());
 
     MotorJob_t second{};
