@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <unity.h>
+#include "Protokoll.h"
 
 /*
  * Testzugriff auf die private Testeinheit calcProfile().
