@@ -201,16 +201,7 @@ void update_display()
     display.clearDisplay();
     display.setCursor(0, 0);
 
-    display.print(F("BTN: "));
-
-    switch (hw.button)
-    {
-        case BUTTON_STOP:  display.println(F("STOP"));  break;
-        case BUTTON_LEFT:  display.println(F("LEFT"));  break;
-        case BUTTON_RIGHT: display.println(F("RIGHT")); break;
-        case BUTTON_GO:    display.println(F("GO"));    break;
-        default:           display.println(F("-"));     break;
-    }
+    display.println(F("FY HW TEST"));
 
     display.print(F("L:"));
     display.print(hw.limitLeft ? '1' : '0');
@@ -222,9 +213,9 @@ void update_display()
     display.println(hw.hall ? '1' : '0');
 
     display.print(F("F:"));
-    display.print(hw.stepReload);
-    display.print(F(" Hz S:"));
-    display.println(hw.puls ? '1' : '0');
+    display.print(hw.frequency);
+    display.print(F("Hz S:"));
+    display.println(hw.steps);
 
     display.display();
 }
