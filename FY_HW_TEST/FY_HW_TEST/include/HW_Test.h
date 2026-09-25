@@ -22,16 +22,17 @@ enum ButtonEvent
     BUTTON_GO
 };
 
-// Hardware pins
-constexpr uint8_t LED1 = 2;
-constexpr uint8_t LED2 = 3;
-constexpr uint8_t LED3 = 4;
+// Motor driver outputs
+constexpr uint8_t MOTOR_ENA  = 2;
+constexpr uint8_t MOTOR_PULS = 3;
+constexpr uint8_t MOTOR_DIR  = 4;
+
 constexpr uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
 
-constexpr uint8_t LSL  = 9;
-constexpr uint8_t LSR  = 12;
+constexpr uint8_t LSL   = 9;
+constexpr uint8_t LSR   = 12;
 constexpr uint8_t LSREF = 11;
-constexpr uint8_t LS4  = 10;
+constexpr uint8_t LS4   = 10;
 
 // PCF8574
 constexpr uint8_t PORT_EXPANDER_ADDRESS = 0x27;
