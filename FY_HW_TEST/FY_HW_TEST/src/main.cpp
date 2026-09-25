@@ -514,7 +514,16 @@ void update_display()
     display.clearDisplay();
     display.setCursor(0, 0);
 
-    display.println(F("FY HW TEST"));
+    // First line: live state of the four PCF8574 buttons.
+    // 1 = pressed, 0 = released.
+    display.print(F("G:"));
+    display.print(expander.digitalRead(BUTTON_GO_PIN) == LOW ? '1' : '0');
+    display.print(F(" S:"));
+    display.print(expander.digitalRead(BUTTON_STOP_PIN) == LOW ? '1' : '0');
+    display.print(F(" L:"));
+    display.print(expander.digitalRead(BUTTON_LEFT_PIN) == LOW ? '1' : '0');
+    display.print(F(" R:"));
+    display.println(expander.digitalRead(BUTTON_RIGHT_PIN) == LOW ? '1' : '0');
 
     display.print(F("L:"));
     display.print(hw.limitLeft ? '1' : '0');
@@ -529,6 +538,8 @@ void update_display()
     display.print(hw.frequency);
     display.print(F("Hz S:"));
     display.println(hw.steps);
+
+    display.println(F("HW TEST"));
 
     display.display();
 }
