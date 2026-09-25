@@ -4,220 +4,351 @@
 #include <Adafruit_SSD1306.h>
 #include <PCF8574.h>
 
+#include "HW_Test.h"
+
+// -----------------------------------------------------------------------------
+// Hardware
+// -----------------------------------------------------------------------------
+
+Adafruit_SSD1306 display(128, 32, &Wire, -1);
+PCF8574 expander(PORT_EXPANDER_ADDRESS);
+
+HWTestState hw;
+
+// Scheduler timestamps
+static uint32_t tButtons  = 0;
+static uint32_t tSwitches = 0;
+static uint32_t tDisplay  = 0;
+static uint32_t tSerial   = 0;
+
+// Previous button state for edge detection
+static bool lastStop  = false;
+static bool lastLeft  = false;
+static bool lastRight = false;
+static bool lastGo    = false;
 
 
-// LED Test für Testplatine
-// D2, D3, D4 + Built-in LED
-
-const uint8_t LED1 = 2;
-const uint8_t LED2 = 3;
-const uint8_t LED3 = 4;
-const uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
-
-// Lichtschranken am Arduino
-const uint8_t LSL = 9;
-const uint8_t LSR = 12;
-const uint8_t LSREF = 11;
-const uint8_t LS4 = 10;
-
-#define ON  1
-#define OFF 0
-
-Adafruit_SSD1306 display(128, 32, &Wire, -1);  //OLED dispaly 
-PCF8574 expander(0x27);                        // LED und Tasten
-
+// -----------------------------------------------------------------------------
+// I2C
+// -----------------------------------------------------------------------------
 
 void scanI2C()
 {
-  Serial.println(F("I2C Scanner"));
-  uint8_t found = 0;
+    Serial.println(F("I2C Scanner"));
+    uint8_t found = 0;
 
-  for (uint8_t address = 1; address < 127; address++)
-  {
-    Wire.beginTransmission(address);
-
-    if (Wire.endTransmission() == 0)
+    for (uint8_t address = 1; address < 127; address++)
     {
-      Serial.print(F("I2C device: 0x"));
-      if (address < 0x10)
-        Serial.print('0');
-      Serial.println(address, HEX);
-      found++;
+        Wire.beginTransmission(address);
+
+        if (Wire.endTransmission() == 0)
+        {
+            Serial.print(F("I2C device: 0x"));
+
+            if (address < 0x10)
+                Serial.print('0');
+
+            Serial.println(address, HEX);
+            found++;
+        }
     }
-  }
 
-  if (found == 0)
-    Serial.println(F("No I2C devices found"));
+    if (found == 0)
+        Serial.println(F("No I2C devices found"));
 
-  Serial.print(F("I2C devices found: "));
-  Serial.println(found);
+    Serial.print(F("I2C devices found: "));
+    Serial.println(found);
 }
 
 
-//Start Oled 
-void InitOLED()
+// -----------------------------------------------------------------------------
+// OLED
+// -----------------------------------------------------------------------------
+
+void initOLED()
 {
-  // Initialize the SSD1306 OLED display.
-// I2C address: 0x3C
-// Resolution: 128 x 32 pixels
-if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-{
-    Serial.println(F("Error initializing OLED!"));
-    while (true)
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
     {
-        // OLED initialization failed.
+        Serial.println(F("Error initializing OLED!"));
+
+        while (true)
+        {
+        }
     }
-}
-display.setRotation(2);
-// Clear display buffer
-display.clearDisplay();
 
-// Text configuration
-display.setTextSize(1);
-display.setTextColor(SSD1306_WHITE);
-display.setCursor(0, 0);
+    display.setRotation(2);
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);
 
-// First simple display test
-display.println(F("FY HW TEST"));
-display.println(F("OLED: OK"));
-display.println(F("I2C: 0x3C"));
+    display.println(F("FY HW TEST"));
+    display.println(F("OLED: OK"));
+    display.println(F("I2C: 0x3C"));
 
-// Send buffer to OLED
-display.display();
+    display.display();
 }
 
 
-void init_extendeder()
+// -----------------------------------------------------------------------------
+// PCF8574
+// -----------------------------------------------------------------------------
+
+void init_expander()
 {
-    expander.pinMode(P7, INPUT);
-    expander.pinMode(P6, INPUT);
-    expander.pinMode(P5, INPUT);
-    expander.pinMode(P4, INPUT);
-    expander.pinMode(P0, OUTPUT);
-    expander.pinMode(P1, OUTPUT);
-    expander.pinMode(P2, OUTPUT);
-    expander.pinMode(P3, OUTPUT);
-    
+    expander.pinMode(BUTTON_STOP_PIN, INPUT);
+    expander.pinMode(BUTTON_GO_PIN, INPUT);
+    expander.pinMode(BUTTON_LEFT_PIN, INPUT);
+    expander.pinMode(BUTTON_RIGHT_PIN, INPUT);
+
+    expander.pinMode(LED_STOP_PIN, OUTPUT);
+    expander.pinMode(LED_GO_PIN, OUTPUT);
+    expander.pinMode(LED_LEFT_PIN, OUTPUT);
+    expander.pinMode(LED_RIGHT_PIN, OUTPUT);
+
+    // LEDs off
+    expander.digitalWrite(LED_STOP_PIN, HIGH);
+    expander.digitalWrite(LED_GO_PIN, HIGH);
+    expander.digitalWrite(LED_LEFT_PIN, HIGH);
+    expander.digitalWrite(LED_RIGHT_PIN, HIGH);
+
     if (!expander.begin())
     {
         Serial.println(F("Error initializing PCF8574!"));
+
         while (true)
         {
         }
     }
 }
 
-void read_buttons()
+
+// -----------------------------------------------------------------------------
+// Buttons
+// -----------------------------------------------------------------------------
+
+ButtonEvent read_buttons()
 {
-    bool key1 = expander.digitalRead(P7) == LOW ? ON : OFF;
-    bool key2 = expander.digitalRead(P6) == LOW ? ON : OFF;
-    bool key3 = expander.digitalRead(P5) == LOW ? ON : OFF;
-    bool key4 = expander.digitalRead(P4) == LOW ? ON : OFF;
+    const bool stop  = (expander.digitalRead(BUTTON_STOP_PIN)  == LOW);
+    const bool left  = (expander.digitalRead(BUTTON_LEFT_PIN)  == LOW);
+    const bool right = (expander.digitalRead(BUTTON_RIGHT_PIN) == LOW);
+    const bool go    = (expander.digitalRead(BUTTON_GO_PIN)    == LOW);
 
-    // Lichtschranken direkt als Rohzustand lesen.
-    // INPUT ohne internen Pull-up: die Beschaltung der LS liefert den Pegel.
-    bool ls1 = digitalRead(LSL);
-    bool ls2 = digitalRead(LSR);
-    bool ls3 = digitalRead(LSREF);
-    bool ls4 = digitalRead(LS4);
+    ButtonEvent event = BUTTON_NONE;
 
+    // One event per scan. Priority: STOP > LEFT > RIGHT > GO.
+    if (stop && !lastStop)
+        event = BUTTON_STOP;
+    else if (left && !lastLeft)
+        event = BUTTON_LEFT;
+    else if (right && !lastRight)
+        event = BUTTON_RIGHT;
+    else if (go && !lastGo)
+        event = BUTTON_GO;
+
+    lastStop  = stop;
+    lastLeft  = left;
+    lastRight = right;
+    lastGo    = go;
+
+    return event;
+}
+
+
+// -----------------------------------------------------------------------------
+// End switches
+// -----------------------------------------------------------------------------
+
+void read_end_switches()
+{
+    const bool left  = digitalRead(LSL);
+    const bool right = digitalRead(LSR);
+    const bool ref   = digitalRead(LSREF);
+    const bool hall  = digitalRead(LS4);
+
+    if (left != hw.limitLeft ||
+        right != hw.limitRight ||
+        ref != hw.reference ||
+        hall != hw.hall)
+    {
+        hw.displayDirty = true;
+    }
+
+    hw.limitLeft  = left;
+    hw.limitRight = right;
+    hw.reference  = ref;
+    hw.hall       = hall;
+}
+
+
+// -----------------------------------------------------------------------------
+// Outputs
+// -----------------------------------------------------------------------------
+
+void update_outputs()
+{
+    // Hardware output handling will be added next:
+    // DIR / ENABLE / STEP and the end-position interlock.
+}
+
+
+// -----------------------------------------------------------------------------
+// Display
+// -----------------------------------------------------------------------------
+
+void update_display()
+{
     display.clearDisplay();
     display.setCursor(0, 0);
 
-    display.print(F("K1:"));
-    display.print(key1 ? F("ON ") : F("OFF"));
-    display.print(F(" LSL  :"));
-    display.println(ls1 ? F("1") : F("0"));
-    expander.digitalWrite(P3, !key1);
+    display.print(F("BTN: "));
 
-    display.print(F("K2:"));
-    display.print(key2 ? F("ON ") : F("OFF"));
-    display.print(F(" LSR  :"));
-    display.println(ls2 ? F("1") : F("0"));
-    expander.digitalWrite(P2, !key2);
+    switch (hw.button)
+    {
+        case BUTTON_STOP:  display.println(F("STOP"));  break;
+        case BUTTON_LEFT:  display.println(F("LEFT"));  break;
+        case BUTTON_RIGHT: display.println(F("RIGHT")); break;
+        case BUTTON_GO:    display.println(F("GO"));    break;
+        default:           display.println(F("-"));     break;
+    }
 
-    display.print(F("K3:"));
-    display.print(key3 ? F("ON ") : F("OFF"));
-    display.print(F(" LSREF:"));
-    display.println(ls3 ? F("1") : F("0"));
-    expander.digitalWrite(P1, !key3);
+    display.print(F("L:"));
+    display.print(hw.limitLeft ? '1' : '0');
+    display.print(F(" R:"));
+    display.print(hw.limitRight ? '1' : '0');
+    display.print(F(" Ref:"));
+    display.println(hw.reference ? '1' : '0');
 
-    display.print(F("K4:"));
-    display.print(key4 ? F("ON ") : F("OFF"));
-    display.print(F(" Belt :"));
-    display.println(ls4 ? F("1") : F("0"));
-    expander.digitalWrite(P0, !key4);
+    display.print(F("Hall:"));
+    display.print(hw.hall ? '1' : '0');
+    display.print(F(" EN:"));
+    display.print(hw.ena ? '1' : '0');
+    display.print(F(" DIR:"));
+    display.println(hw.dir ? 'R' : 'L');
+
+    display.print(F("PULS:"));
+    display.println(hw.puls ? '1' : '0');
 
     display.display();
 }
 
 
+// -----------------------------------------------------------------------------
+// Serial
+// -----------------------------------------------------------------------------
+
+void update_serial()
+{
+    Serial.print(F("BTN="));
+    Serial.print(hw.button);
+    Serial.print(F(" L="));
+    Serial.print(hw.limitLeft);
+    Serial.print(F(" R="));
+    Serial.print(hw.limitRight);
+    Serial.print(F(" REF="));
+    Serial.print(hw.reference);
+    Serial.print(F(" HALL="));
+    Serial.println(hw.hall);
+}
+
+
+// -----------------------------------------------------------------------------
+// Setup
+// -----------------------------------------------------------------------------
+
 void setup()
 {
-  Serial.begin(9600);
+    Serial.begin(9600);
 
-  Wire.begin();
-  delay(100);
+    Wire.begin();
+    delay(100);
 
-  scanI2C();
+    scanI2C();
 
-  InitOLED();
-  init_extendeder();
+    initOLED();
+    init_expander();
 
-  pinMode(LSL, INPUT);
-  pinMode(LSR, INPUT);
-  pinMode(LSREF, INPUT);
-  pinMode(LS4, INPUT);
+    pinMode(LSL, INPUT);
+    pinMode(LSR, INPUT);
+    pinMode(LSREF, INPUT);
+    pinMode(LS4, INPUT);
 
-  pinMode(LED1, OUTPUT);
-  pinMode(LED2, OUTPUT);
-  pinMode(LED3, OUTPUT);
-  pinMode(LED_BUILTIN_PIN, OUTPUT);
+    pinMode(LED1, OUTPUT);
+    pinMode(LED2, OUTPUT);
+    pinMode(LED3, OUTPUT);
+    pinMode(LED_BUILTIN_PIN, OUTPUT);
+
+    // Safe initial state
+    hw.ena  = false;
+    hw.dir  = false;
+    hw.puls = false;
+
+    Serial.println(F("init done"));
 }
 
-void setPWM(uint16_t frequency)
-{
-  // Timer2 CTC, Prescaler 64
-  // f = 16 MHz / (64 * (OCR2A + 1))
 
-  uint16_t ocr = (16000000UL / (64UL * frequency)) - 1;
-
-  if (ocr > 255)
-    ocr = 255;
-
-  OCR2A = ocr;
-
-  // 50 % Duty Cycle
-  OCR2B = ocr / 2;
-
-  // Timer2: CTC, Prescaler 64
-  TCCR2A = (1 << WGM21) | (1 << COM2B1);
-  TCCR2B = (1 << CS22);
-}
-
-#define F_min 65
-uint16_t PWM = F_min;
-
-
-
-
+// -----------------------------------------------------------------------------
+// Main loop - simple cooperative scheduler
+// -----------------------------------------------------------------------------
 
 void loop()
-{uint32_t now = millis();
+{
+    const uint32_t now = millis();
 
-if (now - tButtons >= 20) {
-    tButtons = now;
-    readButtons();
-}
+    if (now - tButtons >= BUTTON_INTERVAL_MS)
+    {
+        tButtons = now;
 
-if (now - tSwitches >= 50) {
-    tSwitches = now;
-    readEndSwitches();
-}
+        const ButtonEvent event = read_buttons();
 
-if (now - tDisplay >= 500 || displayDirty) {
-    tDisplay = now;
-    updateDisplay();
-    displayDirty = false;
-}
+        if (event != BUTTON_NONE)
+        {
+            hw.button = event;
+            hw.displayDirty = true;
+
+            // Button acknowledgement: LED only after event was accepted.
+            switch (event)
+            {
+                case BUTTON_STOP:
+                    expander.digitalWrite(LED_STOP_PIN, LOW);
+                    break;
+
+                case BUTTON_LEFT:
+                    expander.digitalWrite(LED_LEFT_PIN, LOW);
+                    break;
+
+                case BUTTON_RIGHT:
+                    expander.digitalWrite(LED_RIGHT_PIN, LOW);
+                    break;
+
+                case BUTTON_GO:
+                    expander.digitalWrite(LED_GO_PIN, LOW);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    if (now - tSwitches >= SWITCH_INTERVAL_MS)
+    {
+        tSwitches = now;
+        read_end_switches();
+    }
+
+    if (now - tSerial >= SERIAL_INTERVAL_MS)
+    {
+        tSerial = now;
+        update_serial();
+    }
+
+    if (now - tDisplay >= DISPLAY_INTERVAL_MS || hw.displayDirty)
+    {
+        tDisplay = now;
+        update_display();
+        hw.displayDirty = false;
+    }
+
+    update_outputs();
 }
