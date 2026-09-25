@@ -156,6 +156,38 @@ ButtonEvent read_buttons()
 
 
 // -----------------------------------------------------------------------------
+// Action / LED state
+// -----------------------------------------------------------------------------
+
+void set_active_button(ButtonEvent event)
+{
+    hw.activeButton = event;
+    hw.busy = (event != BUTTON_NONE);
+
+    // Only the active command LED is on.
+    expander.digitalWrite(LED_STOP_PIN,  event == BUTTON_STOP  ? LOW : HIGH);
+    expander.digitalWrite(LED_GO_PIN,    event == BUTTON_GO    ? LOW : HIGH);
+    expander.digitalWrite(LED_LEFT_PIN,  event == BUTTON_LEFT  ? LOW : HIGH);
+    expander.digitalWrite(LED_RIGHT_PIN, event == BUTTON_RIGHT ? LOW : HIGH);
+
+    hw.displayDirty = true;
+}
+
+void clear_active_button()
+{
+    hw.activeButton = BUTTON_NONE;
+    hw.busy = false;
+
+    expander.digitalWrite(LED_STOP_PIN, HIGH);
+    expander.digitalWrite(LED_GO_PIN, HIGH);
+    expander.digitalWrite(LED_LEFT_PIN, HIGH);
+    expander.digitalWrite(LED_RIGHT_PIN, HIGH);
+
+    hw.displayDirty = true;
+}
+
+
+// -----------------------------------------------------------------------------
 // End switches
 // -----------------------------------------------------------------------------
 
@@ -187,8 +219,11 @@ void read_end_switches()
 
 void update_outputs()
 {
-    // Hardware output handling will be added next:
-    // DIR / ENABLE / STEP and the end-position interlock.
+    // Green: ENABLE. Red: DISABLE / STOP.
+    // Blue LEFT/RIGHT: test direction + 100 steps.
+    //
+    // Motor output pins are deliberately not assigned here yet. The current
+    // HW test keeps D2/D3/D4 available until the exact driver wiring is fixed.
 }
 
 
@@ -229,6 +264,14 @@ void update_serial()
 {
     Serial.print(F("BTN="));
     Serial.print(hw.button);
+    Serial.print(F(" ACTIVE="));
+    Serial.print(hw.activeButton);
+    Serial.print(F(" BUSY="));
+    Serial.print(hw.busy);
+    Serial.print(F(" ENA="));
+    Serial.print(hw.ena);
+    Serial.print(F(" DIR="));
+    Serial.print(hw.dir);
     Serial.print(F(" L="));
     Serial.print(hw.limitLeft);
     Serial.print(F(" R="));
@@ -270,6 +313,11 @@ void setup()
     hw.ena  = false;
     hw.dir  = false;
     hw.puls = false;
+    hw.stepReload = 100;
+    hw.frequency = 100;
+    hw.steps = 100;
+
+    clear_active_button();
 
     Serial.println(F("init done"));
 }
@@ -291,34 +339,55 @@ void loop()
 
         if (event != BUTTON_NONE)
         {
-            hw.button = event;
-            hw.displayDirty = true;
-
-            // Button acknowledgement: LED only after event was accepted.
-            switch (event)
+            // STOP is always accepted. While busy, all other buttons are
+            // ignored until the active action has completed.
+            if (event == BUTTON_STOP || !hw.busy)
             {
-                case BUTTON_STOP:
-                    expander.digitalWrite(LED_STOP_PIN, LOW);
-                    break;
+                hw.button = event;
+                hw.displayDirty = true;
 
-                case BUTTON_LEFT:
-                    expander.digitalWrite(LED_LEFT_PIN, LOW);
-                    break;
+                switch (event)
+                {
+                    case BUTTON_STOP:
+                        hw.ena = false;
+                        hw.dir = false;
+                        hw.puls = false;
 
-                case BUTTON_RIGHT:
-                    expander.digitalWrite(LED_RIGHT_PIN, LOW);
-                    break;
+                        // STOP is a completed action once ENA is safely off.
+                        clear_active_button();
+                        break;
 
-                case BUTTON_GO:
-                    expander.digitalWrite(LED_GO_PIN, LOW);
-                    break;
+                    case BUTTON_GO:
+                        hw.ena = true;
+                        hw.stepReload = 100;
+                        hw.frequency = 100;
+                        set_active_button(BUTTON_GO);
+                        break;
 
-                default:
-                    break;
+                    case BUTTON_LEFT:
+                        hw.dir = false;
+                        hw.stepReload = 100;
+                        hw.frequency = 100;
+                        hw.steps = 100;
+                        set_active_button(BUTTON_LEFT);
+                        break;
+
+                    case BUTTON_RIGHT:
+                        hw.dir = true;
+                        hw.stepReload = 100;
+                        hw.frequency = 100;
+                        hw.steps = 100;
+                        set_active_button(BUTTON_RIGHT);
+                        break;
+
+                    default:
+                        break;
+                }
+
+                // The physical press is consumed. The persistent action state
+                // is kept separately in activeButton/busy.
+                hw.button = BUTTON_NONE;
             }
-
-            // Event has been consumed.
-            hw.button = BUTTON_NONE;
         }
     }
 
