@@ -144,7 +144,7 @@ void read_buttons()
 
     display.print(F("K4:"));
     display.print(key4 ? F("ON ") : F("OFF"));
-    display.print(F(" LS12 :"));
+    display.print(F(" Belt :"));
     display.println(ls4 ? F("1") : F("0"));
     expander.digitalWrite(P0, !key4);
 
@@ -198,37 +198,26 @@ void setPWM(uint16_t frequency)
 #define F_min 65
 uint16_t PWM = F_min;
 
+
+
+
+
 void loop()
-{
-  if (PWM < 300)
-  {
-    PWM += 10;
-  }
-  else
-  {
-    PWM = F_min;
-  }
-   read_buttons();
+{uint32_t now = millis();
 
+if (now - tButtons >= 20) {
+    tButtons = now;
+    readButtons();
+}
 
-  digitalWrite(LED1, LOW);
-  digitalWrite(LED3, LOW);
-  setPWM(PWM);
-  digitalWrite(LED_BUILTIN_PIN, LOW);
-  delay(1000 / PWM * 10);
+if (now - tSwitches >= 50) {
+    tSwitches = now;
+    readEndSwitches();
+}
 
-  digitalWrite(LED1, LOW);
-  digitalWrite(LED3, HIGH);
-  digitalWrite(LED_BUILTIN_PIN, LOW);
-  delay(1000 / PWM * 10);
-
-  digitalWrite(LED1, HIGH);
-  digitalWrite(LED3, LOW);
-  digitalWrite(LED_BUILTIN_PIN, LOW);
-  delay(1000 / PWM * 10);
-
-  digitalWrite(LED1, HIGH);
-  digitalWrite(LED3, HIGH);
-  digitalWrite(LED_BUILTIN_PIN, HIGH);
-  delay(1000 / PWM * 10);
+if (now - tDisplay >= 500 || displayDirty) {
+    tDisplay = now;
+    updateDisplay();
+    displayDirty = false;
+}
 }
