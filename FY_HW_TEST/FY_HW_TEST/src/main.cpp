@@ -294,7 +294,8 @@ void set_step_frequency(uint16_t frequency)
 
     // 16 MHz / 1024 timer clock. The ISR toggles STEP, so the interrupt
     // frequency is twice the requested STEP frequency.
-    uint32_t reload = (F_CPU / 1024UL / (2UL * frequency)) - 1UL;
+    uint32_t denominator = 2UL * frequency;
+    uint32_t reload = ((F_CPU / 1024UL) + (denominator / 2UL)) / denominator - 1UL;
 
     if (reload > 65535UL)
         reload = 65535UL;
@@ -429,7 +430,6 @@ void loop()
                         hw.ena = false;
                         io.ena = false;
                         stepRun = false;
-                        hw.frequency = 0;
                         set_active_button(BUTTON_STOP);
                         break;
 
@@ -451,6 +451,7 @@ void loop()
                                 {
                                     hw.frequency = STEP_FREQUENCIES[i - 1];
                                     set_step_frequency(hw.frequency);
+                                    set_active_button(BUTTON_LEFT);
                                     break;
                                 }
                             }
@@ -474,6 +475,7 @@ void loop()
                                 {
                                     hw.frequency = STEP_FREQUENCIES[i + 1];
                                     set_step_frequency(hw.frequency);
+                                    set_active_button(BUTTON_RIGHT);
                                     break;
                                 }
                             }
@@ -510,7 +512,6 @@ void loop()
             hw.activeButton == BUTTON_RIGHT)
         {
             stepRun = false;
-            hw.frequency = 0;
         }
 
         clear_active_button();
