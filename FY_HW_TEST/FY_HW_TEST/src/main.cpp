@@ -217,16 +217,13 @@ void update_display()
     display.print(F(" R:"));
     display.print(hw.limitRight ? '1' : '0');
     display.print(F(" Ref:"));
-    display.println(hw.reference ? '1' : '0');
+    display.print(hw.reference ? '1' : '0');
+    display.print(F(" H:"));
+    display.println(hw.hall ? '1' : '0');
 
-    display.print(F("Hall:"));
-    display.print(hw.hall ? '1' : '0');
-    display.print(F(" EN:"));
-    display.print(hw.ena ? '1' : '0');
-    display.print(F(" DIR:"));
-    display.println(hw.dir ? 'R' : 'L');
-
-    display.print(F("PULS:"));
+    display.print(F("F:"));
+    display.print(hw.stepReload);
+    display.print(F(" Hz S:"));
     display.println(hw.puls ? '1' : '0');
 
     display.display();
@@ -328,6 +325,9 @@ void loop()
                 default:
                     break;
             }
+
+            // Event has been consumed.
+            hw.button = BUTTON_NONE;
         }
     }
 
