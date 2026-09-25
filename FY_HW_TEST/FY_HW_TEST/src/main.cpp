@@ -285,13 +285,34 @@ ISR(TIMER1_COMPA_vect)
     }
 }
 
+void set_step_frequency(uint16_t frequency)
+{
+    if (frequency == 0)
+    {
+        return;
+    }
+
+    // 16 MHz / 1024 timer clock. The ISR toggles STEP, so the interrupt
+    // frequency is twice the requested STEP frequency.
+    uint32_t reload = (F_CPU / 1024UL / (2UL * frequency)) - 1UL;
+
+    if (reload > 65535UL)
+        reload = 65535UL;
+
+    if (reload < 1UL)
+        reload = 1UL;
+
+    noInterrupts();
+    OCR1A = static_cast<uint16_t>(reload);
+    interrupts();
+}
+
 void init_step_timer()
 {
     noInterrupts();
     TCCR1A = 0;
     TCCR1B = 0;
     TCNT1 = 0;
-    OCR1A = 780;
     TCCR1B |= _BV(WGM12);
     TCCR1B |= _BV(CS12) | _BV(CS10);
     TIMSK1 |= _BV(OCIE1A);
@@ -300,6 +321,8 @@ void init_step_timer()
     PORTD &= ~_BV(PD3);
     PORTB &= ~_BV(PB5);
     interrupts();
+
+    set_step_frequency(STEP_FREQUENCIES[0]);
 }
 
 
@@ -370,7 +393,7 @@ void setup()
     hw.puls = false;
     stepRun = false;
     hw.stepReload = 100;
-    hw.frequency = 0;
+    hw.frequency = STEP_FREQUENCIES[0];
     hw.steps = 100;
 
     clear_active_button();
@@ -414,24 +437,55 @@ void loop()
                         hw.ena = true;
                         io.ena = true;
                         stepRun = false;
-                        hw.frequency = 0;
+                        // Keep the frequency selected while ENA was OFF.
+                        set_step_frequency(hw.frequency);
                         set_active_button(BUTTON_GO);
                         break;
 
                     case BUTTON_LEFT:
-                        hw.dir = false;
-                        io.dir = false;
-                        stepRun = true;
-                        hw.frequency = 10;
-                        set_active_button(BUTTON_LEFT);
+                        if (!io.ena)
+                        {
+                            for (uint8_t i = 0; i < STEP_FREQUENCY_COUNT; ++i)
+                            {
+                                if (STEP_FREQUENCIES[i] == hw.frequency && i > 0)
+                                {
+                                    hw.frequency = STEP_FREQUENCIES[i - 1];
+                                    set_step_frequency(hw.frequency);
+                                    break;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            hw.dir = false;
+                            io.dir = false;
+                            stepRun = true;
+                            set_step_frequency(hw.frequency);
+                            set_active_button(BUTTON_LEFT);
+                        }
                         break;
 
                     case BUTTON_RIGHT:
-                        hw.dir = true;
-                        io.dir = true;
-                        stepRun = true;
-                        hw.frequency = 10;
-                        set_active_button(BUTTON_RIGHT);
+                        if (!io.ena)
+                        {
+                            for (uint8_t i = 0; i < STEP_FREQUENCY_COUNT; ++i)
+                            {
+                                if (STEP_FREQUENCIES[i] == hw.frequency && i + 1 < STEP_FREQUENCY_COUNT)
+                                {
+                                    hw.frequency = STEP_FREQUENCIES[i + 1];
+                                    set_step_frequency(hw.frequency);
+                                    break;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            hw.dir = true;
+                            io.dir = true;
+                            stepRun = true;
+                            set_step_frequency(hw.frequency);
+                            set_active_button(BUTTON_RIGHT);
+                        }
                         break;
 
                     default:
