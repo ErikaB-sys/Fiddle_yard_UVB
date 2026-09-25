@@ -215,15 +215,11 @@ static void run_button_led_mapping()
 {
     Serial.println();
     Serial.println(F("=== BUTTON / LED MAPPING TEST ==="));
-    Serial.println(F("Fixed function assignment:"));
-    Serial.println(F("  GREEN  = GO"));
-    Serial.println(F("  RED    = STOP"));
-    Serial.println(F("  BLUE 1 = LEFT"));
-    Serial.println(F("  BLUE 2 = RIGHT"));
-    Serial.println(F("Press the button belonging to the lit LED."));
+    Serial.println(F("The test uses the CURRENT assumed LED mapping."));
+    Serial.println(F("For each function, press the PHYSICAL button"));
+    Serial.println(F("belonging to that colour/function."));
     Serial.println();
 
-    all_mapping_leds_off();
     wait_for_all_buttons_released();
 
     int8_t detected[4] = { -1, -1, -1, -1 };
@@ -233,9 +229,8 @@ static void run_button_led_mapping()
         all_mapping_leds_off();
         expander.digitalWrite(MAPPING_LED_PINS[i], LOW);
 
-        Serial.print(F("LED ON: "));
+        Serial.print(F("Please press the GREEN/RED/BLUE button for: "));
         Serial.println(MAPPING_NAMES[i]);
-        Serial.println(F("Press the matching button..."));
 
         int8_t buttonPin = -1;
 
@@ -247,7 +242,7 @@ static void run_button_led_mapping()
 
         detected[i] = buttonPin;
 
-        Serial.print(F("Detected button: "));
+        Serial.print(F("Detected physical button: "));
         print_mapping_pin(static_cast<uint8_t>(buttonPin));
         Serial.println();
 
@@ -258,26 +253,30 @@ static void run_button_led_mapping()
 
     Serial.println();
     Serial.println(F("=== MAPPING RESULT ==="));
+    Serial.println(F("Function | assumed LED | detected BUTTON"));
 
     for (uint8_t i = 0; i < 4; ++i)
     {
         Serial.print(MAPPING_NAMES[i]);
-        Serial.print(F(" -> LED "));
-        print_mapping_pin(MAPPING_LED_PINS[i]);
-        Serial.print(F(" / BUTTON "));
-        print_mapping_pin(static_cast<uint8_t>(detected[i]));
-        Serial.println();
+        Serial.print(F(" | LED P"));
+        Serial.print(MAPPING_LED_PINS[i]);
+        Serial.print(F(" | BUTTON P"));
+        Serial.println(detected[i]);
     }
 
     Serial.println();
-    Serial.println(F("Code-ready button assignment:"));
-    Serial.print(F("  BUTTON_GO_PIN    = P"));
+    Serial.println(F("Recommended fixed assignment:"));
+
+    Serial.print(F("  GREEN / GO   -> BUTTON P"));
     Serial.println(detected[0]);
-    Serial.print(F("  BUTTON_STOP_PIN  = P"));
+
+    Serial.print(F("  RED / STOP   -> BUTTON P"));
     Serial.println(detected[1]);
-    Serial.print(F("  BUTTON_LEFT_PIN  = P"));
+
+    Serial.print(F("  BLUE 1 / LEFT -> BUTTON P"));
     Serial.println(detected[2]);
-    Serial.print(F("  BUTTON_RIGHT_PIN = P"));
+
+    Serial.print(F("  BLUE 2 / RIGHT -> BUTTON P"));
     Serial.println(detected[3]);
 
     Serial.println(F("=== MAPPING TEST DONE ==="));
