@@ -103,6 +103,13 @@ void init_expander()
     expander.pinMode(BUTTON_LEFT_PIN, INPUT);
     expander.pinMode(BUTTON_RIGHT_PIN, INPUT);
 
+    // PCF8574 inputs are quasi-bidirectional. Writing HIGH releases the
+    // corresponding pin and enables its weak internal pull-up.
+    expander.digitalWrite(BUTTON_STOP_PIN, HIGH);
+    expander.digitalWrite(BUTTON_GO_PIN, HIGH);
+    expander.digitalWrite(BUTTON_LEFT_PIN, HIGH);
+    expander.digitalWrite(BUTTON_RIGHT_PIN, HIGH);
+
     expander.pinMode(LED_STOP_PIN, OUTPUT);
     expander.pinMode(LED_GO_PIN, OUTPUT);
     expander.pinMode(LED_LEFT_PIN, OUTPUT);
