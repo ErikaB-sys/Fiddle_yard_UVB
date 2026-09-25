@@ -249,6 +249,20 @@ static volatile bool stepLevel = false;
 
 ISR(TIMER1_COMPA_vect)
 {
+    // Immediate hardware stop at the corresponding end position.
+    // The central IO image is updated by read_IO() in the main loop.
+    if (stepRun)
+    {
+        if ((!io.dir && io.limitLeft) || (io.dir && io.limitRight))
+        {
+            stepRun = false;
+            stepLevel = false;
+            PORTD &= ~_BV(PD3);
+            PORTB &= ~_BV(PB5);
+            return;
+        }
+    }
+
     if (!stepRun)
     {
         stepLevel = false;
