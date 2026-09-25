@@ -8,6 +8,11 @@
 
 // Timing
 constexpr uint32_t BUTTON_INTERVAL_MS  = 20;
+
+// Adjustable STEP frequency for the hardware test.
+// BLUE 1 / BLUE 2 select the next lower / higher test frequency while ENA is OFF.
+constexpr uint16_t STEP_FREQUENCIES[] = {10, 25, 50, 100, 200, 500};
+constexpr uint8_t STEP_FREQUENCY_COUNT = sizeof(STEP_FREQUENCIES) / sizeof(STEP_FREQUENCIES[0]);
 constexpr uint32_t SWITCH_INTERVAL_MS  = 50;
 constexpr uint32_t DISPLAY_INTERVAL_MS = 500;
 constexpr uint32_t SERIAL_INTERVAL_MS  = 500;
@@ -122,3 +127,4 @@ void update_serial();
 void set_active_button(ButtonEvent event);
 void clear_active_button();
 void init_step_timer();
+void set_step_frequency(uint16_t frequency);
