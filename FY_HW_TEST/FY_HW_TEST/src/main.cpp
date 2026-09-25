@@ -98,6 +98,15 @@ static void all_mapping_leds_off();
 
 void init_expander()
 {
+    if (!expander.begin())
+    {
+        Serial.println(F("Error initializing PCF8574!"));
+
+        while (true)
+        {
+        }
+    }
+
     expander.pinMode(BUTTON_STOP_PIN, INPUT);
     expander.pinMode(BUTTON_GO_PIN, INPUT);
     expander.pinMode(BUTTON_LEFT_PIN, INPUT);
@@ -117,14 +126,6 @@ void init_expander()
 
     all_mapping_leds_off();
 
-    if (!expander.begin())
-    {
-        Serial.println(F("Error initializing PCF8574!"));
-
-        while (true)
-        {
-        }
-    }
 }
 
 
@@ -520,9 +521,9 @@ void update_display()
     display.print(expander.digitalRead(BUTTON_GO_PIN) == LOW ? '1' : '0');
     display.print(F(" S:"));
     display.print(expander.digitalRead(BUTTON_STOP_PIN) == LOW ? '1' : '0');
-    display.print(F(" L:"));
+    display.print(F(" B1:"));
     display.print(expander.digitalRead(BUTTON_LEFT_PIN) == LOW ? '1' : '0');
-    display.print(F(" R:"));
+    display.print(F(" B2:"));
     display.println(expander.digitalRead(BUTTON_RIGHT_PIN) == LOW ? '1' : '0');
 
     display.print(F("L:"));
