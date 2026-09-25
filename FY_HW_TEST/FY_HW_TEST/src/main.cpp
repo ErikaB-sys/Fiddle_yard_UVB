@@ -89,6 +89,9 @@ void initOLED()
 }
 
 
+// Forward declaration used during expander initialization.
+static void all_mapping_leds_off();
+
 // -----------------------------------------------------------------------------
 // PCF8574
 // -----------------------------------------------------------------------------
