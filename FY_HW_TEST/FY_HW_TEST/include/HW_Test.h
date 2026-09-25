@@ -53,6 +53,34 @@ constexpr uint8_t LED_LEFT_PIN  = P2;
 constexpr uint8_t LED_GO_PIN    = P3;
 constexpr uint8_t LED_RIGHT_PIN = P0;
 
+// Central hardware IO image
+// All physical inputs are read in read_IO(). All other code works only
+// with this image. Hardware outputs are applied in update_outputs().
+struct HWIOState
+{
+    // Inputs
+    bool buttonStop  = false;
+    bool buttonLeft  = false;
+    bool buttonRight = false;
+    bool buttonGo    = false;
+
+    bool limitLeft  = false;
+    bool limitRight = false;
+    bool reference  = false;
+    bool hall       = false;
+
+    // Outputs
+    bool ledStop  = false;
+    bool ledLeft  = false;
+    bool ledRight = false;
+    bool ledGo    = false;
+
+    bool ena = false;
+    bool dir = false;
+};
+
+extern HWIOState io;
+
 // Central test state
 struct HWTestState
 {
@@ -84,6 +112,7 @@ void scanI2C();
 void initOLED();
 void init_expander();
 
+void read_IO();
 ButtonEvent read_buttons();
 void read_end_switches();
 
