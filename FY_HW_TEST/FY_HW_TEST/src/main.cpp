@@ -174,6 +174,9 @@ static const char* const MAPPING_NAMES[4] =
 
 static const uint8_t MAPPING_BUTTON_PINS[4] = { P4, P5, P6, P7 };
 
+constexpr uint32_t MAPPING_DEBOUNCE_MS = 50;
+constexpr uint32_t MAPPING_LED_INTERVAL_MS = 2000;
+
 static void all_mapping_leds_off()
 {
     for (uint8_t i = 0; i < 4; ++i)
@@ -189,6 +192,23 @@ static void wait_for_all_buttons_released()
     {
         delay(10);
     }
+}
+
+static bool wait_for_stable_button_state(uint8_t pin, bool pressed)
+{
+    const uint32_t start = millis();
+
+    while (millis() - start < MAPPING_DEBOUNCE_MS)
+    {
+        const bool state = (expander.digitalRead(pin) == LOW);
+
+        if (state != pressed)
+            return false;
+
+        delay(10);
+    }
+
+    return true;
 }
 
 static int8_t read_any_mapping_button()
@@ -232,7 +252,7 @@ static void run_button_led_mapping()
         Serial.print(F("Druecke bitte die Taste: "));
         Serial.println(MAPPING_NAMES[function]);
         Serial.println(F("Taste gedrueckt halten."));
-        Serial.println(F("LEDs wechseln alle 500 ms."));
+        Serial.println(F("LEDs wechseln alle 2 Sekunden."));
         Serial.println(F("Loslassen, sobald die richtige LED leuchtet."));
 
         // Wait until any physical button is actually pressed.
@@ -240,7 +260,14 @@ static void run_button_led_mapping()
 
         while (buttonPin < 0)
         {
-            buttonPin = read_any_mapping_button();
+            const int8_t candidate = read_any_mapping_button();
+
+            if (candidate >= 0 &&
+                wait_for_stable_button_state(static_cast<uint8_t>(candidate), true))
+            {
+                buttonPin = candidate;
+            }
+
             delay(10);
         }
 
@@ -254,16 +281,17 @@ static void run_button_led_mapping()
         uint8_t ledIndex = 0;
         expander.digitalWrite(MAPPING_LED_PINS[ledIndex], LOW);
 
-        // Keep the button pressed. Change the LED every 500 ms.
-        // Release is checked every 10 ms so it cannot be missed.
-        uint32_t nextLedChange = millis() + 500;
+        // Keep the button pressed. Change the LED every 2 seconds.
+        // Release is checked every 10 ms and must be stable for 50 ms.
+        uint32_t nextLedChange = millis() + MAPPING_LED_INTERVAL_MS;
 
         while (true)
         {
             const bool pressed =
                 (expander.digitalRead(static_cast<uint8_t>(buttonPin)) == LOW);
 
-            if (!pressed)
+            if (!pressed &&
+                wait_for_stable_button_state(static_cast<uint8_t>(buttonPin), false))
             {
                 detectedLeds[function] = static_cast<int8_t>(ledIndex);
 
@@ -285,7 +313,7 @@ static void run_button_led_mapping()
                     ledIndex = 0;
 
                 expander.digitalWrite(MAPPING_LED_PINS[ledIndex], LOW);
-                nextLedChange += 500;
+                nextLedChange += MAPPING_LED_INTERVAL_MS;
             }
 
             delay(10);
@@ -321,7 +349,14 @@ static void run_button_led_mapping()
 
         while (buttonPin < 0)
         {
-            buttonPin = read_any_mapping_button();
+            const int8_t candidate = read_any_mapping_button();
+
+            if (candidate >= 0 &&
+                wait_for_stable_button_state(static_cast<uint8_t>(candidate), true))
+            {
+                buttonPin = candidate;
+            }
+
             delay(10);
         }
 
@@ -354,7 +389,7 @@ static void run_button_led_mapping()
         }
 
         // Explicit release detection before the next test.
-        while (expander.digitalRead(static_cast<uint8_t>(buttonPin)) == LOW)
+        while (!wait_for_stable_button_state(static_cast<uint8_t>(buttonPin), false))
             delay(10);
 
         Serial.print(F("RELEASE erkannt: "));
