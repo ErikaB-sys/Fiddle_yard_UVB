@@ -50,7 +50,12 @@ constexpr uint8_t LED_RIGHT_PIN = P0;
 // Central test state
 struct HWTestState
 {
+    // One-shot button event
     ButtonEvent button = BUTTON_NONE;
+
+    // Action currently in progress
+    ButtonEvent activeButton = BUTTON_NONE;
+    bool busy = false;
 
     bool ena  = false;
     bool dir  = false;
@@ -79,3 +84,5 @@ void read_end_switches();
 void update_outputs();
 void update_display();
 void update_serial();
+void set_active_button(ButtonEvent event);
+void clear_active_button();
