@@ -62,6 +62,8 @@ struct HWTestState
     bool hall       = false;
 
     uint16_t stepReload = 0;
+    uint16_t frequency  = 0;
+    uint32_t steps      = 0;
 
     bool displayDirty = true;
 };
