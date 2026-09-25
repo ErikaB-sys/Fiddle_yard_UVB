@@ -39,19 +39,19 @@ constexpr uint8_t PORT_EXPANDER_ADDRESS = 0x27;
 
 // Button / LED mapping on PCF8574
 // Physical mapping:
-//   red    -> button P7 / LED P3
+//   red    -> button P7 / LED P1
 //   blue 1 -> button P6 / LED P2
 //   green  -> button P5 / LED P3
-//   blue 2 -> button P4 / LED P1
+//   blue 2 -> button P4 / LED P0
 constexpr uint8_t BUTTON_STOP_PIN  = P7;
 constexpr uint8_t BUTTON_LEFT_PIN  = P6;
 constexpr uint8_t BUTTON_GO_PIN    = P5;
 constexpr uint8_t BUTTON_RIGHT_PIN = P4;
 
-constexpr uint8_t LED_STOP_PIN  = P3;
+constexpr uint8_t LED_STOP_PIN  = P1;
 constexpr uint8_t LED_LEFT_PIN  = P2;
 constexpr uint8_t LED_GO_PIN    = P3;
-constexpr uint8_t LED_RIGHT_PIN = P1;
+constexpr uint8_t LED_RIGHT_PIN = P0;
 
 // Central test state
 struct HWTestState
