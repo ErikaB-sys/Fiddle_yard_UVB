@@ -19,7 +19,6 @@ HWTestState hw;
 static uint32_t tButtons  = 0;
 static uint32_t tSwitches = 0;
 static uint32_t tDisplay  = 0;
-static uint32_t tSerial   = 0;
 
 // Previous button state for edge detection
 static bool lastStop  = false;
@@ -106,11 +105,7 @@ void init_expander()
     expander.pinMode(LED_LEFT_PIN, OUTPUT);
     expander.pinMode(LED_RIGHT_PIN, OUTPUT);
 
-    // LEDs off
-    expander.digitalWrite(LED_STOP_PIN, HIGH);
-    expander.digitalWrite(LED_GO_PIN, HIGH);
-    expander.digitalWrite(LED_LEFT_PIN, HIGH);
-    expander.digitalWrite(LED_RIGHT_PIN, HIGH);
+    all_mapping_leds_off();
 
     if (!expander.begin())
     {
@@ -136,7 +131,6 @@ ButtonEvent read_buttons()
 
     ButtonEvent event = BUTTON_NONE;
 
-    // One event per scan. Priority: STOP > LEFT > RIGHT > GO.
     if (stop && !lastStop)
         event = BUTTON_STOP;
     else if (left && !lastLeft)
@@ -213,21 +207,20 @@ static void print_mapping_pin(uint8_t pin)
 
 static void run_button_led_mapping()
 {
-    // The test is deliberately blocking. This is a manual hardware test,
-    // not part of the normal scheduler.
+    // Blocking by design: while this test is running, the normal scheduler
+    // and normal button handling do not run.
     int8_t detectedButtons[4] = { -1, -1, -1, -1 };
+    int8_t detectedLeds[4]    = { -1, -1, -1, -1 };
 
     Serial.println();
     Serial.println(F("=== BUTTON / LED MAPPING TEST ==="));
-    Serial.println(F("No alive messages during this test."));
     Serial.println();
 
+    // Do not let a button already being held enter the test as a new press.
     wait_for_all_buttons_released();
 
     // -------------------------------------------------------------------------
-    // Phase 1: determine which LED belongs to each physical button.
-    // The button must remain pressed while the LEDs are stepped through.
-    // Releasing the button selects the currently lit LED.
+    // Phase 1
     // -------------------------------------------------------------------------
     for (uint8_t function = 0; function < 4; ++function)
     {
@@ -235,10 +228,11 @@ static void run_button_led_mapping()
 
         Serial.print(F("Druecke bitte die Taste: "));
         Serial.println(MAPPING_NAMES[function]);
-        Serial.println(F("Taste gedrueckt halten. LEDs wechseln alle 500 ms."));
+        Serial.println(F("Taste gedrueckt halten."));
+        Serial.println(F("LEDs wechseln alle 500 ms."));
         Serial.println(F("Loslassen, sobald die richtige LED leuchtet."));
 
-        // Wait for the requested physical button.
+        // Wait until any physical button is actually pressed.
         int8_t buttonPin = -1;
 
         while (buttonPin < 0)
@@ -249,46 +243,60 @@ static void run_button_led_mapping()
 
         detectedButtons[function] = buttonPin;
 
-        Serial.print(F("Erkannt: Taste "));
+        Serial.print(F("PRESS erkannt: "));
         print_mapping_pin(static_cast<uint8_t>(buttonPin));
-        Serial.println(F(" gedrueckt."));
+        Serial.println();
 
-        // Give the user a short moment to see the start of the sequence.
-        delay(300);
-
-        // Start with the first LED and advance every 500 ms.
+        // Start immediately with LED 0.
         uint8_t ledIndex = 0;
         expander.digitalWrite(MAPPING_LED_PINS[ledIndex], LOW);
 
-        while (expander.digitalRead(static_cast<uint8_t>(buttonPin)) == LOW)
+        // Keep the button pressed. Change the LED every 500 ms.
+        // Release is checked every 10 ms so it cannot be missed.
+        uint32_t nextLedChange = millis() + 500;
+
+        while (true)
         {
-            delay(500);
+            const bool pressed =
+                (expander.digitalRead(static_cast<uint8_t>(buttonPin)) == LOW);
 
-            // The button may have been released during the 500 ms interval.
-            if (expander.digitalRead(static_cast<uint8_t>(buttonPin)) != LOW)
+            if (!pressed)
+            {
+                detectedLeds[function] = static_cast<int8_t>(ledIndex);
+
+                Serial.print(F("RELEASE erkannt: "));
+                print_mapping_pin(static_cast<uint8_t>(buttonPin));
+                Serial.println();
+
+                Serial.print(F("Auswahl: "));
+                Serial.println(MAPPING_NAMES[ledIndex]);
                 break;
+            }
 
-            expander.digitalWrite(MAPPING_LED_PINS[ledIndex], HIGH);
+            if (static_cast<int32_t>(millis() - nextLedChange) >= 0)
+            {
+                expander.digitalWrite(MAPPING_LED_PINS[ledIndex], HIGH);
 
-            ledIndex++;
-            if (ledIndex >= 4)
-                ledIndex = 0;
+                ledIndex++;
+                if (ledIndex >= 4)
+                    ledIndex = 0;
 
-            expander.digitalWrite(MAPPING_LED_PINS[ledIndex], LOW);
+                expander.digitalWrite(MAPPING_LED_PINS[ledIndex], LOW);
+                nextLedChange += 500;
+            }
+
+            delay(10);
         }
 
-        Serial.print(F("Auswahl: "));
-        Serial.println(MAPPING_NAMES[ledIndex]);
-
         all_mapping_leds_off();
+
+        // Do not advance until the physical button is definitely released.
         wait_for_all_buttons_released();
-        delay(300);
+        delay(200);
     }
 
     // -------------------------------------------------------------------------
-    // Phase 2: counter-check.
-    // Six random button tests. The detected physical button is mapped to the
-    // function/colour found above, and the corresponding LED is illuminated.
+    // Phase 2: counter-check
     // -------------------------------------------------------------------------
     Serial.println();
     Serial.println(F("=== GEGENPROBE ==="));
@@ -302,7 +310,9 @@ static void run_button_led_mapping()
         wait_for_all_buttons_released();
         all_mapping_leds_off();
 
-        Serial.println(F("Druecke bitte eine Taste."));
+        Serial.print(F("Test "));
+        Serial.print(test + 1);
+        Serial.println(F("/6: Druecke bitte eine Taste."));
 
         int8_t buttonPin = -1;
 
@@ -311,6 +321,10 @@ static void run_button_led_mapping()
             buttonPin = read_any_mapping_button();
             delay(10);
         }
+
+        Serial.print(F("PRESS erkannt: "));
+        print_mapping_pin(static_cast<uint8_t>(buttonPin));
+        Serial.println();
 
         int8_t functionIndex = -1;
 
@@ -323,21 +337,29 @@ static void run_button_led_mapping()
             }
         }
 
-        if (functionIndex >= 0)
+        if (functionIndex >= 0 && detectedLeds[functionIndex] >= 0)
         {
-            Serial.print(F("Erkannt: "));
+            Serial.print(F("Zuordnung: "));
             Serial.println(MAPPING_NAMES[functionIndex]);
 
-            expander.digitalWrite(MAPPING_LED_PINS[functionIndex], LOW);
+            expander.digitalWrite(
+                MAPPING_LED_PINS[detectedLeds[functionIndex]], LOW);
         }
         else
         {
             Serial.println(F("FEHLER: Taste nicht in der Zuordnung gefunden."));
         }
 
-        wait_for_all_buttons_released();
+        // Explicit release detection before the next test.
+        while (expander.digitalRead(static_cast<uint8_t>(buttonPin)) == LOW)
+            delay(10);
+
+        Serial.print(F("RELEASE erkannt: "));
+        print_mapping_pin(static_cast<uint8_t>(buttonPin));
+        Serial.println();
+
         all_mapping_leds_off();
-        delay(300);
+        delay(200);
     }
 
     // -------------------------------------------------------------------------
@@ -345,26 +367,19 @@ static void run_button_led_mapping()
     // -------------------------------------------------------------------------
     Serial.println();
     Serial.println(F("=== MAPPING RESULT ==="));
-    Serial.println(F("Funktion        | erkannte Taste | zugehoerige LED"));
+    Serial.println(F("Funktion        | Taste | LED"));
 
     for (uint8_t i = 0; i < 4; ++i)
     {
         Serial.print(MAPPING_NAMES[i]);
-        Serial.print(F(" | BUTTON P"));
+        Serial.print(F(" | P"));
         Serial.print(detectedButtons[i]);
-        Serial.print(F("       | LED P"));
-        Serial.println(MAPPING_LED_PINS[i]);
-    }
+        Serial.print(F(" | P"));
 
-    Serial.println();
-    Serial.println(F("Empfohlene feste Tasten-Zuordnung:"));
-
-    for (uint8_t i = 0; i < 4; ++i)
-    {
-        Serial.print(F("  "));
-        Serial.print(MAPPING_NAMES[i]);
-        Serial.print(F(" -> BUTTON P"));
-        Serial.println(detectedButtons[i]);
+        if (detectedLeds[i] >= 0)
+            Serial.println(MAPPING_LED_PINS[detectedLeds[i]]);
+        else
+            Serial.println(F("?"));
     }
 
     Serial.println();
@@ -374,6 +389,8 @@ static void run_button_led_mapping()
     all_mapping_leds_off();
     wait_for_all_buttons_released();
 }
+
+
 // -----------------------------------------------------------------------------
 // Action / LED state
 // -----------------------------------------------------------------------------
@@ -383,7 +400,6 @@ void set_active_button(ButtonEvent event)
     hw.activeButton = event;
     hw.busy = (event != BUTTON_NONE);
 
-    // Only the active command LED is on.
     expander.digitalWrite(LED_STOP_PIN,  event == BUTTON_STOP  ? LOW : HIGH);
     expander.digitalWrite(LED_GO_PIN,    event == BUTTON_GO    ? LOW : HIGH);
     expander.digitalWrite(LED_LEFT_PIN,  event == BUTTON_LEFT  ? LOW : HIGH);
@@ -474,30 +490,8 @@ void update_display()
 
 
 // -----------------------------------------------------------------------------
-// Serial
+// Serial command handling
 // -----------------------------------------------------------------------------
-
-void update_serial()
-{
-    Serial.print(F("BTN="));
-    Serial.print(hw.button);
-    Serial.print(F(" ACTIVE="));
-    Serial.print(hw.activeButton);
-    Serial.print(F(" BUSY="));
-    Serial.print(hw.busy);
-    Serial.print(F(" ENA="));
-    Serial.print(hw.ena);
-    Serial.print(F(" DIR="));
-    Serial.print(hw.dir);
-    Serial.print(F(" L="));
-    Serial.print(hw.limitLeft);
-    Serial.print(F(" R="));
-    Serial.print(hw.limitRight);
-    Serial.print(F(" REF="));
-    Serial.print(hw.reference);
-    Serial.print(F(" HALL="));
-    Serial.println(hw.hall);
-}
 
 static void handle_serial_commands()
 {
@@ -506,7 +500,25 @@ static void handle_serial_commands()
         const char command = Serial.read();
 
         if (command == 'm' || command == 'M')
+        {
+            // Clear CR/LF and any remaining command characters before entering
+            // the blocking test. This prevents the test from being retriggered
+            // or skipped by buffered serial input.
+            while (Serial.available() > 0)
+                Serial.read();
+
             run_button_led_mapping();
+
+            // Re-synchronise edge detection after the blocking test.
+            lastStop  = false;
+            lastLeft  = false;
+            lastRight = false;
+            lastGo    = false;
+
+            // Return directly to loop(). No normal button event is processed
+            // on the same pass as the mapping test.
+            return;
+        }
     }
 }
 
@@ -537,7 +549,6 @@ void setup()
     pinMode(MOTOR_DIR, OUTPUT);
     pinMode(LED_BUILTIN_PIN, OUTPUT);
 
-    // Safe initial state
     hw.ena  = false;
     hw.dir  = false;
     hw.puls = false;
@@ -570,8 +581,6 @@ void loop()
 
         if (event != BUTTON_NONE)
         {
-            // STOP is always accepted. While busy, all other buttons are
-            // ignored until the active action has completed.
             if (event == BUTTON_STOP || !hw.busy)
             {
                 hw.button = event;
@@ -622,12 +631,6 @@ void loop()
     {
         tSwitches = now;
         read_end_switches();
-    }
-
-    if (now - tSerial >= SERIAL_INTERVAL_MS)
-    {
-        tSerial = now;
-        update_serial();
     }
 
     if (now - tDisplay >= DISPLAY_INTERVAL_MS || hw.displayDirty)
