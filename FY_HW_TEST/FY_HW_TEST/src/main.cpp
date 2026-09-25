@@ -176,8 +176,10 @@ void set_active_button(ButtonEvent event)
     hw.busy = (event != BUTTON_NONE);
     hw.button = event;
 
-    io.ledStop  = (event == BUTTON_STOP);
-    io.ledGo    = (event == BUTTON_GO);
+    // Green/red indicate the latched motor enable state.
+    // Blue LEDs indicate the currently active movement button.
+    io.ledStop  = !io.ena;
+    io.ledGo    = io.ena;
     io.ledLeft  = (event == BUTTON_LEFT);
     io.ledRight = (event == BUTTON_RIGHT);
 
@@ -190,8 +192,10 @@ void clear_active_button()
     hw.busy = false;
     hw.button = BUTTON_NONE;
 
-    io.ledStop = false;
-    io.ledGo = false;
+    // Keep green/red as motor-state indicators.
+    // Movement LEDs are only active while the button is held.
+    io.ledStop = !io.ena;
+    io.ledGo = io.ena;
     io.ledLeft = false;
     io.ledRight = false;
 
@@ -294,21 +298,13 @@ void update_display()
     display.clearDisplay();
     display.setCursor(0, 0);
 
-    display.print(F("G:"));
-    display.print(hw.button == BUTTON_GO ? '1' : '0');
-    display.print(F(" S:"));
-    display.print(hw.button == BUTTON_STOP ? '1' : '0');
-    display.print(F(" B1:"));
-    display.print(hw.button == BUTTON_LEFT ? '1' : '0');
-    display.print(F(" B2:"));
-    display.println(hw.button == BUTTON_RIGHT ? '1' : '0');
-
-    display.print(F("ENA:"));
-    display.print(io.ena ? '1' : '0');
+    // Display the central motor/output state rather than button inputs.
+    display.print(F("MOTOR:"));
+    display.print(io.ena ? F(" ON ") : F(" OFF"));
     display.print(F(" DIR:"));
-    display.print(io.dir ? '1' : '0');
+    display.println(io.dir ? 'R' : 'L');
 
-    display.print(F("STEP "));
+    display.print(F("STEP:"));
     display.print(hw.frequency);
     display.println(F(" Hz"));
 
@@ -316,9 +312,10 @@ void update_display()
     display.print(io.limitLeft ? '1' : '0');
     display.print(F(" R:"));
     display.print(io.limitRight ? '1' : '0');
-    display.print(F(" Ref:"));
+    display.print(F(" REF:"));
     display.print(io.reference ? '1' : '0');
-    display.print(F(" H:"));
+
+    display.print(F(" HALL:"));
     display.println(io.hall ? '1' : '0');
 
     display.display();
@@ -359,7 +356,7 @@ void setup()
     hw.puls = false;
     stepRun = false;
     hw.stepReload = 100;
-    hw.frequency = 100;
+    hw.frequency = 0;
     hw.steps = 100;
 
     clear_active_button();
@@ -396,7 +393,7 @@ void loop()
                         io.ena = false;
                         stepRun = false;
                         hw.frequency = 0;
-                        clear_active_button();
+                        set_active_button(BUTTON_STOP);
                         break;
 
                     case BUTTON_GO:
