@@ -183,6 +183,19 @@ void clear_active_button()
 }
 
 
+// Return the current physical state of the active button.
+static bool active_button_pressed()
+{
+    switch (hw.activeButton)
+    {
+        case BUTTON_STOP:  return expander.digitalRead(BUTTON_STOP_PIN)  == LOW;
+        case BUTTON_LEFT:  return expander.digitalRead(BUTTON_LEFT_PIN)  == LOW;
+        case BUTTON_RIGHT: return expander.digitalRead(BUTTON_RIGHT_PIN) == LOW;
+        case BUTTON_GO:    return expander.digitalRead(BUTTON_GO_PIN)    == LOW;
+        default:           return false;
+    }
+}
+
 // -----------------------------------------------------------------------------
 // End switches
 // -----------------------------------------------------------------------------
@@ -417,6 +430,15 @@ void loop()
     {
         tSwitches = now;
         read_end_switches();
+    }
+
+    // The hardware test is deliberately press-and-hold:
+    // press -> LED/action ON, release -> LED/action OFF.
+    if (hw.busy && !active_button_pressed())
+    {
+        hw.ena = false;
+        stepRun = false;
+        clear_active_button();
     }
 
     if (now - tDisplay >= DISPLAY_INTERVAL_MS || hw.displayDirty)
