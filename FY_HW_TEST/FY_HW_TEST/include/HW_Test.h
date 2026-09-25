@@ -48,9 +48,9 @@ constexpr uint8_t BUTTON_LEFT_PIN  = P6;
 constexpr uint8_t BUTTON_GO_PIN    = P5;
 constexpr uint8_t BUTTON_RIGHT_PIN = P4;
 
-constexpr uint8_t LED_STOP_PIN  = P1;
+constexpr uint8_t LED_STOP_PIN  = P3;
 constexpr uint8_t LED_LEFT_PIN  = P2;
-constexpr uint8_t LED_GO_PIN    = P3;
+constexpr uint8_t LED_GO_PIN    = P1;
 constexpr uint8_t LED_RIGHT_PIN = P0;
 
 // Central hardware IO image
