@@ -219,11 +219,9 @@ void read_end_switches()
 
 void update_outputs()
 {
-    // Green: ENABLE. Red: DISABLE / STOP.
-    // Blue LEFT/RIGHT: test direction + 100 steps.
-    //
-    // Motor output pins are deliberately not assigned here yet. The current
-    // HW test keeps D2/D3/D4 available until the exact driver wiring is fixed.
+    digitalWrite(MOTOR_ENA,  hw.ena  ? HIGH : LOW);
+    digitalWrite(MOTOR_DIR,  hw.dir  ? HIGH : LOW);
+    digitalWrite(MOTOR_PULS, hw.puls ? HIGH : LOW);
 }
 
 
@@ -304,9 +302,9 @@ void setup()
     pinMode(LSREF, INPUT);
     pinMode(LS4, INPUT);
 
-    pinMode(LED1, OUTPUT);
-    pinMode(LED2, OUTPUT);
-    pinMode(LED3, OUTPUT);
+    pinMode(MOTOR_ENA, OUTPUT);
+    pinMode(MOTOR_PULS, OUTPUT);
+    pinMode(MOTOR_DIR, OUTPUT);
     pinMode(LED_BUILTIN_PIN, OUTPUT);
 
     // Safe initial state
