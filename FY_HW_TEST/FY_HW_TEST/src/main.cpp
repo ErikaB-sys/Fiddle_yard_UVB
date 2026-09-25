@@ -156,6 +156,139 @@ ButtonEvent read_buttons()
 
 
 // -----------------------------------------------------------------------------
+// Button / LED mapping test
+// -----------------------------------------------------------------------------
+
+static const uint8_t MAPPING_LED_PINS[4] =
+{
+    LED_GO_PIN,
+    LED_STOP_PIN,
+    LED_LEFT_PIN,
+    LED_RIGHT_PIN
+};
+
+static const char* const MAPPING_NAMES[4] =
+{
+    "GREEN / GO",
+    "RED / STOP",
+    "BLUE 1 / LEFT",
+    "BLUE 2 / RIGHT"
+};
+
+static void all_mapping_leds_off()
+{
+    for (uint8_t i = 0; i < 4; ++i)
+        expander.digitalWrite(MAPPING_LED_PINS[i], HIGH);
+}
+
+static void wait_for_all_buttons_released()
+{
+    while (expander.digitalRead(P4) == LOW ||
+           expander.digitalRead(P5) == LOW ||
+           expander.digitalRead(P6) == LOW ||
+           expander.digitalRead(P7) == LOW)
+    {
+        delay(10);
+    }
+}
+
+static int8_t read_any_mapping_button()
+{
+    const uint8_t pins[4] = { P4, P5, P6, P7 };
+
+    for (uint8_t i = 0; i < 4; ++i)
+    {
+        if (expander.digitalRead(pins[i]) == LOW)
+            return static_cast<int8_t>(pins[i]);
+    }
+
+    return -1;
+}
+
+static void print_mapping_pin(uint8_t pin)
+{
+    Serial.print('P');
+    Serial.print(pin);
+}
+
+static void run_button_led_mapping()
+{
+    Serial.println();
+    Serial.println(F("=== BUTTON / LED MAPPING TEST ==="));
+    Serial.println(F("Fixed function assignment:"));
+    Serial.println(F("  GREEN  = GO"));
+    Serial.println(F("  RED    = STOP"));
+    Serial.println(F("  BLUE 1 = LEFT"));
+    Serial.println(F("  BLUE 2 = RIGHT"));
+    Serial.println(F("Press the button belonging to the lit LED."));
+    Serial.println();
+
+    all_mapping_leds_off();
+    wait_for_all_buttons_released();
+
+    int8_t detected[4] = { -1, -1, -1, -1 };
+
+    for (uint8_t i = 0; i < 4; ++i)
+    {
+        all_mapping_leds_off();
+        expander.digitalWrite(MAPPING_LED_PINS[i], LOW);
+
+        Serial.print(F("LED ON: "));
+        Serial.println(MAPPING_NAMES[i]);
+        Serial.println(F("Press the matching button..."));
+
+        int8_t buttonPin = -1;
+
+        while (buttonPin < 0)
+        {
+            buttonPin = read_any_mapping_button();
+            delay(10);
+        }
+
+        detected[i] = buttonPin;
+
+        Serial.print(F("Detected button: "));
+        print_mapping_pin(static_cast<uint8_t>(buttonPin));
+        Serial.println();
+
+        expander.digitalWrite(MAPPING_LED_PINS[i], HIGH);
+        wait_for_all_buttons_released();
+        delay(250);
+    }
+
+    Serial.println();
+    Serial.println(F("=== MAPPING RESULT ==="));
+
+    for (uint8_t i = 0; i < 4; ++i)
+    {
+        Serial.print(MAPPING_NAMES[i]);
+        Serial.print(F(" -> LED "));
+        print_mapping_pin(MAPPING_LED_PINS[i]);
+        Serial.print(F(" / BUTTON "));
+        print_mapping_pin(static_cast<uint8_t>(detected[i]));
+        Serial.println();
+    }
+
+    Serial.println();
+    Serial.println(F("Code-ready button assignment:"));
+    Serial.print(F("  BUTTON_GO_PIN    = P"));
+    Serial.println(detected[0]);
+    Serial.print(F("  BUTTON_STOP_PIN  = P"));
+    Serial.println(detected[1]);
+    Serial.print(F("  BUTTON_LEFT_PIN  = P"));
+    Serial.println(detected[2]);
+    Serial.print(F("  BUTTON_RIGHT_PIN = P"));
+    Serial.println(detected[3]);
+
+    Serial.println(F("=== MAPPING TEST DONE ==="));
+    Serial.println();
+
+    all_mapping_leds_off();
+    wait_for_all_buttons_released();
+}
+
+
+// -----------------------------------------------------------------------------
 // Action / LED state
 // -----------------------------------------------------------------------------
 
@@ -280,6 +413,17 @@ void update_serial()
     Serial.println(hw.hall);
 }
 
+static void handle_serial_commands()
+{
+    while (Serial.available() > 0)
+    {
+        const char command = Serial.read();
+
+        if (command == 'm' || command == 'M')
+            run_button_led_mapping();
+    }
+}
+
 
 // -----------------------------------------------------------------------------
 // Setup
@@ -318,6 +462,7 @@ void setup()
     clear_active_button();
 
     Serial.println(F("init done"));
+    Serial.println(F("Send 'M' to start button / LED mapping test."));
 }
 
 
@@ -328,6 +473,8 @@ void setup()
 void loop()
 {
     const uint32_t now = millis();
+
+    handle_serial_commands();
 
     if (now - tButtons >= BUTTON_INTERVAL_MS)
     {
@@ -350,8 +497,6 @@ void loop()
                         hw.ena = false;
                         hw.dir = false;
                         hw.puls = false;
-
-                        // STOP is a completed action once ENA is safely off.
                         clear_active_button();
                         break;
 
@@ -382,8 +527,6 @@ void loop()
                         break;
                 }
 
-                // The physical press is consumed. The persistent action state
-                // is kept separately in activeButton/busy.
                 hw.button = BUTTON_NONE;
             }
         }
