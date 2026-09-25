@@ -13,6 +13,7 @@
 Adafruit_SSD1306 display(128, 32, &Wire, -1);
 PCF8574 expander(PORT_EXPANDER_ADDRESS);
 
+HWIOState io;
 HWTestState hw;
 
 // Scheduler timestamps
@@ -125,12 +126,25 @@ void init_expander()
 // Buttons
 // -----------------------------------------------------------------------------
 
+void read_IO()
+{
+    io.buttonStop  = (expander.digitalRead(BUTTON_STOP_PIN)  == LOW);
+    io.buttonLeft  = (expander.digitalRead(BUTTON_LEFT_PIN)  == LOW);
+    io.buttonRight = (expander.digitalRead(BUTTON_RIGHT_PIN) == LOW);
+    io.buttonGo    = (expander.digitalRead(BUTTON_GO_PIN)    == LOW);
+
+    io.limitLeft   = digitalRead(LSL);
+    io.limitRight  = digitalRead(LSR);
+    io.reference   = digitalRead(LSREF);
+    io.hall        = digitalRead(LS4);
+}
+
 ButtonEvent read_buttons()
 {
-    const bool stop  = (expander.digitalRead(BUTTON_STOP_PIN)  == LOW);
-    const bool left  = (expander.digitalRead(BUTTON_LEFT_PIN)  == LOW);
-    const bool right = (expander.digitalRead(BUTTON_RIGHT_PIN) == LOW);
-    const bool go    = (expander.digitalRead(BUTTON_GO_PIN)    == LOW);
+    const bool stop  = io.buttonStop;
+    const bool left  = io.buttonLeft;
+    const bool right = io.buttonRight;
+    const bool go    = io.buttonGo;
 
     ButtonEvent event = BUTTON_NONE;
 
@@ -160,11 +174,12 @@ void set_active_button(ButtonEvent event)
 {
     hw.activeButton = event;
     hw.busy = (event != BUTTON_NONE);
+    hw.button = event;
 
-    expander.digitalWrite(LED_STOP_PIN,  event == BUTTON_STOP  ? LOW : HIGH);
-    expander.digitalWrite(LED_GO_PIN,    event == BUTTON_GO    ? LOW : HIGH);
-    expander.digitalWrite(LED_LEFT_PIN,  event == BUTTON_LEFT  ? LOW : HIGH);
-    expander.digitalWrite(LED_RIGHT_PIN, event == BUTTON_RIGHT ? LOW : HIGH);
+    io.ledStop  = (event == BUTTON_STOP);
+    io.ledGo    = (event == BUTTON_GO);
+    io.ledLeft  = (event == BUTTON_LEFT);
+    io.ledRight = (event == BUTTON_RIGHT);
 
     hw.displayDirty = true;
 }
@@ -173,11 +188,12 @@ void clear_active_button()
 {
     hw.activeButton = BUTTON_NONE;
     hw.busy = false;
+    hw.button = BUTTON_NONE;
 
-    expander.digitalWrite(LED_STOP_PIN, HIGH);
-    expander.digitalWrite(LED_GO_PIN, HIGH);
-    expander.digitalWrite(LED_LEFT_PIN, HIGH);
-    expander.digitalWrite(LED_RIGHT_PIN, HIGH);
+    io.ledStop = false;
+    io.ledGo = false;
+    io.ledLeft = false;
+    io.ledRight = false;
 
     hw.displayDirty = true;
 }
@@ -188,10 +204,10 @@ static bool active_button_pressed()
 {
     switch (hw.activeButton)
     {
-        case BUTTON_STOP:  return expander.digitalRead(BUTTON_STOP_PIN)  == LOW;
-        case BUTTON_LEFT:  return expander.digitalRead(BUTTON_LEFT_PIN)  == LOW;
-        case BUTTON_RIGHT: return expander.digitalRead(BUTTON_RIGHT_PIN) == LOW;
-        case BUTTON_GO:    return expander.digitalRead(BUTTON_GO_PIN)    == LOW;
+        case BUTTON_STOP:  return io.buttonStop;
+        case BUTTON_LEFT:  return io.buttonLeft;
+        case BUTTON_RIGHT: return io.buttonRight;
+        case BUTTON_GO:    return io.buttonGo;
         default:           return false;
     }
 }
@@ -200,26 +216,7 @@ static bool active_button_pressed()
 // End switches
 // -----------------------------------------------------------------------------
 
-void read_end_switches()
-{
-    const bool left  = digitalRead(LSL);
-    const bool right = digitalRead(LSR);
-    const bool ref   = digitalRead(LSREF);
-    const bool hall  = digitalRead(LS4);
-
-    if (left != hw.limitLeft ||
-        right != hw.limitRight ||
-        ref != hw.reference ||
-        hall != hw.hall)
-    {
-        hw.displayDirty = true;
-    }
-
-    hw.limitLeft  = left;
-    hw.limitRight = right;
-    hw.reference  = ref;
-    hw.hall       = hall;
-}
+void read_end_switches() { }
 
 
 // -----------------------------------------------------------------------------
@@ -228,8 +225,13 @@ void read_end_switches()
 
 void update_outputs()
 {
-    digitalWrite(MOTOR_ENA, hw.ena ? HIGH : LOW);
-    digitalWrite(MOTOR_DIR, hw.dir ? HIGH : LOW);
+    digitalWrite(MOTOR_ENA, io.ena ? HIGH : LOW);
+    digitalWrite(MOTOR_DIR, io.dir ? HIGH : LOW);
+
+    expander.digitalWrite(LED_STOP_PIN, io.ledStop ? LOW : HIGH);
+    expander.digitalWrite(LED_GO_PIN, io.ledGo ? LOW : HIGH);
+    expander.digitalWrite(LED_LEFT_PIN, io.ledLeft ? LOW : HIGH);
+    expander.digitalWrite(LED_RIGHT_PIN, io.ledRight ? LOW : HIGH);
 }
 
 // -----------------------------------------------------------------------------
@@ -293,33 +295,31 @@ void update_display()
     display.setCursor(0, 0);
 
     display.print(F("G:"));
-    display.print(expander.digitalRead(BUTTON_GO_PIN) == LOW ? '1' : '0');
+    display.print(hw.button == BUTTON_GO ? '1' : '0');
     display.print(F(" S:"));
-    display.print(expander.digitalRead(BUTTON_STOP_PIN) == LOW ? '1' : '0');
+    display.print(hw.button == BUTTON_STOP ? '1' : '0');
     display.print(F(" B1:"));
-    display.print(expander.digitalRead(BUTTON_LEFT_PIN) == LOW ? '1' : '0');
+    display.print(hw.button == BUTTON_LEFT ? '1' : '0');
     display.print(F(" B2:"));
-    display.println(expander.digitalRead(BUTTON_RIGHT_PIN) == LOW ? '1' : '0');
+    display.println(hw.button == BUTTON_RIGHT ? '1' : '0');
 
     display.print(F("ENA:"));
-    display.print(hw.ena ? '1' : '0');
+    display.print(io.ena ? '1' : '0');
     display.print(F(" DIR:"));
-    display.print(hw.dir ? '1' : '0');
-    display.print(F(" STEP:"));
-    display.println(stepRun ? '1' : '0');
+    display.print(io.dir ? '1' : '0');
 
     display.print(F("STEP "));
     display.print(hw.frequency);
     display.println(F(" Hz"));
 
     display.print(F("L:"));
-    display.print(hw.limitLeft ? '1' : '0');
+    display.print(io.limitLeft ? '1' : '0');
     display.print(F(" R:"));
-    display.print(hw.limitRight ? '1' : '0');
+    display.print(io.limitRight ? '1' : '0');
     display.print(F(" Ref:"));
-    display.print(hw.reference ? '1' : '0');
+    display.print(io.reference ? '1' : '0');
     display.print(F(" H:"));
-    display.println(hw.hall ? '1' : '0');
+    display.println(io.hall ? '1' : '0');
 
     display.display();
 }
@@ -354,6 +354,8 @@ void setup()
 
     hw.ena  = false;
     hw.dir  = false;
+    io.ena  = false;
+    io.dir  = false;
     hw.puls = false;
     stepRun = false;
     hw.stepReload = 100;
@@ -378,40 +380,44 @@ void loop()
     {
         tButtons = now;
 
+        read_IO();
         const ButtonEvent event = read_buttons();
 
         if (event != BUTTON_NONE)
         {
             if (event == BUTTON_STOP || !hw.busy)
             {
-                hw.button = event;
                 hw.displayDirty = true;
 
                 switch (event)
                 {
                     case BUTTON_STOP:
                         hw.ena = false;
+                        io.ena = false;
                         stepRun = false;
+                        hw.frequency = 0;
                         clear_active_button();
                         break;
 
                     case BUTTON_GO:
                         hw.ena = true;
+                        io.ena = true;
                         stepRun = false;
+                        hw.frequency = 0;
                         set_active_button(BUTTON_GO);
                         break;
 
                     case BUTTON_LEFT:
-                        hw.ena = true;
                         hw.dir = false;
+                        io.dir = false;
                         stepRun = true;
                         hw.frequency = 10;
                         set_active_button(BUTTON_LEFT);
                         break;
 
                     case BUTTON_RIGHT:
-                        hw.ena = true;
                         hw.dir = true;
+                        io.dir = true;
                         stepRun = true;
                         hw.frequency = 10;
                         set_active_button(BUTTON_RIGHT);
@@ -421,7 +427,6 @@ void loop()
                         break;
                 }
 
-                hw.button = BUTTON_NONE;
             }
         }
     }
@@ -436,8 +441,13 @@ void loop()
     // press -> LED/action ON, release -> LED/action OFF.
     if (hw.busy && !active_button_pressed())
     {
-        hw.ena = false;
-        stepRun = false;
+        if (hw.activeButton == BUTTON_LEFT ||
+            hw.activeButton == BUTTON_RIGHT)
+        {
+            stepRun = false;
+            hw.frequency = 0;
+        }
+
         clear_active_button();
     }
 
