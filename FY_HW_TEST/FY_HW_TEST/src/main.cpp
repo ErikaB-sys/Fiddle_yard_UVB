@@ -256,6 +256,8 @@ volatile HWMeasurement measurement;
 
 static volatile bool refLastState = false;
 static volatile bool refStartValid = false;
+static volatile bool leftReferenceApplied = false;
+static volatile bool rightLengthCaptured = false;
 
 ISR(TIMER1_COMPA_vect)
 {
@@ -269,6 +271,31 @@ ISR(TIMER1_COMPA_vect)
     const bool limitRight = (sensors & _BV(PB1)) != 0;
     const bool reference  = (sensors & _BV(PB3)) != 0;
     const bool limitLeft  = (sensors & _BV(PB4)) != 0;
+
+    // Endpositionen einmalig erfassen.
+    // Links wird der Positionszähler auf 1000 gesetzt.
+    // Rechts wird daraus der Gesamtweg Links -> Rechts berechnet.
+    if (limitLeft && !leftReferenceApplied)
+    {
+        measurement.position = 1000;
+        leftReferenceApplied = true;
+    }
+    else if (!limitLeft)
+    {
+        leftReferenceApplied = false;
+    }
+
+    if (limitRight && !rightLengthCaptured)
+    {
+        if (measurement.position >= 1000)
+            measurement.totalLength = measurement.position - 1000;
+
+        rightLengthCaptured = true;
+    }
+    else if (!limitRight)
+    {
+        rightLengthCaptured = false;
+    }
 
     // Sofortiger Hardware-Stopp in die ausgelöste Richtung.
     if (stepRun)
@@ -311,12 +338,6 @@ ISR(TIMER1_COMPA_vect)
         else if (measurement.position > 0)
             measurement.position--;
 
-        // Linker Endschalter definiert den Mess-Nullpunkt + 1000 Steps.
-        // Bei Fahrt nach links wird die Bewegung durch den Sicherheitscheck
-        // bereits vor dem nächsten STEP beendet.
-        if (limitLeft)
-            measurement.position = 1000;
-
         // Referenzfahne über die Flanken vermessen.
         // LOW -> HIGH: Startpunkt merken.
         // HIGH -> LOW: nur bei steigender Position als gültige Länge übernehmen.
@@ -339,12 +360,6 @@ ISR(TIMER1_COMPA_vect)
 
         refLastState = reference;
 
-        // Rechter Endschalter liefert den Gesamtweg.
-        if (limitRight)
-        {
-            if (measurement.position >= 1000)
-                measurement.totalLength = measurement.position - 1000;
-        }
     }
 }
 
@@ -389,6 +404,8 @@ void init_step_timer()
     measurement.totalLength = 0;
     measurement.refValid = false;
     refStartValid = false;
+    leftReferenceApplied = false;
+    rightLengthCaptured = false;
     refLastState = (PINB & _BV(PB3)) != 0;
     PORTD &= ~_BV(PD3);
     PORTB &= ~_BV(PB5);
@@ -425,7 +442,23 @@ void update_display()
 
     // Messwerte erst bei stehender Bühne übernehmen.
     HWMeasurement m;
-    get_measurement(m);
+    if (!stepRun)
+    {
+        get_measurement(m);
+    }
+    else
+    {
+        noInterrupts();
+        m = {
+            measurement.position,
+            measurement.refStart,
+            measurement.refEnd,
+            measurement.refLength,
+            measurement.totalLength,
+            measurement.refValid
+        };
+        interrupts();
+    }
 
     display.print(F("M:"));
     display.print(io.ena ? F("ON ") : F("OFF"));
