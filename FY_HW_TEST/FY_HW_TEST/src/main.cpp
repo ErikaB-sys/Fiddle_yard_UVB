@@ -303,12 +303,31 @@ ISR(TIMER1_COMPA_vect)
     // Sofortiger Hardware-Stopp in die ausgelöste Richtung.
     if (stepRun)
     {
-        if ((!io.dir && limitLeft) || (io.dir && limitRight))
+        if (!io.dir && limitLeft)
         {
             stepRun = false;
             stepLevel = false;
+
+            // Arduino D3 = MOTOR_PULS / STEP LOW
             PORTD &= ~_BV(PD3);
+
+            // Arduino D13 = bisheriger ISR-Testausgang LOW
             PORTB &= ~_BV(PB5);
+
+            return;
+        }
+
+        if (io.dir && limitRight)
+        {
+            stepRun = false;
+            stepLevel = false;
+
+            // Arduino D3 = MOTOR_PULS / STEP LOW
+            PORTD &= ~_BV(PD3);
+
+            // Arduino D13 = bisheriger ISR-Testausgang LOW
+            PORTB &= ~_BV(PB5);
+
             return;
         }
     }
