@@ -34,8 +34,8 @@ constexpr uint8_t MOTOR_DIR  = 4;
 
 constexpr uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
 
-constexpr uint8_t LSR   = 9;
-constexpr uint8_t LSL   = 12;
+constexpr uint8_t LSL   = 9;
+constexpr uint8_t LSR   = 12;
 constexpr uint8_t LSREF = 11;
 constexpr uint8_t LS4   = 10;
 
@@ -111,6 +111,25 @@ struct HWTestState
 
     bool displayDirty = true;
 };
+
+
+// -----------------------------------------------------------------------------
+// Mechanik-Messwerte
+// -----------------------------------------------------------------------------
+
+struct HWMeasurement
+{
+    uint16_t position = 0;
+    uint16_t refStart = 0;
+    uint16_t refEnd = 0;
+    uint16_t refLength = 0;
+    uint16_t totalLength = 0;
+    bool refValid = false;
+};
+
+extern volatile HWMeasurement measurement;
+
+void get_measurement(HWMeasurement& result);
 
 // Function interface
 void scanI2C();

@@ -229,7 +229,7 @@ void read_end_switches() { }
 
 void update_outputs()
 {
-    digitalWrite(MOTOR_ENA, io.ena ? LOW : HIGH);
+    digitalWrite(MOTOR_ENA, io.ena ? HIGH : LOW);
     digitalWrite(MOTOR_DIR, io.dir ? HIGH : LOW);
 
     expander.digitalWrite(LED_STOP_PIN, io.ledStop ? LOW : HIGH);
