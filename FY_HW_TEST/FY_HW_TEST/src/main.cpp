@@ -200,7 +200,8 @@ ISR(TIMER1_COMPA_vect)
     const bool limitLeft  = ((*LSL.inputRegister) & LSL.mask) != 0;
 
     // ISR-Endstopp: nur die Fahrtrichtung wird gesperrt.
-    // Das aktive Button-Event und die LED werden weiterhin im loop() gelöscht.
+    // Die Bewegungs-LED wird beim Erreichen des Endschalters sofort gelöscht;
+    // das aktive Button-Event bleibt bis zum Loslassen bestehen.
     if (stepRun)
     {
         if (!io.dir && limitLeft)
@@ -209,6 +210,8 @@ ISR(TIMER1_COMPA_vect)
             stepLevel = false;
 
             measurement.position = 1000;
+            io.ledLeft = false;
+            hw.displayDirty = true;
 
             PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
             PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
@@ -222,6 +225,9 @@ ISR(TIMER1_COMPA_vect)
 
             if (measurement.position >= 1000)
                 measurement.totalLength = measurement.position - 1000;
+
+            io.ledRight = false;
+            hw.displayDirty = true;
 
             PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
             PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
@@ -262,11 +268,17 @@ ISR(TIMER1_COMPA_vect)
         }
         else if (refLastState && !reference)
         {
-            if (refStartValid && measurement.position > measurement.refStart)
+            if (refStartValid)
             {
                 measurement.refEnd = measurement.position;
-                measurement.refLength =
-                    measurement.refEnd - measurement.refStart;
+
+                if (measurement.refEnd >= measurement.refStart)
+                    measurement.refLength =
+                        measurement.refEnd - measurement.refStart;
+                else
+                    measurement.refLength =
+                        measurement.refStart - measurement.refEnd;
+
                 measurement.refValid = true;
             }
         }
@@ -305,7 +317,7 @@ void init_step_timer()
     TIMSK1 |= _BV(OCIE1A);
     stepRun = false;
     stepLevel = false;
-    measurement.position = 1000;
+    measurement.position = measurement.totalLength / 2;
     measurement.refStart = 0;
     measurement.refEnd = 0;
     measurement.refLength = 0;
