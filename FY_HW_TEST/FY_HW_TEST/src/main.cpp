@@ -312,6 +312,7 @@ ISR(TIMER1_COMPA_vect)
             stepRun = false;
             stepLevel = false;
             PORTD &= ~_BV(PD3);
+            PORTB &= ~_BV(PB5);
             return;
         }
     }
@@ -320,6 +321,7 @@ ISR(TIMER1_COMPA_vect)
     {
         stepLevel = false;
         PORTD &= ~_BV(PD3);
+        PORTB &= ~_BV(PB5);
         return;
     }
 
@@ -329,11 +331,13 @@ ISR(TIMER1_COMPA_vect)
     {
         // STEP HIGH = Beginn des Schrittes.
         PORTD |= _BV(PD3);
+        PORTB |= _BV(PB5);
     }
     else
     {
         // STEP LOW = Schritt abgeschlossen.
         PORTD &= ~_BV(PD3);
+        PORTB &= ~_BV(PB5);
 
         // Position logisch zählen: links -> rechts aufwärts.
         if (io.dir)
@@ -453,36 +457,38 @@ void update_display()
 
     const HWMeasurement& m = displayMeasurement;
 
+    // Zeile 1: Motorzustand + Schrittfrequenz.
     display.print(F("M:"));
     display.print(io.ena ? F("ON ") : F("OFF"));
-    display.print(F(" "));
-    display.print(io.dir ? 'R' : 'L');
-    display.print(F(" "));
     display.print(hw.frequency);
     display.println(F("Hz"));
 
+    // Zeile 2: gemessene Referenzfahne + Gesamtweg L -> R.
     display.print(F("REF:"));
     if (m.refValid)
-    {
-        display.print(m.refStart);
-        display.print('-');
-        display.print(m.refEnd);
-        display.print('=');
-        display.println(m.refLength);
-    }
+        display.print(m.refLength);
     else
-    {
-        display.println(F("---"));
-    }
+        display.print(F("---"));
 
-    display.print(F("L-R:"));
-    display.print(m.totalLength);
-    display.print(F(" POS:"));
-    display.println(m.position);
+    display.print(F(" L-R:"));
+    if (m.totalLength > 0)
+        display.println(m.totalLength);
+    else
+        display.println(F("---"));
+
+    // Zeile 3: LS-Zustand aus dem Prozessbild.
+    // L/R = Endschalter, F = Referenzfahne, H = Hall-Sensor.
+    display.print(F("LS:L"));
+    display.print(io.limitLeft ? '1' : '0');
+    display.print(F(" R"));
+    display.print(io.limitRight ? '1' : '0');
+    display.print(F(" F"));
+    display.print(io.reference ? '1' : '0');
+    display.print(F(" H"));
+    display.println(io.hall ? '1' : '0');
 
     display.display();
 }
-
 // -----------------------------------------------------------------------------
 // Setup
 // -----------------------------------------------------------------------------
