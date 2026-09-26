@@ -229,7 +229,7 @@ void read_end_switches() { }
 
 void update_outputs()
 {
-    digitalWrite(MOTOR_ENA, io.ena ? HIGH : LOW);
+    digitalWrite(MOTOR_ENA, io.ena ? LOW : HIGH);
     digitalWrite(MOTOR_DIR, io.dir ? HIGH : LOW);
 
     expander.digitalWrite(LED_STOP_PIN, io.ledStop ? LOW : HIGH);
@@ -262,16 +262,16 @@ static volatile bool rightLengthCaptured = false;
 ISR(TIMER1_COMPA_vect)
 {
     // Sensoren direkt im ISR-Kontext lesen.
-    // D09 = PD1 = LSR
+    // D09 = PD1 = LSL
     // D11 = PB3 = LSREF
-    // D12 = PB4 = LSL
+    // D12 = PB4 = LSR
     const uint8_t portB = PINB;
     const uint8_t portD = PIND;
 
     // Endschalter: aktiv LOW. Referenzfahne: HIGH innerhalb der Fahne.
-    const bool limitRight = (portD & _BV(PD1)) == 0;
+    const bool limitLeft  = (portD & _BV(PD1)) == 0;
     const bool reference  = (portB & _BV(PB3)) != 0;
-    const bool limitLeft  = (portB & _BV(PB4)) == 0;
+    const bool limitRight = (portB & _BV(PB4)) == 0;
 
     // Endpositionen einmalig erfassen.
     // Links wird der Positionszähler auf 1000 gesetzt.
@@ -312,7 +312,6 @@ ISR(TIMER1_COMPA_vect)
             stepRun = false;
             stepLevel = false;
             PORTD &= ~_BV(PD3);
-            PORTB &= ~_BV(PB5);
             return;
         }
     }
@@ -321,7 +320,6 @@ ISR(TIMER1_COMPA_vect)
     {
         stepLevel = false;
         PORTD &= ~_BV(PD3);
-        PORTB &= ~_BV(PB5);
         return;
     }
 
@@ -331,13 +329,11 @@ ISR(TIMER1_COMPA_vect)
     {
         // STEP HIGH = Beginn des Schrittes.
         PORTD |= _BV(PD3);
-        PORTB |= _BV(PB5);
     }
     else
     {
         // STEP LOW = Schritt abgeschlossen.
         PORTD &= ~_BV(PD3);
-        PORTB &= ~_BV(PB5);
 
         // Position logisch zählen: links -> rechts aufwärts.
         if (io.dir)
