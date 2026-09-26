@@ -112,6 +112,25 @@ struct HWTestState
     bool displayDirty = true;
 };
 
+
+// -----------------------------------------------------------------------------
+// Mechanik-Messwerte
+// -----------------------------------------------------------------------------
+
+struct HWMeasurement
+{
+    uint16_t position = 0;
+    uint16_t refStart = 0;
+    uint16_t refEnd = 0;
+    uint16_t refLength = 0;
+    uint16_t totalLength = 0;
+    bool refValid = false;
+};
+
+extern volatile HWMeasurement measurement;
+
+void get_measurement(HWMeasurement& result);
+
 // Function interface
 void scanI2C();
 void initOLED();
