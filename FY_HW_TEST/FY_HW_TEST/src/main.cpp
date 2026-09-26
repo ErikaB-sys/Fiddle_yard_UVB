@@ -133,10 +133,10 @@ void read_IO()
     io.buttonRight = (expander.digitalRead(BUTTON_RIGHT_PIN) == LOW);
     io.buttonGo    = (expander.digitalRead(BUTTON_GO_PIN)    == LOW);
 
-    io.limitLeft   = digitalRead(LSL);
-    io.limitRight  = digitalRead(LSR);
-    io.reference   = digitalRead(LSREF);
-    io.hall        = digitalRead(LS4);
+    io.limitLeft   = digitalRead(LSL.pin);
+    io.limitRight  = digitalRead(LSR.pin);
+    io.reference   = digitalRead(LSREF.pin);
+    io.hall        = digitalRead(LS4.pin);
 }
 
 ButtonEvent read_buttons()
@@ -500,10 +500,10 @@ void setup()
     initOLED();
     init_expander();
 
-    pinMode(LSL, INPUT);
-    pinMode(LSR, INPUT);
-    pinMode(LSREF, INPUT);
-    pinMode(LS4, INPUT);
+    pinMode(LSL.pin, INPUT);
+    pinMode(LSR.pin, INPUT);
+    pinMode(LSREF.pin, INPUT);
+    pinMode(LS4.pin, INPUT);
 
     pinMode(MOTOR_ENA, OUTPUT);
     pinMode(MOTOR_PULS, OUTPUT);

@@ -34,10 +34,19 @@ constexpr uint8_t MOTOR_DIR  = 4;
 
 constexpr uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
 
-constexpr uint8_t LSR   = 9;
-constexpr uint8_t LSL   = 12;
-constexpr uint8_t LSREF = 11;
-constexpr uint8_t LS4   = 10;
+// Physical sensor definition: Arduino pin and its fast ISR access live together.
+// Normal code uses .pin; the Timer1 ISR uses .inputRegister/.mask.
+struct FastInputPin
+{
+    uint8_t pin;
+    volatile uint8_t* inputRegister;
+    uint8_t mask;
+};
+
+constexpr FastInputPin LSR   = {9,  &PIND, _BV(PD1)};
+constexpr FastInputPin LSL   = {12, &PINB, _BV(PB4)};
+constexpr FastInputPin LSREF = {11, &PINB, _BV(PB3)};
+constexpr FastInputPin LS4   = {10, &PINB, _BV(PB2)};
 
 // PCF8574
 constexpr uint8_t PORT_EXPANDER_ADDRESS = 0x27;
