@@ -263,10 +263,11 @@ ISR(TIMER1_COMPA_vect)
 {
     // Sensoren direkt im ISR-Kontext lesen.
     // Pin, Port und Bitmaske sind gemeinsam in HW_Test.h definiert.
-    // Endschalter: aktiv LOW. Referenzfahne: HIGH innerhalb der Fahne.
-    const bool limitRight = ((*LSR.inputRegister) & LSR.mask) == 0;
+    // Endschalter: aktiv HIGH (LOW = Lichtschranke frei).
+    // Referenzfahne: HIGH innerhalb der Fahne.
+    const bool limitRight = ((*LSR.inputRegister) & LSR.mask) != 0;
     const bool reference  = ((*LSREF.inputRegister) & LSREF.mask) != 0;
-    const bool limitLeft  = ((*LSL.inputRegister) & LSL.mask) == 0;
+    const bool limitLeft  = ((*LSL.inputRegister) & LSL.mask) != 0;
 
     // Endpositionen einmalig erfassen.
     // Links wird der Positionszähler auf 1000 gesetzt.
