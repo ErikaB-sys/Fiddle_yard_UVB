@@ -441,24 +441,14 @@ void update_display()
     display.setCursor(0, 0);
 
     // Messwerte erst bei stehender Bühne übernehmen.
-    HWMeasurement m;
+    static HWMeasurement displayMeasurement;
+
     if (!stepRun)
     {
-        get_measurement(m);
+        get_measurement(displayMeasurement);
     }
-    else
-    {
-        noInterrupts();
-        m = {
-            measurement.position,
-            measurement.refStart,
-            measurement.refEnd,
-            measurement.refLength,
-            measurement.totalLength,
-            measurement.refValid
-        };
-        interrupts();
-    }
+
+    const HWMeasurement& m = displayMeasurement;
 
     display.print(F("M:"));
     display.print(io.ena ? F("ON ") : F("OFF"));
