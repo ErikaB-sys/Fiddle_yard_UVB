@@ -14,7 +14,7 @@ constexpr uint32_t BUTTON_INTERVAL_MS  = 20;
 constexpr uint16_t STEP_FREQUENCIES[] = {10, 25, 50, 100, 200, 500, 800};
 constexpr uint8_t STEP_FREQUENCY_COUNT = sizeof(STEP_FREQUENCIES) / sizeof(STEP_FREQUENCIES[0]);
 constexpr uint32_t SWITCH_INTERVAL_MS  = 50;
-constexpr uint32_t DISPLAY_INTERVAL_MS = 500;
+constexpr uint32_t DISPLAY_INTERVAL_MS = 200;
 constexpr uint32_t SERIAL_INTERVAL_MS  = 500;
 
 // Button events
@@ -34,8 +34,8 @@ constexpr uint8_t MOTOR_DIR  = 4;
 
 constexpr uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
 
-constexpr uint8_t LSL   = 9;
-constexpr uint8_t LSR   = 12;
+constexpr uint8_t LSR   = 9;
+constexpr uint8_t LSL   = 12;
 constexpr uint8_t LSREF = 11;
 constexpr uint8_t LS4   = 10;
 
