@@ -247,13 +247,33 @@ void update_outputs()
 static volatile bool stepRun = false;
 static volatile bool stepLevel = false;
 
+// -----------------------------------------------------------------------------
+// Mechanik-Messung
+// -----------------------------------------------------------------------------
+// Die Messwerte werden ausschließlich in der Timer1-ISR erzeugt.
+// Das Hauptprogramm holt sie erst im Stillstand per get_measurement() ab.
+volatile HWMeasurement measurement;
+
+static volatile bool refLastState = false;
+static volatile bool refStartValid = false;
+
 ISR(TIMER1_COMPA_vect)
 {
-    // Immediate hardware stop at the corresponding end position.
-    // The central IO image is updated by read_IO() in the main loop.
+    // Endschalter direkt im ISR-Kontext lesen.
+    // Die Sensoren liegen auf PORTB:
+    // D09 = PB1 = LSR
+    // D11 = PB3 = LSREF
+    // D12 = PB4 = LSL
+    const uint8_t sensors = PINB;
+
+    const bool limitRight = (sensors & _BV(PB1)) != 0;
+    const bool reference  = (sensors & _BV(PB3)) != 0;
+    const bool limitLeft  = (sensors & _BV(PB4)) != 0;
+
+    // Sofortiger Hardware-Stopp in die ausgelöste Richtung.
     if (stepRun)
     {
-        if ((!io.dir && io.limitLeft) || (io.dir && io.limitRight))
+        if ((!io.dir && limitLeft) || (io.dir && limitRight))
         {
             stepRun = false;
             stepLevel = false;
@@ -275,13 +295,56 @@ ISR(TIMER1_COMPA_vect)
 
     if (stepLevel)
     {
+        // STEP HIGH = Beginn des Schrittes.
         PORTD |= _BV(PD3);
         PORTB |= _BV(PB5);
     }
     else
     {
+        // STEP LOW = Schritt abgeschlossen.
         PORTD &= ~_BV(PD3);
         PORTB &= ~_BV(PB5);
+
+        // Position logisch zählen: links -> rechts aufwärts.
+        if (io.dir)
+            measurement.position++;
+        else if (measurement.position > 0)
+            measurement.position--;
+
+        // Linker Endschalter definiert den Mess-Nullpunkt + 1000 Steps.
+        // Bei Fahrt nach links wird die Bewegung durch den Sicherheitscheck
+        // bereits vor dem nächsten STEP beendet.
+        if (limitLeft)
+            measurement.position = 1000;
+
+        // Referenzfahne über die Flanken vermessen.
+        // LOW -> HIGH: Startpunkt merken.
+        // HIGH -> LOW: nur bei steigender Position als gültige Länge übernehmen.
+        if (!refLastState && reference)
+        {
+            measurement.refStart = measurement.position;
+            refStartValid = true;
+            measurement.refValid = false;
+        }
+        else if (refLastState && !reference)
+        {
+            if (refStartValid && measurement.position > measurement.refStart)
+            {
+                measurement.refEnd = measurement.position;
+                measurement.refLength =
+                    measurement.refEnd - measurement.refStart;
+                measurement.refValid = true;
+            }
+        }
+
+        refLastState = reference;
+
+        // Rechter Endschalter liefert den Gesamtweg.
+        if (limitRight)
+        {
+            if (measurement.position >= 1000)
+                measurement.totalLength = measurement.position - 1000;
+        }
     }
 }
 
@@ -319,6 +382,14 @@ void init_step_timer()
     TIMSK1 |= _BV(OCIE1A);
     stepRun = false;
     stepLevel = false;
+    measurement.position = 1000;
+    measurement.refStart = 0;
+    measurement.refEnd = 0;
+    measurement.refLength = 0;
+    measurement.totalLength = 0;
+    measurement.refValid = false;
+    refStartValid = false;
+    refLastState = (PINB & _BV(PB3)) != 0;
     PORTD &= ~_BV(PD3);
     PORTB &= ~_BV(PB5);
     interrupts();
@@ -326,6 +397,22 @@ void init_step_timer()
     set_step_frequency(STEP_FREQUENCIES[0]);
 }
 
+
+// -----------------------------------------------------------------------------
+// Messwerte aus der ISR abholen
+// -----------------------------------------------------------------------------
+
+void get_measurement(HWMeasurement& result)
+{
+    noInterrupts();
+    result.position = measurement.position;
+    result.refStart = measurement.refStart;
+    result.refEnd = measurement.refEnd;
+    result.refLength = measurement.refLength;
+    result.totalLength = measurement.totalLength;
+    result.refValid = measurement.refValid;
+    interrupts();
+}
 
 // -----------------------------------------------------------------------------
 // Display
@@ -336,25 +423,36 @@ void update_display()
     display.clearDisplay();
     display.setCursor(0, 0);
 
-    // Display the central motor/output state rather than button inputs.
-    display.print(F("MOTOR:"));
-    display.print(io.ena ? F(" ON ") : F(" OFF"));
-    display.print(F(" DIR:"));
-    display.println(io.dir ? 'R' : 'L');
+    // Messwerte erst bei stehender Bühne übernehmen.
+    HWMeasurement m;
+    get_measurement(m);
 
-    display.print(F("STEP:"));
+    display.print(F("M:"));
+    display.print(io.ena ? F("ON ") : F("OFF"));
+    display.print(F(" "));
+    display.print(io.dir ? 'R' : 'L');
+    display.print(F(" "));
     display.print(hw.frequency);
-    display.println(F(" Hz"));
+    display.println(F("Hz"));
 
-    display.print(F("L:"));
-    display.print(io.limitLeft ? '1' : '0');
-    display.print(F(" R:"));
-    display.print(io.limitRight ? '1' : '0');
-    display.print(F(" REF:"));
-    display.print(io.reference ? '1' : '0');
+    display.print(F("REF:"));
+    if (m.refValid)
+    {
+        display.print(m.refStart);
+        display.print('-');
+        display.print(m.refEnd);
+        display.print('=');
+        display.println(m.refLength);
+    }
+    else
+    {
+        display.println(F("---"));
+    }
 
-    display.print(F(" HALL:"));
-    display.println(io.hall ? '1' : '0');
+    display.print(F("L-R:"));
+    display.print(m.totalLength);
+    display.print(F(" POS:"));
+    display.println(m.position);
 
     display.display();
 }
