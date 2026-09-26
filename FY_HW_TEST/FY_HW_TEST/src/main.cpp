@@ -6,31 +6,20 @@
 
 #include "HW_Test.h"
 
-// -----------------------------------------------------------------------------
-// Hardware
-// -----------------------------------------------------------------------------
-
 Adafruit_SSD1306 display(128, 32, &Wire, -1);
 PCF8574 expander(PORT_EXPANDER_ADDRESS);
 
 HWIOState io;
 HWTestState hw;
 
-// Scheduler timestamps
 static uint32_t tButtons  = 0;
 static uint32_t tSwitches = 0;
 static uint32_t tDisplay  = 0;
 
-// Previous button state for edge detection
 static bool lastStop  = false;
 static bool lastLeft  = false;
 static bool lastRight = false;
 static bool lastGo    = false;
-
-
-// -----------------------------------------------------------------------------
-// I2C
-// -----------------------------------------------------------------------------
 
 void scanI2C()
 {
@@ -60,20 +49,12 @@ void scanI2C()
     Serial.println(found);
 }
 
-
-// -----------------------------------------------------------------------------
-// OLED
-// -----------------------------------------------------------------------------
-
 void initOLED()
 {
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
     {
         Serial.println(F("Error initializing OLED!"));
-
-        while (true)
-        {
-        }
+        while (true) {}
     }
 
     display.setRotation(2);
@@ -89,18 +70,10 @@ void initOLED()
     display.display();
 }
 
-
-// Forward declaration used during expander initialization.
 static void all_mapping_leds_off();
-
-// -----------------------------------------------------------------------------
-// PCF8574
-// -----------------------------------------------------------------------------
 
 void init_expander()
 {
-    // Configure the PCF8574 before begin(). INPUT is sufficient for the
-    // quasi-bidirectional button inputs; no manual HIGH writes are needed.
     expander.pinMode(BUTTON_STOP_PIN, INPUT);
     expander.pinMode(BUTTON_GO_PIN, INPUT);
     expander.pinMode(BUTTON_LEFT_PIN, INPUT);
@@ -114,17 +87,9 @@ void init_expander()
     if (!expander.begin())
     {
         Serial.println(F("Error initializing PCF8574!"));
-
-        while (true)
-        {
-        }
+        while (true) {}
     }
 }
-
-
-// -----------------------------------------------------------------------------
-// Buttons
-// -----------------------------------------------------------------------------
 
 void read_IO()
 {
@@ -165,19 +130,12 @@ ButtonEvent read_buttons()
     return event;
 }
 
-
-// -----------------------------------------------------------------------------
-// Action / LED state
-// -----------------------------------------------------------------------------
-
 void set_active_button(ButtonEvent event)
 {
     hw.activeButton = event;
     hw.busy = (event != BUTTON_NONE);
     hw.button = event;
 
-    // Green/red indicate the latched motor enable state.
-    // Blue LEDs indicate the currently active movement button.
     io.ledStop  = !io.ena;
     io.ledGo    = io.ena;
     io.ledLeft  = (event == BUTTON_LEFT);
@@ -192,8 +150,6 @@ void clear_active_button()
     hw.busy = false;
     hw.button = BUTTON_NONE;
 
-    // Keep green/red as motor-state indicators.
-    // Movement LEDs are only active while the button is held.
     io.ledStop = !io.ena;
     io.ledGo = io.ena;
     io.ledLeft = false;
@@ -202,8 +158,6 @@ void clear_active_button()
     hw.displayDirty = true;
 }
 
-
-// Return the current physical state of the active button.
 static bool active_button_pressed()
 {
     switch (hw.activeButton)
@@ -216,16 +170,7 @@ static bool active_button_pressed()
     }
 }
 
-// -----------------------------------------------------------------------------
-// End switches
-// -----------------------------------------------------------------------------
-
-void read_end_switches() { }
-
-
-// -----------------------------------------------------------------------------
-// Outputs
-// -----------------------------------------------------------------------------
+void read_end_switches() {}
 
 void update_outputs()
 {
@@ -238,20 +183,9 @@ void update_outputs()
     expander.digitalWrite(LED_RIGHT_PIN, io.ledRight ? LOW : HIGH);
 }
 
-// -----------------------------------------------------------------------------
-// Timer1 STEP generator
-// -----------------------------------------------------------------------------
-// 20 Hz interrupt -> 10 Hz STEP square wave. Intentionally slow for the
-// hardware smoke test so the signal is easy to observe.
-
 static volatile bool stepRun = false;
 static volatile bool stepLevel = false;
 
-// -----------------------------------------------------------------------------
-// Mechanik-Messung
-// -----------------------------------------------------------------------------
-// Die Messwerte werden ausschließlich in der Timer1-ISR erzeugt.
-// Das Hauptprogramm holt sie erst im Stillstand per get_measurement() ab.
 volatile HWMeasurement measurement;
 
 static volatile bool refLastState = false;
@@ -261,9 +195,39 @@ static volatile bool rightLengthCaptured = false;
 
 ISR(TIMER1_COMPA_vect)
 {
-    // Sensoren werden für diesen Test NICHT zur Fahrbegrenzung ausgewertet.
-    // Die Endschalter wirken ausschließlich in der Button-Logik im loop().
-    const bool reference = ((*LSREF.inputRegister) & LSREF.mask) != 0;
+    const bool limitRight = ((*LSR.inputRegister) & LSR.mask) != 0;
+    const bool reference  = ((*LSREF.inputRegister) & LSREF.mask) != 0;
+    const bool limitLeft  = ((*LSL.inputRegister) & LSL.mask) != 0;
+
+    // ISR-Endstopp: nur die Fahrtrichtung wird gesperrt.
+    // Das aktive Button-Event und die LED werden weiterhin im loop() gelöscht.
+    if (stepRun)
+    {
+        if (!io.dir && limitLeft)
+        {
+            stepRun = false;
+            stepLevel = false;
+
+            measurement.position = 1000;
+
+            PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
+            PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
+            return;
+        }
+
+        if (io.dir && limitRight)
+        {
+            stepRun = false;
+            stepLevel = false;
+
+            if (measurement.position >= 1000)
+                measurement.totalLength = measurement.position - 1000;
+
+            PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
+            PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
+            return;
+        }
+    }
 
     if (!stepRun)
     {
@@ -285,13 +249,11 @@ ISR(TIMER1_COMPA_vect)
         PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
         PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
 
-        // Position logisch zählen: links -> rechts aufwärts.
         if (io.dir)
             measurement.position++;
         else if (measurement.position > 0)
             measurement.position--;
 
-        // Referenzfahne über die Flanken vermessen.
         if (!refLastState && reference)
         {
             measurement.refStart = measurement.position;
@@ -316,12 +278,8 @@ ISR(TIMER1_COMPA_vect)
 void set_step_frequency(uint16_t frequency)
 {
     if (frequency == 0)
-    {
         return;
-    }
 
-    // 16 MHz / 1024 timer clock. The ISR toggles STEP, so the interrupt
-    // frequency is twice the requested STEP frequency.
     uint32_t denominator = 2UL * frequency;
     uint32_t reload = ((F_CPU / 1024UL) + (denominator / 2UL)) / denominator - 1UL;
 
@@ -364,11 +322,6 @@ void init_step_timer()
     set_step_frequency(STEP_FREQUENCIES[0]);
 }
 
-
-// -----------------------------------------------------------------------------
-// Messwerte aus der ISR abholen
-// -----------------------------------------------------------------------------
-
 void get_measurement(HWMeasurement& result)
 {
     noInterrupts();
@@ -381,32 +334,23 @@ void get_measurement(HWMeasurement& result)
     interrupts();
 }
 
-// -----------------------------------------------------------------------------
-// Display
-// -----------------------------------------------------------------------------
-
 void update_display()
 {
     display.clearDisplay();
     display.setCursor(0, 0);
 
-    // Messwerte erst bei stehender Bühne übernehmen.
     static HWMeasurement displayMeasurement;
 
     if (!stepRun)
-    {
         get_measurement(displayMeasurement);
-    }
 
     const HWMeasurement& m = displayMeasurement;
 
-    // Zeile 1: Motorzustand + Schrittfrequenz.
     display.print(F("M:"));
     display.print(io.ena ? F("ON ") : F("OFF"));
     display.print(hw.frequency);
     display.println(F("Hz"));
 
-    // Zeile 2: gemessene Referenzfahne + Gesamtweg L -> R.
     display.print(F("REF:"));
     if (m.refValid)
         display.print(m.refLength);
@@ -419,8 +363,6 @@ void update_display()
     else
         display.println(F("---"));
 
-    // Zeile 3: LS-Zustand aus dem Prozessbild.
-    // L/R = Endschalter, F = Referenzfahne, H = Hall-Sensor.
     display.print(F("LS:L"));
     display.print(io.limitLeft ? '1' : '0');
     display.print(F(" R"));
@@ -430,13 +372,12 @@ void update_display()
     display.print(F(" H"));
     display.println(io.hall ? '1' : '0');
 
+    // Zeile 4: aktuelle Positionszählung.
+    display.print(F("POS:"));
+    display.println(m.position);
+
     display.display();
 }
-
-
-// -----------------------------------------------------------------------------
-// Setup
-// -----------------------------------------------------------------------------
 
 void setup()
 {
@@ -446,7 +387,6 @@ void setup()
     delay(100);
 
     scanI2C();
-
     initOLED();
     init_expander();
 
@@ -476,11 +416,6 @@ void setup()
 
     Serial.println(F("init done"));
 }
-
-
-// -----------------------------------------------------------------------------
-// Main loop - simple cooperative scheduler
-// -----------------------------------------------------------------------------
 
 void loop()
 {
@@ -517,12 +452,9 @@ void loop()
                         break;
 
                     case BUTTON_LEFT:
-                        // Endschalterbegrenzung ausschließlich auf Button-Ebene:
-                        // LSL HIGH -> LEFT wird weder gestartet noch angezeigt.
+                        // Endschalterbegrenzung beim Start bleibt erhalten.
                         if (io.limitLeft)
-                        {
                             break;
-                        }
 
                         if (!io.ena)
                         {
@@ -548,12 +480,9 @@ void loop()
                         break;
 
                     case BUTTON_RIGHT:
-                        // Endschalterbegrenzung ausschließlich auf Button-Ebene:
-                        // LSR HIGH -> RIGHT wird weder gestartet noch angezeigt.
+                        // Endschalterbegrenzung beim Start bleibt erhalten.
                         if (io.limitRight)
-                        {
                             break;
-                        }
 
                         if (!io.ena)
                         {
@@ -585,28 +514,14 @@ void loop()
         }
     }
 
-    // Endschalter werden im normalen loop() ausgewertet, nicht in der ISR.
-    // Wenn die aktive Fahrtrichtung ihren Endschalter erreicht, behandeln wir
-    // das wie das Loslassen der Taste: Motorlauf aus, Event gelöscht, LED aus.
+    // Nur die aktive Bewegung wird durch den LS beendet.
+    // Das LED-/Button-Verhalten bleibt wie beim normalen Loslassen.
     if (now - tSwitches >= SWITCH_INTERVAL_MS)
     {
         tSwitches = now;
         read_end_switches();
-
-        if (hw.activeButton == BUTTON_LEFT && io.limitLeft)
-        {
-            stepRun = false;
-            clear_active_button();
-        }
-        else if (hw.activeButton == BUTTON_RIGHT && io.limitRight)
-        {
-            stepRun = false;
-            clear_active_button();
-        }
     }
 
-    // Normaler Press-and-hold-Fall:
-    // Taste losgelassen -> Motorlauf aus, Event gelöscht, LED aus.
     if (hw.busy && !active_button_pressed())
     {
         if (hw.activeButton == BUTTON_LEFT ||
