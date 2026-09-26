@@ -261,82 +261,15 @@ static volatile bool rightLengthCaptured = false;
 
 ISR(TIMER1_COMPA_vect)
 {
-    // Sensoren direkt im ISR-Kontext lesen.
-    // Pin, Port und Bitmaske sind gemeinsam in HW_Test.h definiert.
-    // Endschalter: aktiv HIGH (LOW = Lichtschranke frei).
-    // Referenzfahne: HIGH innerhalb der Fahne.
-    const bool limitRight = ((*LSR.inputRegister) & LSR.mask) != 0;
-    const bool reference  = ((*LSREF.inputRegister) & LSREF.mask) != 0;
-    const bool limitLeft  = ((*LSL.inputRegister) & LSL.mask) != 0;
-
-    // Endpositionen einmalig erfassen.
-    // Links wird der Positionszähler auf 1000 gesetzt.
-    // Rechts wird daraus der Gesamtweg Links -> Rechts berechnet.
-    if (limitLeft && !leftReferenceApplied)
-    {
-        measurement.position = 1000;
-        measurement.refStart = 0;
-        measurement.refEnd = 0;
-        measurement.refLength = 0;
-        measurement.totalLength = 0;
-        measurement.refValid = false;
-        refStartValid = false;
-        leftReferenceApplied = true;
-    }
-    else if (!limitLeft)
-    {
-        leftReferenceApplied = false;
-    }
-
-    if (limitRight && !rightLengthCaptured)
-    {
-        if (measurement.position >= 1000)
-            measurement.totalLength = measurement.position - 1000;
-
-        rightLengthCaptured = true;
-    }
-    else if (!limitRight)
-    {
-        rightLengthCaptured = false;
-    }
-
-    // Sofortiger Hardware-Stopp in die ausgelöste Richtung.
-    if (stepRun)
-    {
-        if (!io.dir && limitLeft)
-        {
-            stepRun = false;
-            stepLevel = false;
-
-            // Arduino D3 = MOTOR_PULS / STEP LOW
-            PORTD &= ~_BV(PD3);
-
-            // Arduino D13 = bisheriger ISR-Testausgang LOW
-            PORTB &= ~_BV(PB5);
-
-            return;
-        }
-
-        if (io.dir && limitRight)
-        {
-            stepRun = false;
-            stepLevel = false;
-
-            // Arduino D3 = MOTOR_PULS / STEP LOW
-            PORTD &= ~_BV(PD3);
-
-            // Arduino D13 = bisheriger ISR-Testausgang LOW
-            PORTB &= ~_BV(PB5);
-
-            return;
-        }
-    }
+    // Sensoren werden für diesen Test NICHT zur Fahrbegrenzung ausgewertet.
+    // Die Endschalter wirken ausschließlich in der Button-Logik im loop().
+    const bool reference = ((*LSREF.inputRegister) & LSREF.mask) != 0;
 
     if (!stepRun)
     {
         stepLevel = false;
-        PORTD &= ~_BV(PD3);
-        PORTB &= ~_BV(PB5);
+        PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
+        PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
         return;
     }
 
@@ -344,15 +277,13 @@ ISR(TIMER1_COMPA_vect)
 
     if (stepLevel)
     {
-        // STEP HIGH = Beginn des Schrittes.
-        PORTD |= _BV(PD3);
-        PORTB |= _BV(PB5);
+        PORTD |= _BV(PD3);    // Arduino D3 = MOTOR_PULS / STEP HIGH
+        PORTB |= _BV(PB5);    // Arduino D13 = ISR-Testausgang HIGH
     }
     else
     {
-        // STEP LOW = Schritt abgeschlossen.
-        PORTD &= ~_BV(PD3);
-        PORTB &= ~_BV(PB5);
+        PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
+        PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
 
         // Position logisch zählen: links -> rechts aufwärts.
         if (io.dir)
@@ -361,8 +292,6 @@ ISR(TIMER1_COMPA_vect)
             measurement.position--;
 
         // Referenzfahne über die Flanken vermessen.
-        // LOW -> HIGH: Startpunkt merken.
-        // HIGH -> LOW: nur bei steigender Position als gültige Länge übernehmen.
         if (!refLastState && reference)
         {
             measurement.refStart = measurement.position;
@@ -381,7 +310,6 @@ ISR(TIMER1_COMPA_vect)
         }
 
         refLastState = reference;
-
     }
 }
 
@@ -504,6 +432,8 @@ void update_display()
 
     display.display();
 }
+
+
 // -----------------------------------------------------------------------------
 // Setup
 // -----------------------------------------------------------------------------
@@ -582,12 +512,18 @@ void loop()
                         hw.ena = true;
                         io.ena = true;
                         stepRun = false;
-                        // Keep the frequency selected while ENA was OFF.
                         set_step_frequency(hw.frequency);
                         set_active_button(BUTTON_GO);
                         break;
 
                     case BUTTON_LEFT:
+                        // Endschalterbegrenzung ausschließlich auf Button-Ebene:
+                        // LSL HIGH -> LEFT wird weder gestartet noch angezeigt.
+                        if (io.limitLeft)
+                        {
+                            break;
+                        }
+
                         if (!io.ena)
                         {
                             for (uint8_t i = 0; i < STEP_FREQUENCY_COUNT; ++i)
@@ -612,6 +548,13 @@ void loop()
                         break;
 
                     case BUTTON_RIGHT:
+                        // Endschalterbegrenzung ausschließlich auf Button-Ebene:
+                        // LSR HIGH -> RIGHT wird weder gestartet noch angezeigt.
+                        if (io.limitRight)
+                        {
+                            break;
+                        }
+
                         if (!io.ena)
                         {
                             for (uint8_t i = 0; i < STEP_FREQUENCY_COUNT; ++i)
@@ -638,19 +581,32 @@ void loop()
                     default:
                         break;
                 }
-
             }
         }
     }
 
+    // Endschalter werden im normalen loop() ausgewertet, nicht in der ISR.
+    // Wenn die aktive Fahrtrichtung ihren Endschalter erreicht, behandeln wir
+    // das wie das Loslassen der Taste: Motorlauf aus, Event gelöscht, LED aus.
     if (now - tSwitches >= SWITCH_INTERVAL_MS)
     {
         tSwitches = now;
         read_end_switches();
+
+        if (hw.activeButton == BUTTON_LEFT && io.limitLeft)
+        {
+            stepRun = false;
+            clear_active_button();
+        }
+        else if (hw.activeButton == BUTTON_RIGHT && io.limitRight)
+        {
+            stepRun = false;
+            clear_active_button();
+        }
     }
 
-    // The hardware test is deliberately press-and-hold:
-    // press -> LED/action ON, release -> LED/action OFF.
+    // Normaler Press-and-hold-Fall:
+    // Taste losgelassen -> Motorlauf aus, Event gelöscht, LED aus.
     if (hw.busy && !active_button_pressed())
     {
         if (hw.activeButton == BUTTON_LEFT ||
