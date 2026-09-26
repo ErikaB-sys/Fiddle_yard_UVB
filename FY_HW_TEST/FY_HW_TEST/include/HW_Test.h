@@ -34,8 +34,8 @@ constexpr uint8_t MOTOR_DIR  = 4;
 
 constexpr uint8_t LED_BUILTIN_PIN = LED_BUILTIN;
 
-constexpr uint8_t LSR   = 9;
-constexpr uint8_t LSL   = 12;
+constexpr uint8_t LSL   = 9;
+constexpr uint8_t LSR   = 12;
 constexpr uint8_t LSREF = 11;
 constexpr uint8_t LS4   = 10;
 
