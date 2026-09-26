@@ -43,7 +43,12 @@ struct FastInputPin
     uint8_t mask;
 };
 
-constexpr FastInputPin LSR   = {9,  &PIND, _BV(PD1)};
+// Arduino Nano ATmega328P:
+//   D9  = PB1
+//   D12 = PB4
+//   D11 = PB3
+//   D10 = PB2
+constexpr FastInputPin LSR   = {9,  &PINB, _BV(PB1)};
 constexpr FastInputPin LSL   = {12, &PINB, _BV(PB4)};
 constexpr FastInputPin LSREF = {11, &PINB, _BV(PB3)};
 constexpr FastInputPin LS4   = {10, &PINB, _BV(PB2)};
