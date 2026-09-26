@@ -261,17 +261,17 @@ static volatile bool rightLengthCaptured = false;
 
 ISR(TIMER1_COMPA_vect)
 {
-    // Endschalter direkt im ISR-Kontext lesen.
-    // Die Sensoren liegen auf PORTB:
-    // D09 = PB1 = LSR
+    // Sensoren direkt im ISR-Kontext lesen.
+    // D09 = PD1 = LSR
     // D11 = PB3 = LSREF
     // D12 = PB4 = LSL
-    const uint8_t sensors = PINB;
+    const uint8_t portB = PINB;
+    const uint8_t portD = PIND;
 
-    // Endschalter/Referenz: aktiv = LOW, wie in der produktiven Sensorlogik.
-    const bool limitRight = (sensors & _BV(PB1)) == 0;
-    const bool reference  = (sensors & _BV(PB3)) != 0;
-    const bool limitLeft  = (sensors & _BV(PB4)) == 0;
+    // Endschalter: aktiv LOW. Referenzfahne: HIGH innerhalb der Fahne.
+    const bool limitRight = (portD & _BV(PD1)) == 0;
+    const bool reference  = (portB & _BV(PB3)) != 0;
+    const bool limitLeft  = (portB & _BV(PB4)) == 0;
 
     // Endpositionen einmalig erfassen.
     // Links wird der Positionszähler auf 1000 gesetzt.
@@ -279,6 +279,12 @@ ISR(TIMER1_COMPA_vect)
     if (limitLeft && !leftReferenceApplied)
     {
         measurement.position = 1000;
+        measurement.refStart = 0;
+        measurement.refEnd = 0;
+        measurement.refLength = 0;
+        measurement.totalLength = 0;
+        measurement.refValid = false;
+        refStartValid = false;
         leftReferenceApplied = true;
     }
     else if (!limitLeft)
