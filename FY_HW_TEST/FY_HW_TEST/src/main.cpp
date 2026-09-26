@@ -268,9 +268,10 @@ ISR(TIMER1_COMPA_vect)
     // D12 = PB4 = LSL
     const uint8_t sensors = PINB;
 
-    const bool limitRight = (sensors & _BV(PB1)) != 0;
+    // Endschalter/Referenz: aktiv = LOW, wie in der produktiven Sensorlogik.
+    const bool limitRight = (sensors & _BV(PB1)) == 0;
     const bool reference  = (sensors & _BV(PB3)) != 0;
-    const bool limitLeft  = (sensors & _BV(PB4)) != 0;
+    const bool limitLeft  = (sensors & _BV(PB4)) == 0;
 
     // Endpositionen einmalig erfassen.
     // Links wird der Positionszähler auf 1000 gesetzt.
