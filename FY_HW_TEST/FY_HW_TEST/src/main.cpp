@@ -262,17 +262,11 @@ static volatile bool rightLengthCaptured = false;
 ISR(TIMER1_COMPA_vect)
 {
     // Sensoren direkt im ISR-Kontext lesen.
-    // Die physische Zuordnung kommt ausschließlich aus HW_Test.h:
-    //   LSR = D9  = PD1
-    //   LSREF = D11 = PB3
-    //   LSL = D12 = PB4
-    const uint8_t portB = PINB;
-    const uint8_t portD = PIND;
-
+    // Pin, Port und Bitmaske sind gemeinsam in HW_Test.h definiert.
     // Endschalter: aktiv LOW. Referenzfahne: HIGH innerhalb der Fahne.
-    const bool limitRight = (portD & _BV(PD1)) == 0;
-    const bool reference  = (portB & _BV(PB3)) != 0;
-    const bool limitLeft  = (portB & _BV(PB4)) == 0;
+    const bool limitRight = ((*LSR.inputRegister) & LSR.mask) == 0;
+    const bool reference  = ((*LSREF.inputRegister) & LSREF.mask) != 0;
+    const bool limitLeft  = ((*LSL.inputRegister) & LSL.mask) == 0;
 
     // Endpositionen einmalig erfassen.
     // Links wird der Positionszähler auf 1000 gesetzt.
