@@ -70,7 +70,7 @@ void initOLED()
     display.display();
 }
 
-static void all_mapping_leds_off();
+// static void all_mapping_leds_off();
 
 void init_expander()
 {
@@ -317,11 +317,11 @@ void init_step_timer()
     TIMSK1 |= _BV(OCIE1A);
     stepRun = false;
     stepLevel = false;
-    measurement.position = measurement.totalLength / 2;
+    measurement.position = measurement.totalLength ;
     measurement.refStart = 0;
     measurement.refEnd = 0;
     measurement.refLength = 0;
-    measurement.totalLength = 0;
+    measurement.totalLength = MAX_ALLOWED_STEPS;
     measurement.refValid = false;
     refStartValid = false;
     leftReferenceApplied = false;
@@ -526,7 +526,7 @@ void loop()
         }
     }
 
-    // Nur die aktive Bewegung wird durch den LS beendet.
+    // Nur die aktive Bewegung wird durch die LS beendet.
     // Das LED-/Button-Verhalten bleibt wie beim normalen Loslassen.
     if (now - tSwitches >= SWITCH_INTERVAL_MS)
     {

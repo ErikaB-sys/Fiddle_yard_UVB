@@ -11,9 +11,9 @@ constexpr uint32_t BUTTON_INTERVAL_MS  = 20;
 
 // Adjustable STEP frequency for the hardware test.
 // BLUE 1 / BLUE 2 select the next lower / higher test frequency while ENA is OFF.
-constexpr uint16_t STEP_FREQUENCIES[] = {10, 25, 50, 100, 200, 500, 800};
+constexpr uint16_t STEP_FREQUENCIES[] = {100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500};
 constexpr uint8_t STEP_FREQUENCY_COUNT = sizeof(STEP_FREQUENCIES) / sizeof(STEP_FREQUENCIES[0]);
-constexpr uint32_t SWITCH_INTERVAL_MS  = 50;
+constexpr uint32_t SWITCH_INTERVAL_MS  = 20;
 constexpr uint32_t DISPLAY_INTERVAL_MS = 200;
 constexpr uint32_t SERIAL_INTERVAL_MS  = 500;
 
@@ -43,7 +43,12 @@ struct FastInputPin
     uint8_t mask;
 };
 
-constexpr FastInputPin LSR   = {9,  &PIND, _BV(PD1)};
+// Arduino Nano ATmega328P:
+//   D9  = PB1
+//   D12 = PB4
+//   D11 = PB3
+//   D10 = PB2
+constexpr FastInputPin LSR   = {9,  &PINB, _BV(PB1)};
 constexpr FastInputPin LSL   = {12, &PINB, _BV(PB4)};
 constexpr FastInputPin LSREF = {11, &PINB, _BV(PB3)};
 constexpr FastInputPin LS4   = {10, &PINB, _BV(PB2)};
@@ -66,6 +71,10 @@ constexpr uint8_t LED_STOP_PIN  = P3;
 constexpr uint8_t LED_LEFT_PIN  = P2;
 constexpr uint8_t LED_GO_PIN    = P1;
 constexpr uint8_t LED_RIGHT_PIN = P0;
+
+//Handy  contants 
+constexpr uint16_t MAX_ALLOWED_STEPS = 25000;
+
 
 // Central hardware IO image
 // All physical inputs are read in read_IO(). All other code works only
@@ -132,7 +141,7 @@ struct HWMeasurement
     uint16_t refStart = 0;
     uint16_t refEnd = 0;
     uint16_t refLength = 0;
-    uint16_t totalLength = 0;
+    uint16_t totalLength = MAX_ALLOWED_STEPS;
     bool refValid = false;
 };
 

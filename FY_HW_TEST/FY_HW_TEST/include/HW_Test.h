@@ -13,7 +13,7 @@ constexpr uint32_t BUTTON_INTERVAL_MS  = 20;
 // BLUE 1 / BLUE 2 select the next lower / higher test frequency while ENA is OFF.
 constexpr uint16_t STEP_FREQUENCIES[] = {100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500};
 constexpr uint8_t STEP_FREQUENCY_COUNT = sizeof(STEP_FREQUENCIES) / sizeof(STEP_FREQUENCIES[0]);
-constexpr uint32_t SWITCH_INTERVAL_MS  = 50;
+constexpr uint32_t SWITCH_INTERVAL_MS  = 20;
 constexpr uint32_t DISPLAY_INTERVAL_MS = 200;
 constexpr uint32_t SERIAL_INTERVAL_MS  = 500;
 
@@ -71,6 +71,10 @@ constexpr uint8_t LED_STOP_PIN  = P3;
 constexpr uint8_t LED_LEFT_PIN  = P2;
 constexpr uint8_t LED_GO_PIN    = P1;
 constexpr uint8_t LED_RIGHT_PIN = P0;
+
+//Handy  contants 
+constexpr uint16_t MAX_ALLOWED_STEPS = 25000;
+
 
 // Central hardware IO image
 // All physical inputs are read in read_IO(). All other code works only
@@ -137,7 +141,7 @@ struct HWMeasurement
     uint16_t refStart = 0;
     uint16_t refEnd = 0;
     uint16_t refLength = 0;
-    uint16_t totalLength = 0;
+    uint16_t totalLength = MAX_ALLOWED_STEPS;
     bool refValid = false;
 };
 
