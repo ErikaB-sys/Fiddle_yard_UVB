@@ -1,0 +1,9 @@
+flowchart TD
+    A[Position counter] --> B{Reference LOW -> HIGH?}
+    B -->|Yes| C[REF_START = position]
+    B -->|No| D{Reference HIGH -> LOW?}
+    D -->|Yes| E{REF_START valid?}
+    E -->|Yes| F[REF_END = position]
+    F --> G[REF_LENGTH = absolute difference]
+    E -->|No| H[ignore]
+    D -->|No| I[continue]
