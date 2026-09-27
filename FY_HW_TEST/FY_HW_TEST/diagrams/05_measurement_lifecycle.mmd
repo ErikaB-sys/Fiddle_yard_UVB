@@ -1,0 +1,10 @@
+flowchart TD
+    A[LS_LEFT] --> B[position = 1000]
+    B --> C[manual movement]
+    C --> D[reference flag measured]
+    D --> E[manual movement to right]
+    E --> F[LS_RIGHT]
+    F --> G[TOTAL_LENGTH = position - 1000]
+    G --> H[stop movement]
+    H --> I[main reads measurement atomically]
+    I --> J[OLED display]
