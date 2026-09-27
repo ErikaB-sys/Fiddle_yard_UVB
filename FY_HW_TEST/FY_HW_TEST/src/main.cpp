@@ -465,7 +465,7 @@ void loop()
 
                     case BUTTON_LEFT:
                         // Endschalterbegrenzung beim Start bleibt erhalten.
-                        if (io.limitLeft)
+                        if ((true ==io.limitLeft) && (true== io.ena ))
                             break;
 
                         if (!io.ena)
@@ -493,7 +493,7 @@ void loop()
 
                     case BUTTON_RIGHT:
                         // Endschalterbegrenzung beim Start bleibt erhalten.
-                        if (io.limitRight)
+                        if ((true == io.limitRight)&& (true== io.ena))
                             break;
 
                         if (!io.ena)
