@@ -1,0 +1,14 @@
+flowchart TD
+    A[loop] --> B{Button event?}
+    B -->|STOP| C[ENA OFF / stepRun OFF]
+    B -->|GO| D[ENA ON]
+    B -->|LEFT| E{ENA?}
+    B -->|RIGHT| F{ENA?}
+    E -->|No| G[frequency lower]
+    E -->|Yes| H{limitLeft?}
+    H -->|Yes| I[do nothing]
+    H -->|No| J[DIR LEFT / stepRun]
+    F -->|No| K[frequency higher]
+    F -->|Yes| L{limitRight?}
+    L -->|Yes| M[do nothing]
+    L -->|No| N[DIR RIGHT / stepRun]
