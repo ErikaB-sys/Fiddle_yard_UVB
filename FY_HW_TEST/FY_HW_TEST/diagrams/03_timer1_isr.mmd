@@ -1,0 +1,12 @@
+flowchart TD
+    A[Timer1 ISR] --> B[read sensors via AVR registers]
+    B --> C{stepRun?}
+    C -->|No| D[STEP LOW / return]
+    C -->|Yes| E{Endschalter in Fahrtrichtung?}
+    E -->|Yes| F[stop stepRun / update measurement]
+    E -->|No| G[toggle STEP]
+    G --> H{STEP falling edge?}
+    H -->|No| I[return]
+    H -->|Yes| J[position +/- 1]
+    J --> K[reference edge detection]
+    K --> I
