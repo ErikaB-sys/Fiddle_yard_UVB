@@ -21,6 +21,8 @@ static bool lastLeft  = false;
 static bool lastRight = false;
 static bool lastGo    = false;
 
+static volatile bool updateOut = true;
+
 void scanI2C()
 {
     Serial.println(F("I2C Scanner"));
@@ -141,6 +143,7 @@ void set_active_button(ButtonEvent event)
     io.ledLeft  = (event == BUTTON_LEFT);
     io.ledRight = (event == BUTTON_RIGHT);
 
+    updateOut = true;
     hw.displayDirty = true;
 }
 
@@ -155,6 +158,7 @@ void clear_active_button()
     io.ledLeft = false;
     io.ledRight = false;
 
+    updateOut = true;
     hw.displayDirty = true;
 }
 
@@ -211,6 +215,7 @@ ISR(TIMER1_COMPA_vect)
 
             measurement.position = 1000;
             io.ledLeft = false;
+            updateOut = true;
             hw.displayDirty = true;
 
             PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
@@ -227,6 +232,7 @@ ISR(TIMER1_COMPA_vect)
                 measurement.totalLength = measurement.position - 1000;
 
             io.ledRight = false;
+            updateOut = true;
             hw.displayDirty = true;
 
             PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
@@ -552,5 +558,12 @@ void loop()
         hw.displayDirty = false;
     }
 
-    update_outputs();
+    if (updateOut)
+    {
+        noInterrupts();
+        updateOut = false;
+        interrupts();
+
+        update_outputs();
+    }
 }
