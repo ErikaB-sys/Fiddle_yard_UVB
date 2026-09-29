@@ -11,7 +11,7 @@
 
 
 
-// Variables for the project
+ // Variables for the project
 //FY_System is a variable of type FY_SystemStatus that represents the current status of the system. It is defined to hold system-related information, allowing for monitoring and management of system operations.
 FY_SystemInitStatus_t FY_System; // System status variables
 
@@ -69,6 +69,7 @@ FY_ModuleContext_t FY_Modules{
         SWITCH_TRIM_RIGHT_D,
         SWITCH_TIMING_BELT_D
     );
+
 
 
 
