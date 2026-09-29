@@ -30,3 +30,4 @@ Investigate a documentation workflow combining:
 The goal is to keep diagrams and technical documentation close to the actual source code and maintainable together with the project.
 
 **Open item:** Add the Doxygen/tool reference supplied by Vincent when available.
+ 
