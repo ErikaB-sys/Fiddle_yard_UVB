@@ -24,74 +24,72 @@ static bool lastGo    = false;
 static volatile bool updateOut = true;
 
 // -----------------------------------------------------------------------------
-// UART RX - kleines binäres Kommandoformat: CMD + 0..2 Datenbytes
+// UART RX - menschenlesbares Testformat: CMD + Dezimalwert
+// Beispiele: V800, v100, S500, A200, B300, R
 // -----------------------------------------------------------------------------
-enum SerialRxState
-{
-    SERIAL_WAIT_CMD,
-    SERIAL_WAIT_DATA
-};
-
-static SerialRxState serialRxState = SERIAL_WAIT_CMD;
 static uint8_t serialCommand = 0;
-static uint8_t serialData[2] = {0, 0};
-static uint8_t serialDataCount = 0;
-static uint8_t serialDataExpected = 0;
 static uint16_t serialValue = 0;
 static bool serialDisplayDirty = false;
 
-static void serial_process_command(uint8_t command)
+static void serial_process_line(const char* line)
 {
-    switch (command)
+    if (line[0] == '\0')
+        return;
+
+    serialCommand = static_cast<uint8_t>(line[0]);
+    serialValue = 0;
+
+    if (line[1] != '\0')
+        serialValue = static_cast<uint16_t>(strtoul(&line[1], nullptr, 10));
+
+    switch (serialCommand)
     {
         case 'R':
-            // Referenzfahrt: zunächst nur empfangen und anzeigen.
-            serialValue = 0;
-            serialDisplayDirty = true;
-            break;
-
         case 'S':
         case 'A':
         case 'B':
         case 'V':
         case 'v':
-            serialDataExpected = 2;
-            serialDataCount = 0;
-            serialRxState = SERIAL_WAIT_DATA;
+            serialDisplayDirty = true;
+            Serial.print(F("RX: "));
+            Serial.print(static_cast<char>(serialCommand));
+
+            if (serialCommand != 'R')
+                Serial.print(serialValue);
+
+            Serial.println();
             break;
 
         default:
-            // Unbekannte Kommandos werden einfach ignoriert.
-            serialRxState = SERIAL_WAIT_CMD;
+            Serial.print(F("RX: unknown command "));
+            Serial.println(static_cast<char>(serialCommand));
             break;
     }
 }
 
 void update_serial()
 {
+    static char serialLine[12];
+    static uint8_t serialLineLength = 0;
+
     while (Serial.available() > 0)
     {
-        const uint8_t data = static_cast<uint8_t>(Serial.read());
+        const char data = static_cast<char>(Serial.read());
 
-        switch (serialRxState)
+        if (data == '\r' || data == '\n')
         {
-            case SERIAL_WAIT_CMD:
-                serialCommand = data;
-                serial_process_command(serialCommand);
-                break;
-
-            case SERIAL_WAIT_DATA:
-                serialData[serialDataCount++] = data;
-
-                if (serialDataCount >= serialDataExpected)
-                {
-                    serialValue = static_cast<uint16_t>(serialData[0]) << 8;
-                    serialValue |= serialData[1];
-                    serialDisplayDirty = true;
-                    serialRxState = SERIAL_WAIT_CMD;
-                    serialDataCount = 0;
-                }
-                break;
+            serialLine[serialLineLength] = '\0';
+            serial_process_line(serialLine);
+            serialLineLength = 0;
+        }
+        else if (serialLineLength < sizeof(serialLine) - 1)
+        {
+            serialLine[serialLineLength++] = data;
+        }
+        else
+        {
+            serialLineLength = 0;
+            Serial.println(F("RX: input too long"));
         }
     }
 }
