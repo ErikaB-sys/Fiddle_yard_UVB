@@ -127,6 +127,8 @@ static void load_motion_profile()
 
 static bool load_next_profile_element(bool setMaxSpeed)
 {
+    bool rampWasActive = false;
+
     while (profileElement < 6)
     {
         profileStepsRemaining = motionProfile[profileElement].Steps;
@@ -134,6 +136,7 @@ static bool load_next_profile_element(bool setMaxSpeed)
         if (profileStepsRemaining > 0)
         {
             if (setMaxSpeed &&
+                rampWasActive &&
                 profileElement == static_cast<uint8_t>(MotionProfileElement_t::KONST))
             {
                 profileTimerValue = frequency_to_reload(profileVMax);
@@ -141,6 +144,12 @@ static bool load_next_profile_element(bool setMaxSpeed)
 
             OCR1A = profileTimerValue;
             return true;
+        }
+
+        if (profileElement == static_cast<uint8_t>(MotionProfileElement_t::ACC1) ||
+            profileElement == static_cast<uint8_t>(MotionProfileElement_t::ACC2))
+        {
+            rampWasActive = true;
         }
 
         ++profileElement;
@@ -805,7 +814,7 @@ void loop()
 
                             profileElement = 0;
                             profileTimerValue = frequency_to_reload(profileVMin);
-                            load_next_profile_element();
+                            load_next_profile_element(false);
                             profileRun = true;
                             stepRun = true;
 
