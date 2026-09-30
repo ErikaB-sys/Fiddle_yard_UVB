@@ -190,9 +190,8 @@ static uint8_t current_profile_ramp_interval()
     }
 }
 
-static bool load_next_profile_element(bool setMaxSpeed)
+static bool load_next_profile_element()
 {
-    bool rampWasActive = false;
 
     while (profileElement < 6)
     {
@@ -201,14 +200,6 @@ static bool load_next_profile_element(bool setMaxSpeed)
         if (profileStepsRemaining > 0)
         {
             profileRampCounter = 0;
-
-            if (setMaxSpeed &&
-                rampWasActive &&
-                profileElement == static_cast<uint8_t>(MotionProfileElement_t::KONST))
-            {
-                profileTimerValue = frequency_to_reload(profileVMax);
-            }
-
             OCR1A = profileTimerValue;
             return true;
         }
@@ -742,7 +733,7 @@ ISR(TIMER1_COMPA_vect)
     {
         ++profileElement;
 
-        if (!load_next_profile_element(true))
+        if (!load_next_profile_element())
         {
             profileRun = false;
             stepRun = false;
@@ -992,7 +983,7 @@ void loop()
                             profileReportPending = false;
                             profileMinReloadReached = profileTimerValue;
                             profileReportPending = false;
-                            load_next_profile_element(false);
+                            load_next_profile_element();
                             profileRun = true;
                             stepRun = true;
 
