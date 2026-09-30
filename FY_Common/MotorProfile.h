@@ -29,6 +29,9 @@ struct MotionProfileElementData_t
 struct MotionProfileParam_t
 {
     uint16_t PosiMin;
+
+    // Legacy-Parameter: Die Mindeststrecke der Konstantfahrt wird inzwischen
+    // dynamisch aus der Gesamtstrecke berechnet (mindestens 50 %).
     uint16_t KonstMin;
 
     uint16_t Acc1Steps;
@@ -42,6 +45,12 @@ struct MotionProfileParam_t
 
 // Berechnet die sechs Profilsegmente.
 // Die Summe aller Steps entspricht exakt distance.
+//
+// Regel für die Konstantfahrt:
+// KONST_MIN = ceil(distance / 2)
+// Damit stehen grundsätzlich mindestens 50 % der Gesamtstrecke für die
+// Konstantfahrt zur Verfügung. Bei sehr kurzen Strecken kann die Rampe wegen
+// PosiMin zwangsläufig nicht vollständig aufgebaut werden.
 inline bool calculateMotionProfile(
     uint16_t distance,
     const MotionProfileParam_t& param,
@@ -53,7 +62,9 @@ inline bool calculateMotionProfile(
         profile[i].Accel = 0;
     }
 
-    if (distance <= (param.PosiMin + param.KonstMin))
+    const uint16_t konstMin = (distance + 1) / 2;
+
+    if (distance <= (param.PosiMin + konstMin))
     {
         profile[static_cast<uint8_t>(MotionProfileElement_t::KONST)].Steps =
             distance;
@@ -64,10 +75,10 @@ inline bool calculateMotionProfile(
         param.PosiMin;
 
     profile[static_cast<uint8_t>(MotionProfileElement_t::KONST)].Steps =
-        param.KonstMin;
+        konstMin;
 
     uint16_t remaining =
-        distance - param.PosiMin - param.KonstMin;
+        distance - param.PosiMin - konstMin;
 
     uint16_t outer = remaining / 2;
 
