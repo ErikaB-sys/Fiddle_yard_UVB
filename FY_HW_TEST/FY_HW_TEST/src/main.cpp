@@ -622,7 +622,7 @@ void init_step_timer()
     TCCR1B = 0;
     TCNT1 = 0;
     TCCR1B |= _BV(WGM12);
-    TCCR1B |= _BV(CS12) | _BV(CS11);
+    TCCR1B |= _BV(CS12);             // Timer1 Prescaler /256 (CS12=1, CS11=0, CS10=0)
     TIMSK1 |= _BV(OCIE1A);
     stepRun = false;
     stepLevel = false;
