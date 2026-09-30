@@ -31,6 +31,30 @@ static uint8_t serialCommand = 0;
 static uint16_t serialValue = 0;
 static bool serialDisplayDirty = false;
 
+constexpr uint16_t V_MIN_LIMIT = 100;
+constexpr uint16_t V_MAX_LIMIT = 1000;
+
+static uint16_t profileVMin = V_MIN_LIMIT;
+static uint16_t profileVMax = 800;
+static uint16_t profileAccel = 200;
+static uint16_t profileBrake = 300;
+
+static void clamp_profile()
+{
+    if (profileVMin < V_MIN_LIMIT)
+        profileVMin = V_MIN_LIMIT;
+    if (profileVMin > V_MAX_LIMIT)
+        profileVMin = V_MAX_LIMIT;
+
+    if (profileVMax < V_MIN_LIMIT)
+        profileVMax = V_MIN_LIMIT;
+    if (profileVMax > V_MAX_LIMIT)
+        profileVMax = V_MAX_LIMIT;
+
+    if (profileVMin > profileVMax)
+        profileVMin = profileVMax;
+}
+
 static void serial_process_line(const char* line)
 {
     if (line[0] == '\0')
@@ -45,19 +69,50 @@ static void serial_process_line(const char* line)
     switch (serialCommand)
     {
         case 'R':
-        case 'S':
-        case 'A':
-        case 'B':
-        case 'V':
-        case 'v':
             serialDisplayDirty = true;
-            Serial.print(F("RX: "));
-            Serial.print(static_cast<char>(serialCommand));
+            Serial.println(F("RX: R"));
+            break;
 
-            if (serialCommand != 'R')
-                Serial.print(serialValue);
+        case 'V':
+            profileVMax = serialValue;
+            clamp_profile();
+            if (hw.frequency > profileVMax)
+                hw.frequency = profileVMax;
+            set_step_frequency(hw.frequency);
+            serialDisplayDirty = true;
+            Serial.print(F("RX: V"));
+            Serial.println(profileVMax);
+            break;
 
-            Serial.println();
+        case 'v':
+            profileVMin = serialValue;
+            clamp_profile();
+            if (hw.frequency < profileVMin)
+                hw.frequency = profileVMin;
+            set_step_frequency(hw.frequency);
+            serialDisplayDirty = true;
+            Serial.print(F("RX: v"));
+            Serial.println(profileVMin);
+            break;
+
+        case 'A':
+            profileAccel = serialValue;
+            serialDisplayDirty = true;
+            Serial.print(F("RX: A"));
+            Serial.println(profileAccel);
+            break;
+
+        case 'B':
+            profileBrake = serialValue;
+            serialDisplayDirty = true;
+            Serial.print(F("RX: B"));
+            Serial.println(profileBrake);
+            break;
+
+        case 'S':
+            serialDisplayDirty = true;
+            Serial.print(F("RX: S"));
+            Serial.println(serialValue);
             break;
 
         default:
@@ -429,43 +484,37 @@ void update_display()
 
     const HWMeasurement& m = displayMeasurement;
 
-    display.print(F("M:"));
-    display.print(io.ena ? F("ON ") : F("OFF"));
-    display.print(hw.frequency);
-    display.println(F("Hz"));
+    // Zeile 1: Motorstatus und gültiger Geschwindigkeitsbereich.
+    display.print(F("M: "));
+    display.print(io.ena ? F("ON") : F("OFF"));
+    display.print(F(" V: "));
+    display.print(profileVMin);
+    display.print(F(" | "));
+    display.println(profileVMax);
 
-    display.print(F("REF:"));
-    if (m.refValid)
-        display.print(m.refLength);
-    else
-        display.print(F("---"));
+    // Zeile 2: Sektor/Position/Track. Sektor und Track werden später gefüllt.
+    display.print(F("S: - Pos: "));
+    display.print(m.position);
+    display.println(F(" TRK: -"));
 
-    display.print(F(" L-R:"));
-    if (m.totalLength > 0)
-        display.println(m.totalLength);
-    else
-        display.println(F("---"));
-
+    // Zeile 3: Endschalter und Referenzsensor.
     display.print(F("LS:L"));
     display.print(io.limitLeft ? '1' : '0');
     display.print(F(" R"));
     display.print(io.limitRight ? '1' : '0');
-    display.print(F(" F"));
+    display.print(F(" REF"));
     display.print(io.reference ? '1' : '0');
     display.print(F(" H"));
     display.println(io.hall ? '1' : '0');
 
-    // Zeile 4: aktuelle Position und zuletzt empfangenes UART-Kommando.
-    display.print(F("POS:"));
-    display.print(m.position);
-    display.print(F(" RX:"));
-    if (serialCommand != 0)
-    {
-        display.print(static_cast<char>(serialCommand));
-        if (serialCommand != 'R')
-            display.print(serialValue);
-    }
-    display.println();
+    // Zeile 4: interner Testzustand.
+    display.print(F("State: "));
+    if (hw.activeButton == BUTTON_STOP)
+        display.println(F("STOP"));
+    else if (stepRun)
+        display.println(F("MOVE"));
+    else
+        display.println(F("IDLE"));
 
     display.display();
 }
@@ -568,6 +617,14 @@ void loop()
                             io.dir = false;
                             stepRun = true;
                             set_step_frequency(hw.frequency);
+                            Serial.print(F("MOVE: ACC="));
+                            Serial.print(profileAccel);
+                            Serial.print(F(" VMIN="));
+                            Serial.print(profileVMin);
+                            Serial.print(F(" VMAX="));
+                            Serial.print(profileVMax);
+                            Serial.print(F(" DEC="));
+                            Serial.println(profileBrake);
                             set_active_button(BUTTON_LEFT);
                         }
                         break;
@@ -596,6 +653,14 @@ void loop()
                             io.dir = true;
                             stepRun = true;
                             set_step_frequency(hw.frequency);
+                            Serial.print(F("MOVE: ACC="));
+                            Serial.print(profileAccel);
+                            Serial.print(F(" VMIN="));
+                            Serial.print(profileVMin);
+                            Serial.print(F(" VMAX="));
+                            Serial.print(profileVMax);
+                            Serial.print(F(" DEC="));
+                            Serial.println(profileBrake);
                             set_active_button(BUTTON_RIGHT);
                         }
                         break;
