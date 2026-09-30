@@ -23,6 +23,79 @@ static bool lastGo    = false;
 
 static volatile bool updateOut = true;
 
+// -----------------------------------------------------------------------------
+// UART RX - kleines binäres Kommandoformat: CMD + 0..2 Datenbytes
+// -----------------------------------------------------------------------------
+enum SerialRxState
+{
+    SERIAL_WAIT_CMD,
+    SERIAL_WAIT_DATA
+};
+
+static SerialRxState serialRxState = SERIAL_WAIT_CMD;
+static uint8_t serialCommand = 0;
+static uint8_t serialData[2] = {0, 0};
+static uint8_t serialDataCount = 0;
+static uint8_t serialDataExpected = 0;
+static uint16_t serialValue = 0;
+static bool serialDisplayDirty = false;
+
+static void serial_process_command(uint8_t command)
+{
+    switch (command)
+    {
+        case 'R':
+            // Referenzfahrt: zunächst nur empfangen und anzeigen.
+            serialValue = 0;
+            serialDisplayDirty = true;
+            break;
+
+        case 'S':
+        case 'A':
+        case 'B':
+        case 'V':
+        case 'v':
+            serialDataExpected = 2;
+            serialDataCount = 0;
+            serialRxState = SERIAL_WAIT_DATA;
+            break;
+
+        default:
+            // Unbekannte Kommandos werden einfach ignoriert.
+            serialRxState = SERIAL_WAIT_CMD;
+            break;
+    }
+}
+
+void update_serial()
+{
+    while (Serial.available() > 0)
+    {
+        const uint8_t data = static_cast<uint8_t>(Serial.read());
+
+        switch (serialRxState)
+        {
+            case SERIAL_WAIT_CMD:
+                serialCommand = data;
+                serial_process_command(serialCommand);
+                break;
+
+            case SERIAL_WAIT_DATA:
+                serialData[serialDataCount++] = data;
+
+                if (serialDataCount >= serialDataExpected)
+                {
+                    serialValue = static_cast<uint16_t>(serialData[0]) << 8;
+                    serialValue |= serialData[1];
+                    serialDisplayDirty = true;
+                    serialRxState = SERIAL_WAIT_CMD;
+                    serialDataCount = 0;
+                }
+                break;
+        }
+    }
+}
+
 void scanI2C()
 {
     Serial.println(F("I2C Scanner"));
@@ -384,16 +457,24 @@ void update_display()
     display.print(F(" H"));
     display.println(io.hall ? '1' : '0');
 
-    // Zeile 4: aktuelle Positionszählung.
+    // Zeile 4: aktuelle Position und zuletzt empfangenes UART-Kommando.
     display.print(F("POS:"));
-    display.println(m.position);
+    display.print(m.position);
+    display.print(F(" RX:"));
+    if (serialCommand != 0)
+    {
+        display.print(static_cast<char>(serialCommand));
+        if (serialCommand != 'R')
+            display.print(serialValue);
+    }
+    display.println();
 
     display.display();
 }
 
 void setup()
 {
-    Serial.begin(9600);
+    Serial.begin(115200);
 
     Wire.begin();
     delay(100);
@@ -432,6 +513,8 @@ void setup()
 void loop()
 {
     const uint32_t now = millis();
+
+    update_serial();
 
     if (now - tButtons >= BUTTON_INTERVAL_MS)
     {
@@ -552,10 +635,11 @@ void loop()
         // D13 dient als Loop-Heartbeat. Der Pin wird nicht mehr in der ISR benutzt.
         digitalWrite(LED_BUILTIN_PIN, !digitalRead(LED_BUILTIN_PIN));
 
-        if (hw.displayDirty)
+        if (hw.displayDirty || serialDisplayDirty)
         {
             update_display();
             hw.displayDirty = false;
+            serialDisplayDirty = false;
         }
     }
 
