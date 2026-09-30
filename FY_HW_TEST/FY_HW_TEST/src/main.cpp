@@ -204,12 +204,6 @@ static bool load_next_profile_element()
             return true;
         }
 
-        if (profileElement == static_cast<uint8_t>(MotionProfileElement_t::ACC1) ||
-            profileElement == static_cast<uint8_t>(MotionProfileElement_t::ACC2))
-        {
-            rampWasActive = true;
-        }
-
         ++profileElement;
     }
 
@@ -1054,7 +1048,7 @@ void loop()
                             profileTimerValue = frequency_to_reload(profileVMin);
                             profileMinReloadReached = profileTimerValue;
                             profileReportPending = false;
-                            load_next_profile_element(false);
+                            load_next_profile_element();
                             profileRun = true;
                             stepRun = true;
 
