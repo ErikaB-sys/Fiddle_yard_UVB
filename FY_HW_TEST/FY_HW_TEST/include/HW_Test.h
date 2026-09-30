@@ -11,7 +11,7 @@
 
 // Adjustable STEP frequency for the hardware test.
 // BLUE 1 / BLUE 2 select the next lower / higher test frequency while ENA is OFF.
-constexpr uint16_t STEP_FREQUENCIES[] = {100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500};
+constexpr uint16_t STEP_FREQUENCIES[] = {100, 200, 300, 400, 500, 600, 700, 800, 900, 1000};
 constexpr uint8_t STEP_FREQUENCY_COUNT = sizeof(STEP_FREQUENCIES) / sizeof(STEP_FREQUENCIES[0]);
 
 constexpr uint32_t BUTTON_INTERVAL_MS  = 25;
