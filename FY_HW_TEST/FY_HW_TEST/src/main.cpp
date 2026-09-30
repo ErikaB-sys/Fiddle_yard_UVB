@@ -49,6 +49,18 @@ static uint16_t profileBrake1 = 2;
 static uint16_t profileBrake2 = 2;
 static uint16_t profileDistance = 1000;
 
+// Rampenauflösung: Änderung des Timerwertes nur alle N Steps.
+// 1 = Änderung bei jedem STEP, 2 = jedem zweiten STEP usw.
+constexpr uint8_t RAMP_INTERVAL_MIN = 1;
+constexpr uint8_t RAMP_INTERVAL_MAX = 10;
+
+static uint8_t profileAccel1Interval = 1;
+static uint8_t profileAccel2Interval = 1;
+static uint8_t profileBrake1Interval = 1;
+static uint8_t profileBrake2Interval = 1;
+
+static volatile uint8_t profileRampCounter = 0;
+
 // Gemeinsame Profilparameter: sechs Segmente, aber zunächst
 // nur ein Beschleunigungs- und ein Bremswert.
 constexpr uint16_t PROFILE_POSI_MIN = 160;
@@ -73,6 +85,15 @@ static uint16_t clamp_accel_brake(uint16_t value)
     return value;
 }
 
+static uint8_t clamp_ramp_interval(uint16_t value)
+{
+    if (value < RAMP_INTERVAL_MIN)
+        return RAMP_INTERVAL_MIN;
+    if (value > RAMP_INTERVAL_MAX)
+        return RAMP_INTERVAL_MAX;
+    return static_cast<uint8_t>(value);
+}
+
 static void clamp_profile()
 {
     if (profileVMin < V_MIN_LIMIT)
@@ -92,6 +113,11 @@ static void clamp_profile()
     profileAccel2 = clamp_accel_brake(profileAccel2);
     profileBrake1 = clamp_accel_brake(profileBrake1);
     profileBrake2 = clamp_accel_brake(profileBrake2);
+
+    profileAccel1Interval = clamp_ramp_interval(profileAccel1Interval);
+    profileAccel2Interval = clamp_ramp_interval(profileAccel2Interval);
+    profileBrake1Interval = clamp_ramp_interval(profileBrake1Interval);
+    profileBrake2Interval = clamp_ramp_interval(profileBrake2Interval);
 
     if (profileDistance == 0)
         profileDistance = 1;
@@ -143,6 +169,27 @@ static void load_motion_profile()
     calculateMotionProfile(profileDistance, param, motionProfile);
 }
 
+static uint8_t current_profile_ramp_interval()
+{
+    switch (profileElement)
+    {
+        case static_cast<uint8_t>(MotionProfileElement_t::ACC1):
+            return profileAccel1Interval;
+
+        case static_cast<uint8_t>(MotionProfileElement_t::ACC2):
+            return profileAccel2Interval;
+
+        case static_cast<uint8_t>(MotionProfileElement_t::BRE1):
+            return profileBrake1Interval;
+
+        case static_cast<uint8_t>(MotionProfileElement_t::BRE2):
+            return profileBrake2Interval;
+
+        default:
+            return 1;
+    }
+}
+
 static bool load_next_profile_element(bool setMaxSpeed)
 {
     bool rampWasActive = false;
@@ -153,6 +200,8 @@ static bool load_next_profile_element(bool setMaxSpeed)
 
         if (profileStepsRemaining > 0)
         {
+            profileRampCounter = 0;
+
             if (setMaxSpeed &&
                 rampWasActive &&
                 profileElement == static_cast<uint8_t>(MotionProfileElement_t::KONST))
@@ -186,6 +235,44 @@ static void serial_process_line(const char* line)
 
     if (line[1] != '\0')
         serialValue = static_cast<uint16_t>(strtoul(&line[1], nullptr, 10));
+
+    // A1N/A2N/B1N/B2N setzen die Rampenauflösung unabhängig.
+    // Beispiel: A1N3 = A1 nur jeden dritten STEP anwenden.
+    if (line[0] == 'A' && (line[1] == '1' || line[1] == '2') && line[2] == 'N')
+    {
+        const uint8_t value = clamp_ramp_interval(
+            static_cast<uint16_t>(strtoul(&line[3], nullptr, 10)));
+
+        if (line[1] == '1')
+            profileAccel1Interval = value;
+        else
+            profileAccel2Interval = value;
+
+        serialDisplayDirty = true;
+        Serial.print(F("RX: A"));
+        Serial.print(line[1]);
+        Serial.print(F("N="));
+        Serial.println(value);
+        return;
+    }
+
+    if (line[0] == 'B' && (line[1] == '1' || line[1] == '2') && line[2] == 'N')
+    {
+        const uint8_t value = clamp_ramp_interval(
+            static_cast<uint16_t>(strtoul(&line[3], nullptr, 10)));
+
+        if (line[1] == '1')
+            profileBrake1Interval = value;
+        else
+            profileBrake2Interval = value;
+
+        serialDisplayDirty = true;
+        Serial.print(F("RX: B"));
+        Serial.print(line[1]);
+        Serial.print(F("N="));
+        Serial.println(value);
+        return;
+    }
 
     // A1/B1 setzen die jeweilige Stufe und synchronisieren die zweite Stufe.
     // A2/B2 überschreiben dagegen ausschließlich die zweite Stufe.
@@ -318,6 +405,48 @@ void update_serial()
             Serial.println(F("RX: input too long"));
         }
     }
+}
+
+static void print_command_help()
+{
+    Serial.println(F("Commands:"));
+    Serial.println(F("  Vnnnn   VMAX steps/s"));
+    Serial.println(F("  vnnnn   VMIN steps/s"));
+    Serial.println(F("  A1n     Accel 1"));
+    Serial.println(F("  A2n     Accel 2"));
+    Serial.println(F("  B1n     Brake 1"));
+    Serial.println(F("  B2n     Brake 2"));
+    Serial.println(F("  A1Nn    Accel 1 interval"));
+    Serial.println(F("  A2Nn    Accel 2 interval"));
+    Serial.println(F("  B1Nn    Brake 1 interval"));
+    Serial.println(F("  B2Nn    Brake 2 interval"));
+    Serial.println(F("          N=1 every STEP, N=2 every 2nd STEP, ..."));
+    Serial.println(F("  Snnnn   Distance"));
+    Serial.println(F("  GO      Start move"));
+    Serial.println(F("  LEFT    Direction"));
+    Serial.println(F("  RIGHT   Direction"));
+    Serial.println(F("  R       Reference run"));
+    Serial.println(F("Profile:"));
+    Serial.print(F("  VMIN="));
+    Serial.print(profileVMin);
+    Serial.print(F(" VMAX="));
+    Serial.println(profileVMax);
+    Serial.print(F("  A1="));
+    Serial.print(profileAccel1);
+    Serial.print(F(" N="));
+    Serial.print(profileAccel1Interval);
+    Serial.print(F("  A2="));
+    Serial.print(profileAccel2);
+    Serial.print(F(" N="));
+    Serial.println(profileAccel2Interval);
+    Serial.print(F("  B1="));
+    Serial.print(profileBrake1);
+    Serial.print(F(" N="));
+    Serial.print(profileBrake1Interval);
+    Serial.print(F("  B2="));
+    Serial.print(profileBrake2);
+    Serial.print(F(" N="));
+    Serial.println(profileBrake2Interval);
 }
 
 void scanI2C()
@@ -579,10 +708,22 @@ ISR(TIMER1_COMPA_vect)
         --profileStepsRemaining;
 
     // Die aktuelle Profilphase bestimmt die Timeränderung.
-    profileTimerValue =
-        static_cast<uint16_t>(
-            static_cast<int32_t>(profileTimerValue) +
-            motionProfile[profileElement].Accel);
+    // Die Änderung erfolgt nur alle N STEP; dadurch wird die Rampe flacher.
+    const int16_t rampAccel = motionProfile[profileElement].Accel;
+
+    if (rampAccel != 0)
+    {
+        ++profileRampCounter;
+
+        if (profileRampCounter >= current_profile_ramp_interval())
+        {
+            profileRampCounter = 0;
+
+            profileTimerValue =
+                static_cast<uint16_t>(
+                    static_cast<int32_t>(profileTimerValue) + rampAccel);
+        }
+    }
 
     const uint16_t minReload = frequency_to_reload(profileVMax);
     const uint16_t maxReload = frequency_to_reload(profileVMin);
@@ -762,7 +903,9 @@ void setup()
 
     clear_active_button();
 
+    clamp_profile();
     Serial.println(F("init done"));
+    print_command_help();
 }
 
 void loop()
@@ -843,7 +986,10 @@ void loop()
                             load_motion_profile();
 
                             profileElement = 0;
+                            profileRampCounter = 0;
                             profileTimerValue = frequency_to_reload(profileVMin);
+                            profileMinReloadReached = profileTimerValue;
+                            profileReportPending = false;
                             profileMinReloadReached = profileTimerValue;
                             profileReportPending = false;
                             load_next_profile_element(false);
@@ -856,6 +1002,10 @@ void loop()
                             Serial.print(profileAccel1);
                             Serial.print(F(" A2="));
                             Serial.print(profileAccel2);
+                            Serial.print(F(" A1N="));
+                            Serial.print(profileAccel1Interval);
+                            Serial.print(F(" A2N="));
+                            Serial.print(profileAccel2Interval);
                             Serial.print(F(" VMIN="));
                             Serial.print(profileVMin);
                             Serial.print(F(" VMAX="));
@@ -863,7 +1013,11 @@ void loop()
                             Serial.print(F(" B1="));
                             Serial.print(profileBrake1);
                             Serial.print(F(" B2="));
-                            Serial.println(profileBrake2);
+                            Serial.print(profileBrake2);
+                            Serial.print(F(" B1N="));
+                            Serial.print(profileBrake1Interval);
+                            Serial.print(F(" B2N="));
+                            Serial.println(profileBrake2Interval);
 
                             Serial.print(F("PROFILE: "));
                             for (uint8_t i = 0; i < 6; ++i)
@@ -905,7 +1059,10 @@ void loop()
                             load_motion_profile();
 
                             profileElement = 0;
+                            profileRampCounter = 0;
                             profileTimerValue = frequency_to_reload(profileVMin);
+                            profileMinReloadReached = profileTimerValue;
+                            profileReportPending = false;
                             load_next_profile_element(false);
                             profileRun = true;
                             stepRun = true;
@@ -916,6 +1073,10 @@ void loop()
                             Serial.print(profileAccel1);
                             Serial.print(F(" A2="));
                             Serial.print(profileAccel2);
+                            Serial.print(F(" A1N="));
+                            Serial.print(profileAccel1Interval);
+                            Serial.print(F(" A2N="));
+                            Serial.print(profileAccel2Interval);
                             Serial.print(F(" VMIN="));
                             Serial.print(profileVMin);
                             Serial.print(F(" VMAX="));
@@ -923,7 +1084,11 @@ void loop()
                             Serial.print(F(" B1="));
                             Serial.print(profileBrake1);
                             Serial.print(F(" B2="));
-                            Serial.println(profileBrake2);
+                            Serial.print(profileBrake2);
+                            Serial.print(F(" B1N="));
+                            Serial.print(profileBrake1Interval);
+                            Serial.print(F(" B2N="));
+                            Serial.println(profileBrake2Interval);
                             Serial.print(F("PROFILE: "));
                             for (uint8_t i = 0; i < 6; ++i)
                             {
