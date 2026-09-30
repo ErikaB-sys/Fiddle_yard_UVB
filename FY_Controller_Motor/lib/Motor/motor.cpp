@@ -6,6 +6,7 @@
 #include "Motor.h"
 #include "Protokoll.h"
 #include "Error.h"
+#include "../../../FY_Common/MotorProfile.h"
 
 
 REF_STATE FY_Refrun = REF_STATE::REF_REQ;
@@ -436,132 +437,31 @@ MotorJobResult_t Motor::getJobResult() const
  */
 bool Motor::calcProfile(uint16_t distance)
 {
-    // -------------------------------------------------
-    // Profil zunächst vollständig löschen
-    // -------------------------------------------------
-
-    for (uint8_t i = 0; i < 6; i++)
+    MotionProfileParam_t param =
     {
-        Motor_profil[i].Steps = 0;
-        Motor_profil[i].Accel = 0;
+        _ProfileParam.PosiMin,
+        _ProfileParam.KonstMin,
+        _ProfileParam.Acc1Steps,
+        _ProfileParam.Acc2Steps,
+        _ProfileParam.Acc1Accel,
+        _ProfileParam.Acc2Accel,
+        _ProfileParam.Bre1Accel,
+        _ProfileParam.Bre2Accel
+    };
+
+    MotionProfileElementData_t profile[6];
+
+    const bool valid = calculateMotionProfile(distance, param, profile);
+
+    for (uint8_t i = 0; i < 6; ++i)
+    {
+        Motor_profil[i].Steps = profile[i].Steps;
+        Motor_profil[i].Accel = profile[i].Accel;
     }
 
-
-    // -------------------------------------------------
-    // Sehr kurze Strecke:
-    // Kein vollständiges Profil möglich.
-    // Die gesamte Strecke wird mit V_MIN gefahren.
-    // -------------------------------------------------
-
-    if (distance <= (_ProfileParam.PosiMin +
-                     _ProfileParam.KonstMin))
-    {
-        Motor::Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps =
-            distance;
-
-        return true;
-    }
-
-
-    // -------------------------------------------------
-    // POSI und KONST_MIN reservieren
-    // -------------------------------------------------
-
-    Motor::Motor_profil[static_cast<uint8_t>(MotorProfile_t::POSI)].Steps =
-        _ProfileParam.PosiMin;
-
-    Motor::Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps =
-        _ProfileParam.KonstMin;
-
-    uint16_t remaining =
-        distance
-        - _ProfileParam.PosiMin
-        - _ProfileParam.KonstMin;
-
-
-    // -------------------------------------------------
-    // ACC1 / BRE2
-    //
-    // Beide Bereiche werden immer gleich groß.
-    // Integer-Division verhindert Float-Rechnung.
-    // -------------------------------------------------
-
-    uint16_t outer = remaining / 2;
-
-    if (outer > _ProfileParam.Acc1Steps)
-        outer = _ProfileParam.Acc1Steps;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Steps =
-        outer;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Accel =
-       _ProfileParam.Acc1Accel;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Steps =
-        outer;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Accel =
-        _ProfileParam.Bre2Accel;
-
-    remaining -= outer * 2;
-
-
-    // -------------------------------------------------
-    // ACC2 / BRE1
-    // -------------------------------------------------
-
-    uint16_t inner = remaining / 2;
-
-    if (inner > _ProfileParam.Acc2Steps)
-        inner = _ProfileParam.Acc2Steps;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Steps =
-        inner;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Accel =
-        _ProfileParam.Acc2Accel;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Steps =
-        inner;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Accel =
-        _ProfileParam.Bre1Accel;
-
-    remaining -= inner * 2;
-
-
-    // -------------------------------------------------
-    // Rest geht in KONST
-    // -------------------------------------------------
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps +=
-        remaining;
-
-
-    // -------------------------------------------------
-    // Sicherheit / Quantisierungsrest
-    //
-    // Die Summe aller Profilbereiche muss exakt
-    // der angeforderten Strecke entsprechen.
-    // Falls durch Integer-Division ein Rest entstanden
-    // ist, landet er in POSI.
-    // -------------------------------------------------
-
-    uint16_t sum = 0;
-
-    for (uint8_t i = 0; i < 6; i++)
-        sum += Motor_profil[i].Steps;
-
-    if (sum < distance)
-    {
-        Motor_profil[static_cast<uint8_t>(MotorProfile_t::POSI)].Steps +=
-            distance - sum;
-    }
-_TimerValid = true;
-    return true;
+    _TimerValid = valid;
+    return valid;
 }
-
-
 
 
 // -----------------------------------------------------------------------------
