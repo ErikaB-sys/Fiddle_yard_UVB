@@ -5,6 +5,7 @@
 #include <PCF8574.h>
 
 #include "HW_Test.h"
+#include "../../../FY_Common/MotorProfile.h"
 
 Adafruit_SSD1306 display(128, 32, &Wire, -1);
 PCF8574 expander(PORT_EXPANDER_ADDRESS);
@@ -36,8 +37,37 @@ constexpr uint16_t V_MAX_LIMIT = 1000;
 
 static uint16_t profileVMin = V_MIN_LIMIT;
 static uint16_t profileVMax = 800;
-static uint16_t profileAccel = 200;
-static uint16_t profileBrake = 300;
+
+// Accel/Brake sind Timer-Ticks pro abgeschlossenem STEP.
+// Kleinerer Timerwert = höhere Geschwindigkeit.
+constexpr uint16_t ACCEL_MIN = 1;
+constexpr uint16_t ACCEL_MAX = 10;
+
+static uint16_t profileAccel = 2;
+static uint16_t profileBrake = 2;
+static uint16_t profileDistance = 1000;
+
+// Gemeinsame Profilparameter: sechs Segmente, aber zunächst
+// nur ein Beschleunigungs- und ein Bremswert.
+constexpr uint16_t PROFILE_POSI_MIN = 160;
+constexpr uint16_t PROFILE_KONST_MIN = 400;
+constexpr uint16_t PROFILE_ACC1_STEPS = 100;
+constexpr uint16_t PROFILE_ACC2_STEPS = 100;
+
+static MotionProfileElementData_t motionProfile[6];
+static volatile uint8_t profileElement = 0;
+static volatile uint16_t profileStepsRemaining = 0;
+static volatile uint16_t profileTimerValue = 0;
+static volatile bool profileRun = false;
+
+static uint16_t clamp_accel_brake(uint16_t value)
+{
+    if (value < ACCEL_MIN)
+        return ACCEL_MIN;
+    if (value > ACCEL_MAX)
+        return ACCEL_MAX;
+    return value;
+}
 
 static void clamp_profile()
 {
@@ -53,6 +83,67 @@ static void clamp_profile()
 
     if (profileVMin > profileVMax)
         profileVMin = profileVMax;
+
+    profileAccel = clamp_accel_brake(profileAccel);
+    profileBrake = clamp_accel_brake(profileBrake);
+
+    if (profileDistance == 0)
+        profileDistance = 1;
+    if (profileDistance > MAX_ALLOWED_STEPS)
+        profileDistance = MAX_ALLOWED_STEPS;
+}
+
+static uint16_t frequency_to_reload(uint16_t frequency)
+{
+    uint32_t denominator = 2UL * frequency;
+    uint32_t reload =
+        ((F_CPU / 1024UL) + (denominator / 2UL)) / denominator - 1UL;
+
+    if (reload > 65535UL)
+        reload = 65535UL;
+
+    if (reload < 1UL)
+        reload = 1UL;
+
+    return static_cast<uint16_t>(reload);
+}
+
+static void load_motion_profile()
+{
+    MotionProfileParam_t param =
+    {
+        PROFILE_POSI_MIN,
+        PROFILE_KONST_MIN,
+        PROFILE_ACC1_STEPS,
+        PROFILE_ACC2_STEPS,
+        -static_cast<int16_t>(profileAccel),
+        -static_cast<int16_t>(profileAccel),
+        static_cast<int16_t>(profileBrake),
+        static_cast<int16_t>(profileBrake)
+    };
+
+    calculateMotionProfile(profileDistance, param, motionProfile);
+}
+
+static bool load_next_profile_element()
+{
+    while (profileElement < 6)
+    {
+        profileStepsRemaining = motionProfile[profileElement].Steps;
+
+        if (profileStepsRemaining > 0)
+        {
+            if (profileElement == static_cast<uint8_t>(MotionProfileElement_t::KONST))
+                profileTimerValue = frequency_to_reload(profileVMax);
+
+            OCR1A = profileTimerValue;
+            return true;
+        }
+
+        ++profileElement;
+    }
+
+    return false;
 }
 
 static void serial_process_line(const char* line)
@@ -96,23 +187,25 @@ static void serial_process_line(const char* line)
             break;
 
         case 'A':
-            profileAccel = serialValue;
+            profileAccel = clamp_accel_brake(serialValue);
             serialDisplayDirty = true;
             Serial.print(F("RX: A"));
             Serial.println(profileAccel);
             break;
 
         case 'B':
-            profileBrake = serialValue;
+            profileBrake = clamp_accel_brake(serialValue);
             serialDisplayDirty = true;
             Serial.print(F("RX: B"));
             Serial.println(profileBrake);
             break;
 
         case 'S':
+            profileDistance = serialValue;
+            clamp_profile();
             serialDisplayDirty = true;
             Serial.print(F("RX: S"));
-            Serial.println(serialValue);
+            Serial.println(profileDistance);
             break;
 
         default:
@@ -329,46 +422,35 @@ ISR(TIMER1_COMPA_vect)
     const bool reference  = ((*LSREF.inputRegister) & LSREF.mask) != 0;
     const bool limitLeft  = ((*LSL.inputRegister) & LSL.mask) != 0;
 
-    // ISR-Endstopp: nur die Fahrtrichtung wird gesperrt.
-    // Die Bewegungs-LED wird beim Erreichen des Endschalters sofort gelöscht;
-    // das aktive Button-Event bleibt bis zum Loslassen bestehen.
-    if (stepRun)
-    {
-        if (!io.dir && limitLeft)
-        {
-            stepRun = false;
-            stepLevel = false;
-
-            measurement.position = 1000;
-            io.ledLeft = false;
-            updateOut = true;
-            hw.displayDirty = true;
-
-            PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
-            return;
-        }
-
-        if (io.dir && limitRight)
-        {
-            stepRun = false;
-            stepLevel = false;
-
-            if (measurement.position >= 1000)
-                measurement.totalLength = measurement.position - 1000;
-
-            io.ledRight = false;
-            updateOut = true;
-            hw.displayDirty = true;
-
-            PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
-            return;
-        }
-    }
-
     if (!stepRun)
     {
         stepLevel = false;
-        PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
+        PORTD &= ~_BV(PD3);
+        return;
+    }
+
+    // Endschalter haben Vorrang vor dem Profil.
+    if (!io.dir && limitLeft)
+    {
+        stepRun = false;
+        profileRun = false;
+        stepLevel = false;
+        io.ledLeft = false;
+        updateOut = true;
+        hw.displayDirty = true;
+        PORTD &= ~_BV(PD3);
+        return;
+    }
+
+    if (io.dir && limitRight)
+    {
+        stepRun = false;
+        profileRun = false;
+        stepLevel = false;
+        io.ledRight = false;
+        updateOut = true;
+        hw.displayDirty = true;
+        PORTD &= ~_BV(PD3);
         return;
     }
 
@@ -376,41 +458,77 @@ ISR(TIMER1_COMPA_vect)
 
     if (stepLevel)
     {
-        PORTD |= _BV(PD3);    // Arduino D3 = MOTOR_PULS / STEP HIGH
+        PORTD |= _BV(PD3);
+        return;
     }
-    else
+
+    PORTD &= ~_BV(PD3);
+
+    if (io.dir)
+        measurement.position++;
+    else if (measurement.position > 0)
+        measurement.position--;
+
+    if (!refLastState && reference)
     {
-        PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
-
-        if (io.dir)
-            measurement.position++;
-        else if (measurement.position > 0)
-            measurement.position--;
-
-        if (!refLastState && reference)
+        measurement.refStart = measurement.position;
+        refStartValid = true;
+        measurement.refValid = false;
+    }
+    else if (refLastState && !reference)
+    {
+        if (refStartValid)
         {
-            measurement.refStart = measurement.position;
-            refStartValid = true;
-            measurement.refValid = false;
+            measurement.refEnd = measurement.position;
+
+            if (measurement.refEnd >= measurement.refStart)
+                measurement.refLength =
+                    measurement.refEnd - measurement.refStart;
+            else
+                measurement.refLength =
+                    measurement.refStart - measurement.refEnd;
+
+            measurement.refValid = true;
         }
-        else if (refLastState && !reference)
+    }
+
+    refLastState = reference;
+
+    if (!profileRun)
+        return;
+
+    if (profileStepsRemaining > 0)
+        --profileStepsRemaining;
+
+    // Die aktuelle Profilphase bestimmt die Timeränderung.
+    profileTimerValue =
+        static_cast<uint16_t>(
+            static_cast<int32_t>(profileTimerValue) +
+            motionProfile[profileElement].Accel);
+
+    const uint16_t minReload = frequency_to_reload(profileVMax);
+    const uint16_t maxReload = frequency_to_reload(profileVMin);
+
+    if (profileTimerValue < minReload)
+        profileTimerValue = minReload;
+    if (profileTimerValue > maxReload)
+        profileTimerValue = maxReload;
+
+    OCR1A = profileTimerValue;
+
+    if (profileStepsRemaining == 0)
+    {
+        ++profileElement;
+
+        if (!load_next_profile_element())
         {
-            if (refStartValid)
-            {
-                measurement.refEnd = measurement.position;
-
-                if (measurement.refEnd >= measurement.refStart)
-                    measurement.refLength =
-                        measurement.refEnd - measurement.refStart;
-                else
-                    measurement.refLength =
-                        measurement.refStart - measurement.refEnd;
-
-                measurement.refValid = true;
-            }
+            profileRun = false;
+            stepRun = false;
+            io.ledLeft = false;
+            io.ledRight = false;
+            updateOut = true;
+            hw.displayDirty = true;
         }
-
-        refLastState = reference;
     }
 }
 
@@ -444,6 +562,9 @@ void init_step_timer()
     TIMSK1 |= _BV(OCIE1A);
     stepRun = false;
     stepLevel = false;
+    profileRun = false;
+    profileElement = 0;
+    profileStepsRemaining = 0;
     measurement.position = measurement.totalLength ;
     measurement.refStart = 0;
     measurement.refEnd = 0;
@@ -492,8 +613,10 @@ void update_display()
     display.print(F(" | "));
     display.println(profileVMax);
 
-    // Zeile 2: Sektor/Position/Track. Sektor und Track werden später gefüllt.
-    display.print(F("S: - Pos: "));
+    // Zeile 2: aktuelles Profilsegment / Position / Track.
+    display.print(F("S: "));
+    display.print(profileElement);
+    display.print(F(" Pos: "));
     display.print(m.position);
     display.println(F(" TRK: -"));
 
@@ -511,7 +634,7 @@ void update_display()
     display.print(F("State: "));
     if (hw.activeButton == BUTTON_STOP)
         display.println(F("STOP"));
-    else if (stepRun)
+    else if (profileRun)
         display.println(F("MOVE"));
     else
         display.println(F("IDLE"));
@@ -548,9 +671,10 @@ void setup()
     io.dir  = false;
     hw.puls = false;
     stepRun = false;
+    profileRun = false;
     hw.stepReload = 100;
     hw.frequency = STEP_FREQUENCIES[0];
-    hw.steps = 100;
+    hw.steps = profileDistance;
 
     clear_active_button();
 
@@ -572,7 +696,7 @@ void loop()
 
         if (event != BUTTON_NONE)
         {
-            if (event == BUTTON_STOP || !hw.busy)
+            if (event == BUTTON_STOP || (!hw.busy && !profileRun))
             {
                 hw.displayDirty = true;
 
@@ -582,6 +706,7 @@ void loop()
                         hw.ena = false;
                         io.ena = false;
                         stepRun = false;
+                        profileRun = false;
                         set_active_button(BUTTON_STOP);
                         break;
 
@@ -615,9 +740,19 @@ void loop()
                         {
                             hw.dir = false;
                             io.dir = false;
+
+                            clamp_profile();
+                            load_motion_profile();
+
+                            profileElement = 0;
+                            profileTimerValue = frequency_to_reload(profileVMin);
+                            load_next_profile_element();
+                            profileRun = true;
                             stepRun = true;
-                            set_step_frequency(hw.frequency);
-                            Serial.print(F("MOVE: ACC="));
+
+                            Serial.print(F("MOVE: DIST="));
+                            Serial.print(profileDistance);
+                            Serial.print(F(" ACC="));
                             Serial.print(profileAccel);
                             Serial.print(F(" VMIN="));
                             Serial.print(profileVMin);
@@ -625,6 +760,16 @@ void loop()
                             Serial.print(profileVMax);
                             Serial.print(F(" DEC="));
                             Serial.println(profileBrake);
+
+                            Serial.print(F("PROFILE: "));
+                            for (uint8_t i = 0; i < 6; ++i)
+                            {
+                                if (i > 0)
+                                    Serial.print(',');
+                                Serial.print(motionProfile[i].Steps);
+                            }
+                            Serial.println();
+
                             set_active_button(BUTTON_LEFT);
                         }
                         break;
@@ -651,9 +796,19 @@ void loop()
                         {
                             hw.dir = true;
                             io.dir = true;
+
+                            clamp_profile();
+                            load_motion_profile();
+
+                            profileElement = 0;
+                            profileTimerValue = frequency_to_reload(profileVMin);
+                            load_next_profile_element();
+                            profileRun = true;
                             stepRun = true;
-                            set_step_frequency(hw.frequency);
-                            Serial.print(F("MOVE: ACC="));
+
+                            Serial.print(F("MOVE: DIST="));
+                            Serial.print(profileDistance);
+                            Serial.print(F(" ACC="));
                             Serial.print(profileAccel);
                             Serial.print(F(" VMIN="));
                             Serial.print(profileVMin);
@@ -661,6 +816,16 @@ void loop()
                             Serial.print(profileVMax);
                             Serial.print(F(" DEC="));
                             Serial.println(profileBrake);
+
+                            Serial.print(F("PROFILE: "));
+                            for (uint8_t i = 0; i < 6; ++i)
+                            {
+                                if (i > 0)
+                                    Serial.print(',');
+                                Serial.print(motionProfile[i].Steps);
+                            }
+                            Serial.println();
+
                             set_active_button(BUTTON_RIGHT);
                         }
                         break;
@@ -682,12 +847,6 @@ void loop()
 
     if (hw.busy && !active_button_pressed())
     {
-        if (hw.activeButton == BUTTON_LEFT ||
-            hw.activeButton == BUTTON_RIGHT)
-        {
-            stepRun = false;
-        }
-
         clear_active_button();
     }
 
