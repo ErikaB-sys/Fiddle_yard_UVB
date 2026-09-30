@@ -551,11 +551,15 @@ void loop()
         clear_active_button();
     }
 
-    if (now - tDisplay >= DISPLAY_INTERVAL_MS || hw.displayDirty)
+    if (now - tDisplay >= DISPLAY_INTERVAL_MS)
     {
         tDisplay = now;
-        update_display();
-        hw.displayDirty = false;
+
+        if (hw.displayDirty)
+        {
+            update_display();
+            hw.displayDirty = false;
+        }
     }
 
     if (updateOut)
