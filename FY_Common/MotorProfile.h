@@ -5,9 +5,9 @@
 // -----------------------------------------------------------------------------
 // Gemeinsame Fahrprofilberechnung
 //
-// Die Berechnung ist bewusst hardwarefrei. Sie kennt weder Timer noch ISR.
-// Beide Seiten - Produktions-Motor und HW-Test - können dieselbe Mathematik
-// verwenden.
+// Die Berechnung entspricht der ursprünglichen Produktivlogik.
+// Sie ist hardwarefrei und wird von Produktions-Motor und HW-Test gemeinsam
+// verwendet.
 // -----------------------------------------------------------------------------
 
 enum class MotionProfileElement_t : uint8_t
@@ -29,9 +29,6 @@ struct MotionProfileElementData_t
 struct MotionProfileParam_t
 {
     uint16_t PosiMin;
-
-    // Legacy-Parameter: Die Mindeststrecke der Konstantfahrt wird inzwischen
-    // dynamisch aus der Gesamtstrecke berechnet (mindestens 50 %).
     uint16_t KonstMin;
 
     uint16_t Acc1Steps;
@@ -46,11 +43,10 @@ struct MotionProfileParam_t
 // Berechnet die sechs Profilsegmente.
 // Die Summe aller Steps entspricht exakt distance.
 //
-// Regel für die Konstantfahrt:
-// KONST_MIN = ceil(distance / 2)
-// Damit stehen grundsätzlich mindestens 50 % der Gesamtstrecke für die
-// Konstantfahrt zur Verfügung. Bei sehr kurzen Strecken kann die Rampe wegen
-// PosiMin zwangsläufig nicht vollständig aufgebaut werden.
+// Vmax ist bewusst KEIN Parameter dieser Berechnung.
+// Vmax ist im Fahrbetrieb lediglich die obere Geschwindigkeitsbegrenzung.
+// Ob Vmax tatsächlich erreicht wird, ergibt sich aus Strecke,
+// Beschleunigungsparametern und den reservierten Profilabschnitten.
 inline bool calculateMotionProfile(
     uint16_t distance,
     const MotionProfileParam_t& param,
@@ -62,24 +58,31 @@ inline bool calculateMotionProfile(
         profile[i].Accel = 0;
     }
 
-    const uint16_t konstMin = (distance + 1) / 2;
-
-    if (distance <= (param.PosiMin + konstMin))
+    // Sehr kurze Strecke:
+    // Kein vollständiges Profil möglich.
+    // Die gesamte Strecke wird mit V_MIN gefahren.
+    if (distance <= (param.PosiMin + param.KonstMin))
     {
         profile[static_cast<uint8_t>(MotionProfileElement_t::KONST)].Steps =
             distance;
+
         return true;
     }
 
+    // POSI und KONST_MIN reservieren.
     profile[static_cast<uint8_t>(MotionProfileElement_t::POSI)].Steps =
         param.PosiMin;
 
     profile[static_cast<uint8_t>(MotionProfileElement_t::KONST)].Steps =
-        konstMin;
+        param.KonstMin;
 
     uint16_t remaining =
-        distance - param.PosiMin - konstMin;
+        distance
+        - param.PosiMin
+        - param.KonstMin;
 
+    // ACC1 / BRE2
+    // Beide Bereiche werden gleich groß.
     uint16_t outer = remaining / 2;
 
     if (outer > param.Acc1Steps)
@@ -97,6 +100,7 @@ inline bool calculateMotionProfile(
 
     remaining -= outer * 2;
 
+    // ACC2 / BRE1
     uint16_t inner = remaining / 2;
 
     if (inner > param.Acc2Steps)
@@ -114,9 +118,12 @@ inline bool calculateMotionProfile(
 
     remaining -= inner * 2;
 
+    // Quantisierungs-/Begrenzungsrest geht in KONST.
     profile[static_cast<uint8_t>(MotionProfileElement_t::KONST)].Steps +=
         remaining;
 
+    // Sicherheit: Die Summe aller Profilbereiche muss exakt
+    // der angeforderten Strecke entsprechen.
     uint16_t sum = 0;
 
     for (uint8_t i = 0; i < 6; ++i)
