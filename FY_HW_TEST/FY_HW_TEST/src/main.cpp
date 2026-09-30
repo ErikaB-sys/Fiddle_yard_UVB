@@ -125,7 +125,7 @@ static void load_motion_profile()
     calculateMotionProfile(profileDistance, param, motionProfile);
 }
 
-static bool load_next_profile_element()
+static bool load_next_profile_element(bool setMaxSpeed)
 {
     while (profileElement < 6)
     {
@@ -133,8 +133,11 @@ static bool load_next_profile_element()
 
         if (profileStepsRemaining > 0)
         {
-            if (profileElement == static_cast<uint8_t>(MotionProfileElement_t::KONST))
+            if (setMaxSpeed &&
+                profileElement == static_cast<uint8_t>(MotionProfileElement_t::KONST))
+            {
                 profileTimerValue = frequency_to_reload(profileVMax);
+            }
 
             OCR1A = profileTimerValue;
             return true;
@@ -520,7 +523,7 @@ ISR(TIMER1_COMPA_vect)
     {
         ++profileElement;
 
-        if (!load_next_profile_element())
+        if (!load_next_profile_element(true))
         {
             profileRun = false;
             stepRun = false;
@@ -746,7 +749,7 @@ void loop()
 
                             profileElement = 0;
                             profileTimerValue = frequency_to_reload(profileVMin);
-                            load_next_profile_element();
+                            load_next_profile_element(false);
                             profileRun = true;
                             stepRun = true;
 
