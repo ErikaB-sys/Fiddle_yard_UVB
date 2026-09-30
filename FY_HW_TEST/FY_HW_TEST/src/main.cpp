@@ -60,7 +60,9 @@ static MotionProfileElementData_t motionProfile[6];
 static volatile uint8_t profileElement = 0;
 static volatile uint16_t profileStepsRemaining = 0;
 static volatile uint16_t profileTimerValue = 0;
+static volatile uint16_t profileMinReloadReached = 65535;
 static volatile bool profileRun = false;
+static volatile bool profileReportPending = false;
 
 static uint16_t clamp_accel_brake(uint16_t value)
 {
@@ -95,6 +97,18 @@ static void clamp_profile()
         profileDistance = 1;
     if (profileDistance > MAX_ALLOWED_STEPS)
         profileDistance = MAX_ALLOWED_STEPS;
+}
+
+static uint16_t reload_to_frequency(uint16_t reload)
+{
+    if (reload == 0)
+        return 0;
+
+    const uint32_t timerClock = F_CPU / 256UL;
+    const uint32_t frequency =
+        (timerClock + reload) / (2UL * (static_cast<uint32_t>(reload) + 1UL));
+
+    return static_cast<uint16_t>(frequency);
 }
 
 static uint16_t frequency_to_reload(uint16_t frequency)
@@ -580,6 +594,9 @@ ISR(TIMER1_COMPA_vect)
 
     OCR1A = profileTimerValue;
 
+    if (profileTimerValue < profileMinReloadReached)
+        profileMinReloadReached = profileTimerValue;
+
     if (profileStepsRemaining == 0)
     {
         ++profileElement;
@@ -588,6 +605,7 @@ ISR(TIMER1_COMPA_vect)
         {
             profileRun = false;
             stepRun = false;
+            profileReportPending = true;
             io.ledLeft = false;
             io.ledRight = false;
             updateOut = true;
@@ -629,6 +647,8 @@ void init_step_timer()
     profileRun = false;
     profileElement = 0;
     profileStepsRemaining = 0;
+    profileMinReloadReached = 65535;
+    profileReportPending = false;
     measurement.position = measurement.totalLength ;
     measurement.refStart = 0;
     measurement.refEnd = 0;
@@ -751,6 +771,20 @@ void loop()
 
     update_serial();
 
+    if (profileReportPending)
+    {
+        uint16_t reachedReload;
+
+        noInterrupts();
+        reachedReload = profileMinReloadReached;
+        profileReportPending = false;
+        interrupts();
+
+        Serial.print(F("VMAX_REACHED: "));
+        Serial.print(reload_to_frequency(reachedReload));
+        Serial.println(F(" steps/s"));
+    }
+
     if (now - tButtons >= BUTTON_INTERVAL_MS)
     {
         tButtons = now;
@@ -810,6 +844,8 @@ void loop()
 
                             profileElement = 0;
                             profileTimerValue = frequency_to_reload(profileVMin);
+                            profileMinReloadReached = profileTimerValue;
+                            profileReportPending = false;
                             load_next_profile_element(false);
                             profileRun = true;
                             stepRun = true;
