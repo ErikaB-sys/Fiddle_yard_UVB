@@ -43,8 +43,10 @@ static uint16_t profileVMax = 800;
 constexpr uint16_t ACCEL_MIN = 1;
 constexpr uint16_t ACCEL_MAX = 10;
 
-static uint16_t profileAccel = 2;
-static uint16_t profileBrake = 2;
+static uint16_t profileAccel1 = 2;
+static uint16_t profileAccel2 = 2;
+static uint16_t profileBrake1 = 2;
+static uint16_t profileBrake2 = 2;
 static uint16_t profileDistance = 1000;
 
 // Gemeinsame Profilparameter: sechs Segmente, aber zunächst
@@ -84,8 +86,10 @@ static void clamp_profile()
     if (profileVMin > profileVMax)
         profileVMin = profileVMax;
 
-    profileAccel = clamp_accel_brake(profileAccel);
-    profileBrake = clamp_accel_brake(profileBrake);
+    profileAccel1 = clamp_accel_brake(profileAccel1);
+    profileAccel2 = clamp_accel_brake(profileAccel2);
+    profileBrake1 = clamp_accel_brake(profileBrake1);
+    profileBrake2 = clamp_accel_brake(profileBrake2);
 
     if (profileDistance == 0)
         profileDistance = 1;
@@ -116,10 +120,10 @@ static void load_motion_profile()
         PROFILE_KONST_MIN,
         PROFILE_ACC1_STEPS,
         PROFILE_ACC2_STEPS,
-        -static_cast<int16_t>(profileAccel),
-        -static_cast<int16_t>(profileAccel),
-        static_cast<int16_t>(profileBrake),
-        static_cast<int16_t>(profileBrake)
+        -static_cast<int16_t>(profileAccel1),
+        -static_cast<int16_t>(profileAccel2),
+        static_cast<int16_t>(profileBrake1),
+        static_cast<int16_t>(profileBrake2)
     };
 
     calculateMotionProfile(profileDistance, param, motionProfile);
@@ -169,6 +173,50 @@ static void serial_process_line(const char* line)
     if (line[1] != '\0')
         serialValue = static_cast<uint16_t>(strtoul(&line[1], nullptr, 10));
 
+    // A1/B1 setzen die jeweilige Stufe und synchronisieren die zweite Stufe.
+    // A2/B2 überschreiben dagegen ausschließlich die zweite Stufe.
+    if (line[0] == 'A' && line[1] == '1')
+    {
+        profileAccel1 = clamp_accel_brake(
+            static_cast<uint16_t>(strtoul(&line[2], nullptr, 10)));
+        profileAccel2 = profileAccel1;
+        serialDisplayDirty = true;
+        Serial.print(F("RX: A1/A2="));
+        Serial.println(profileAccel1);
+        return;
+    }
+
+    if (line[0] == 'A' && line[1] == '2')
+    {
+        profileAccel2 = clamp_accel_brake(
+            static_cast<uint16_t>(strtoul(&line[2], nullptr, 10)));
+        serialDisplayDirty = true;
+        Serial.print(F("RX: A2="));
+        Serial.println(profileAccel2);
+        return;
+    }
+
+    if (line[0] == 'B' && line[1] == '1')
+    {
+        profileBrake1 = clamp_accel_brake(
+            static_cast<uint16_t>(strtoul(&line[2], nullptr, 10)));
+        profileBrake2 = profileBrake1;
+        serialDisplayDirty = true;
+        Serial.print(F("RX: B1/B2="));
+        Serial.println(profileBrake1);
+        return;
+    }
+
+    if (line[0] == 'B' && line[1] == '2')
+    {
+        profileBrake2 = clamp_accel_brake(
+            static_cast<uint16_t>(strtoul(&line[2], nullptr, 10)));
+        serialDisplayDirty = true;
+        Serial.print(F("RX: B2="));
+        Serial.println(profileBrake2);
+        return;
+    }
+
     switch (serialCommand)
     {
         case 'R':
@@ -199,17 +247,21 @@ static void serial_process_line(const char* line)
             break;
 
         case 'A':
-            profileAccel = clamp_accel_brake(serialValue);
+            // Rückwärtskompatibel: A setzt A1 und A2 synchron.
+            profileAccel1 = clamp_accel_brake(serialValue);
+            profileAccel2 = profileAccel1;
             serialDisplayDirty = true;
-            Serial.print(F("RX: A"));
-            Serial.println(profileAccel);
+            Serial.print(F("RX: A1/A2="));
+            Serial.println(profileAccel1);
             break;
 
         case 'B':
-            profileBrake = clamp_accel_brake(serialValue);
+            // Rückwärtskompatibel: B setzt B1 und B2 synchron.
+            profileBrake1 = clamp_accel_brake(serialValue);
+            profileBrake2 = profileBrake1;
             serialDisplayDirty = true;
-            Serial.print(F("RX: B"));
-            Serial.println(profileBrake);
+            Serial.print(F("RX: B1/B2="));
+            Serial.println(profileBrake1);
             break;
 
         case 'S':
@@ -764,14 +816,18 @@ void loop()
 
                             Serial.print(F("MOVE: DIST="));
                             Serial.print(profileDistance);
-                            Serial.print(F(" ACC="));
-                            Serial.print(profileAccel);
+                            Serial.print(F(" A1="));
+                            Serial.print(profileAccel1);
+                            Serial.print(F(" A2="));
+                            Serial.print(profileAccel2);
                             Serial.print(F(" VMIN="));
                             Serial.print(profileVMin);
                             Serial.print(F(" VMAX="));
                             Serial.print(profileVMax);
-                            Serial.print(F(" DEC="));
-                            Serial.println(profileBrake);
+                            Serial.print(F(" B1="));
+                            Serial.print(profileBrake1);
+                            Serial.print(F(" B2="));
+                            Serial.println(profileBrake2);
 
                             Serial.print(F("PROFILE: "));
                             for (uint8_t i = 0; i < 6; ++i)
