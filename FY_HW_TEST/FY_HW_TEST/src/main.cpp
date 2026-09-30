@@ -32,8 +32,8 @@ static uint8_t serialCommand = 0;
 static uint16_t serialValue = 0;
 static bool serialDisplayDirty = false;
 
-constexpr uint16_t V_MIN_LIMIT = 100;
-constexpr uint16_t V_MAX_LIMIT = 1000;
+constexpr uint16_t V_MIN_LIMIT = 80;
+constexpr uint16_t V_MAX_LIMIT = 1500;
 
 static uint16_t profileVMin = V_MIN_LIMIT;
 static uint16_t profileVMax = 800;
@@ -101,7 +101,7 @@ static uint16_t frequency_to_reload(uint16_t frequency)
 {
     uint32_t denominator = 2UL * frequency;
     uint32_t reload =
-        ((F_CPU / 1024UL) + (denominator / 2UL)) / denominator - 1UL;
+        ((F_CPU / 256UL) + (denominator / 2UL)) / denominator - 1UL;
 
     if (reload > 65535UL)
         reload = 65535UL;
@@ -602,7 +602,7 @@ void set_step_frequency(uint16_t frequency)
         return;
 
     uint32_t denominator = 2UL * frequency;
-    uint32_t reload = ((F_CPU / 1024UL) + (denominator / 2UL)) / denominator - 1UL;
+    uint32_t reload = ((F_CPU / 256UL) + (denominator / 2UL)) / denominator - 1UL;
 
     if (reload > 65535UL)
         reload = 65535UL;
@@ -622,7 +622,7 @@ void init_step_timer()
     TCCR1B = 0;
     TCNT1 = 0;
     TCCR1B |= _BV(WGM12);
-    TCCR1B |= _BV(CS12) | _BV(CS10);
+    TCCR1B |= _BV(CS12) | _BV(CS11);
     TIMSK1 |= _BV(OCIE1A);
     stepRun = false;
     stepLevel = false;
