@@ -876,15 +876,18 @@ void loop()
 
                             Serial.print(F("MOVE: DIST="));
                             Serial.print(profileDistance);
-                            Serial.print(F(" ACC="));
-                            Serial.print(profileAccel);
+                            Serial.print(F(" A1="));
+                            Serial.print(profileAccel1);
+                            Serial.print(F(" A2="));
+                            Serial.print(profileAccel2);
                             Serial.print(F(" VMIN="));
                             Serial.print(profileVMin);
                             Serial.print(F(" VMAX="));
                             Serial.print(profileVMax);
-                            Serial.print(F(" DEC="));
-                            Serial.println(profileBrake);
-
+                            Serial.print(F(" B1="));
+                            Serial.print(profileBrake1);
+                            Serial.print(F(" B2="));
+                            Serial.println(profileBrake2);
                             Serial.print(F("PROFILE: "));
                             for (uint8_t i = 0; i < 6; ++i)
                             {
