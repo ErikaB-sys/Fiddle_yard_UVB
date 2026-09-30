@@ -219,7 +219,6 @@ ISR(TIMER1_COMPA_vect)
             hw.displayDirty = true;
 
             PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
-            PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
             return;
         }
 
@@ -236,7 +235,6 @@ ISR(TIMER1_COMPA_vect)
             hw.displayDirty = true;
 
             PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
-            PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
             return;
         }
     }
@@ -245,7 +243,6 @@ ISR(TIMER1_COMPA_vect)
     {
         stepLevel = false;
         PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
-        PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
         return;
     }
 
@@ -254,12 +251,10 @@ ISR(TIMER1_COMPA_vect)
     if (stepLevel)
     {
         PORTD |= _BV(PD3);    // Arduino D3 = MOTOR_PULS / STEP HIGH
-        PORTB |= _BV(PB5);    // Arduino D13 = ISR-Testausgang HIGH
     }
     else
     {
         PORTD &= ~_BV(PD3);   // Arduino D3 = MOTOR_PULS / STEP LOW
-        PORTB &= ~_BV(PB5);   // Arduino D13 = ISR-Testausgang LOW
 
         if (io.dir)
             measurement.position++;
@@ -334,7 +329,6 @@ void init_step_timer()
     rightLengthCaptured = false;
     refLastState = (PINB & _BV(PB3)) != 0;
     PORTD &= ~_BV(PD3);
-    PORTB &= ~_BV(PB5);
     interrupts();
 
     set_step_frequency(STEP_FREQUENCIES[0]);
@@ -554,6 +548,9 @@ void loop()
     if (now - tDisplay >= DISPLAY_INTERVAL_MS)
     {
         tDisplay = now;
+
+        // D13 dient als Loop-Heartbeat. Der Pin wird nicht mehr in der ISR benutzt.
+        digitalWrite(LED_BUILTIN_PIN, !digitalRead(LED_BUILTIN_PIN));
 
         if (hw.displayDirty)
         {
