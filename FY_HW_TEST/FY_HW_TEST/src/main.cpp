@@ -124,6 +124,7 @@ enum class RefRunState : uint8_t
 
 static RefRunState refRunState = RefRunState::IDLE;
 static bool refRunActive = false;
+static bool refLongRun = false;
 static uint16_t refRunVMax = V_MIN_LIMIT;
 static uint16_t refBackoffTarget = 0;
 
@@ -529,6 +530,7 @@ static void serial_process_line(const char* line)
             if (!refRunActive)
             {
                 refRunState = RefRunState::REF_START;
+                refLongRun = false;
                 refRunActive = true;
                 serialDisplayDirty = true;
                 Serial.println(F("RX: REF_SHORT"));
@@ -546,6 +548,7 @@ static void serial_process_line(const char* line)
             if (!refRunActive)
             {
                 refRunState = RefRunState::REF_START;
+                refLongRun = true;
                 refRunActive = true;
                 serialDisplayDirty = true;
                 Serial.println(F("RX: REF_LONG"));
@@ -833,6 +836,18 @@ static void reference_run()
                 stepRun = false;
                 profileRun = false;
                 measurement.position = 1000;
+
+                if (!refLongRun)
+                {
+                    io.ledLeft = false;
+                    io.ledRight = false;
+                    updateOut = true;
+                    hw.displayDirty = true;
+                    refRunActive = false;
+                    refRunState = RefRunState::IDLE;
+                    Serial.println(F("REF: SHORT VALID"));
+                    break;
+                }
 
                 io.dir = true;
                 updateOut = true;
@@ -1431,6 +1446,7 @@ void loop()
                         stepRun = false;
                         profileRun = false;
                         refRunActive = false;
+                        refLongRun = false;
                         refRunState = RefRunState::IDLE;
                         set_active_button(BUTTON_STOP);
                         break;
