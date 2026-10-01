@@ -149,6 +149,8 @@ static volatile bool refMeasureArmed = false;
 static volatile bool refLastState = false;
 
 static void reference_run();
+static bool start_position_move(uint16_t targetPosition);
+
 
 static uint16_t clamp_accel_brake(uint16_t value)
 {
@@ -284,6 +286,82 @@ static bool load_next_profile_element()
     return false;
 }
 
+static bool start_position_move(uint16_t targetPosition)
+{
+    if (!io.ena)
+    {
+        Serial.println(F("MOTOR OFF!"));
+        return false;
+    }
+
+    uint16_t currentPosition;
+
+    noInterrupts();
+    currentPosition = measurement.position;
+    interrupts();
+
+    if (targetPosition == currentPosition)
+    {
+        profileRun = false;
+        stepRun = false;
+        io.ledLeft = false;
+        io.ledRight = false;
+        updateOut = true;
+        Serial.print(F("MOVE: AT POS="));
+        Serial.println(targetPosition);
+        return true;
+    }
+
+    if (targetPosition > currentPosition)
+    {
+        hw.dir = true;
+        io.dir = true;
+        io.ledRight = true;
+        io.ledLeft = false;
+    }
+    else
+    {
+        hw.dir = false;
+        io.dir = false;
+        io.ledRight = false;
+        io.ledLeft = true;
+    }
+
+    profileDistance = (targetPosition > currentPosition)
+        ? (targetPosition - currentPosition)
+        : (currentPosition - targetPosition);
+
+    clamp_profile();
+    load_motion_profile();
+
+    profileElement = 0;
+    profileRampCounter = 0;
+    profileTimerValue = frequency_to_reload(profileVMin);
+    profileMinReloadReached = profileTimerValue;
+    profileReportPending = false;
+
+    if (!load_next_profile_element())
+        return false;
+
+    profileRun = true;
+    stepRun = true;
+
+    hw.activeButton = BUTTON_NONE;
+    hw.busy = false;
+    hw.button = BUTTON_NONE;
+    updateOut = true;
+    hw.displayDirty = true;
+
+    Serial.print(F("MOVE: POS="));
+    Serial.print(currentPosition);
+    Serial.print(F("->"));
+    Serial.print(targetPosition);
+    Serial.print(F(" DIST="));
+    Serial.println(profileDistance);
+
+    return true;
+}
+
 static void serial_process_line(const char* line)
 {
     if (line[0] == '\0')
@@ -414,6 +492,29 @@ static void serial_process_line(const char* line)
             Serial.print(track);
             Serial.print(F(" POS="));
             Serial.println(trackPosition[track - 1]);
+
+            start_position_move(trackPosition[track - 1]);
+            break;
+        }
+
+        case 'P':
+        {
+            const uint16_t targetPosition = serialValue;
+
+            if (targetPosition > MAX_ALLOWED_STEPS)
+            {
+                Serial.println(F("RX: POSITION INVALID"));
+                break;
+            }
+
+            trackMode = false;
+            selectedTrack = 0;
+            serialDisplayDirty = true;
+
+            Serial.print(F("RX: POS="));
+            Serial.println(targetPosition);
+
+            start_position_move(targetPosition);
             break;
         }
 
