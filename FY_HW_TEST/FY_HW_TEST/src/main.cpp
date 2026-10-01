@@ -344,6 +344,12 @@ static void serial_process_line(const char* line)
     {
         case 'R':
         case 'r':
+            if (!io.ena)
+            {
+                Serial.println(F("MOTOR OFF!"));
+                break;
+            }
+
             if (!refRunActive)
             {
                 refRunState = RefRunState::REF_START;
@@ -355,6 +361,12 @@ static void serial_process_line(const char* line)
 
         case 'K':
         case 'k':
+            if (!io.ena)
+            {
+                Serial.println(F("MOTOR OFF!"));
+                break;
+            }
+
             if (!refRunActive)
             {
                 refRunState = RefRunState::REF_START;
@@ -656,7 +668,7 @@ static void reference_run()
             if (refRunVMax > V_MAX_LIMIT)
                 refRunVMax = V_MAX_LIMIT;
 
-            io.ena = true;
+            // ENA wird ausschließlich durch GO/STOP gesteuert.
             io.dir = false;
             updateOut = true;
             set_step_frequency(profileVMin);
@@ -702,27 +714,28 @@ static void reference_run()
                 stepRun = false;
                 refRunState = RefRunState::REF_RIGHT_END;
             }
-            else if (measurement.position >= refBackoffTarget)
-            {
-                // Der erste Test endet nach 1,6 cm; der nächste Schritt fährt
-                // von hier aus weiter bis LSR.
-                stepRun = false;
-                refRunState = RefRunState::REF_RIGHT_END;
-            }
             break;
 
         case RefRunState::REF_RIGHT_END:
-            // Für den ersten Test ist der Grundpfad bis zum rechten Anschlag
-            // bereits vollständig angelegt; kein Timeout und keine weitere
-            // Plausibilitätslogik.
-            if (io.limitRight)
+            // Rechter Anschlag erreicht: 1 cm nach links zurückfahren.
             {
-                stepRun = false;
-                refRunState = RefRunState::REF_VALID;
-            }
-            else
-            {
-                // Aktuell nach dem 1,6-cm-Test bewusst fertig.
+                constexpr uint16_t REF_RIGHT_BACKOFF_STEPS = 255;
+
+                refBackoffTarget =
+                    (measurement.position > REF_RIGHT_BACKOFF_STEPS)
+                        ? measurement.position - REF_RIGHT_BACKOFF_STEPS
+                        : 0;
+
+                io.dir = false;
+                updateOut = true;
+                set_step_frequency(profileVMin);
+                stepRun = true;
+
+                Serial.print(F("REF: LSR POS="));
+                Serial.print(measurement.position);
+                Serial.print(F(" BACKOFF=255 TARGET="));
+                Serial.println(refBackoffTarget);
+
                 refRunState = RefRunState::REF_VALID;
             }
             break;
@@ -738,12 +751,15 @@ static void reference_run()
             break;
 
         case RefRunState::REF_VALID:
-            stepRun = false;
-            profileRun = false;
-            refRunActive = false;
-            hw.displayDirty = true;
-            Serial.println(F("REF: VALID"));
-            refRunState = RefRunState::IDLE;
+            if (measurement.position <= refBackoffTarget)
+            {
+                stepRun = false;
+                profileRun = false;
+                refRunActive = false;
+                hw.displayDirty = true;
+                Serial.println(F("REF: VALID"));
+                refRunState = RefRunState::IDLE;
+            }
             break;
 
         case RefRunState::REF_ERROR:
