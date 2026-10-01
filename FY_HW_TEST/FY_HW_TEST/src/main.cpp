@@ -848,7 +848,6 @@ static void reference_run()
         case RefRunState::REF_RIGHT_END:
         case RefRunState::REF_SLOW_REF:
         case RefRunState::REF_MEASURE_RIGHT:
-        case RefRunState::REF_MEASURE_LEFT:
         case RefRunState::IDLE:
         default:
             break;
