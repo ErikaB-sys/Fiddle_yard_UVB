@@ -846,6 +846,11 @@ static void reference_run()
                     refRunActive = false;
                     refRunState = RefRunState::IDLE;
                     Serial.println(F("REF: SHORT VALID"));
+
+                    selectedTrack = 3;
+                    trackMode = true;
+                    serialDisplayDirty = true;
+                    start_position_move(trackPosition[2]);
                     break;
                 }
 
