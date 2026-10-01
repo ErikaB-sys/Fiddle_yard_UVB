@@ -113,9 +113,17 @@ static volatile uint16_t refPreciseRight = 0;
 static volatile uint16_t refPreciseLeft = 0;
 static volatile uint16_t refPreciseLength = 0;
 static volatile uint16_t refPreciseCenter = 0;
+static volatile uint16_t refPreciseRight2 = 0;
+static volatile uint16_t refPreciseLeft2 = 0;
+static volatile uint16_t refPreciseLength2 = 0;
+static volatile uint16_t refPreciseCenter2 = 0;
+static volatile uint16_t refApproachTarget = 0;
+static volatile uint16_t refShiftTarget = 0;
+static volatile uint8_t refMeasurePass = 0;
 static volatile bool refCoarseCaptured = false;
 static volatile bool refPreciseRightCaptured = false;
 static volatile bool refPreciseCaptured = false;
+static volatile bool refSecondPreciseCaptured = false;
 static volatile bool refMeasureArmed = false;
 
 static volatile bool refLastState = false;
@@ -635,13 +643,21 @@ static void reference_run()
             refCoarseCaptured = false;
             refPreciseRightCaptured = false;
             refPreciseCaptured = false;
+            refSecondPreciseCaptured = false;
             refMeasureArmed = false;
+            refMeasurePass = 0;
             refCoarsePosition = 0;
             refRightEndPosition = 0;
             refPreciseRight = 0;
             refPreciseLeft = 0;
             refPreciseLength = 0;
             refPreciseCenter = 0;
+            refPreciseRight2 = 0;
+            refPreciseLeft2 = 0;
+            refPreciseLength2 = 0;
+            refPreciseCenter2 = 0;
+            refApproachTarget = 0;
+            refShiftTarget = 0;
 
             io.dir = false;
             updateOut = true;
@@ -671,13 +687,40 @@ static void reference_run()
             if (io.limitRight)
             {
                 stepRun = false;
+                profileRun = false;
                 refRightEndPosition = measurement.position;
+
+                // Die Groberkennung liegt an der linken Fahnenkante.
+                // Wir fahren von LSR zügig zurück in die Nähe der Fahne,
+                // aber mit Sicherheitsabstand rechts davon.
+                refApproachTarget = refCoarsePosition + 1200;
+                if (refApproachTarget >= refRightEndPosition)
+                    refApproachTarget =
+                        refRightEndPosition > 100
+                            ? refRightEndPosition - 100
+                            : 0;
+
+                io.dir = false;
+                updateOut = true;
+                set_step_frequency(refRunVMax);
+                stepRun = true;
+
+                refRunState = RefRunState::REF_APPROACH_REF;
+            }
+            break;
+
+        case RefRunState::REF_APPROACH_REF:
+            if (measurement.position <= refApproachTarget)
+            {
+                stepRun = false;
+                profileRun = false;
 
                 noInterrupts();
                 refLastState =
                     ((*LSREF.inputRegister) & LSREF.mask) != 0;
                 refPreciseRightCaptured = false;
                 refPreciseCaptured = false;
+                refMeasurePass = 1;
                 refMeasureArmed = true;
                 measurement.refValid = false;
                 interrupts();
@@ -696,28 +739,88 @@ static void reference_run()
             {
                 stepRun = false;
                 profileRun = false;
+
+                refShiftTarget =
+                    refPreciseLeft > 500
+                        ? refPreciseLeft - 500
+                        : 0;
+
+                io.dir = false;
+                updateOut = true;
+                set_step_frequency(V_MIN_LIMIT);
+                stepRun = true;
+
+                refRunState = RefRunState::REF_SHIFT_LEFT;
+            }
+            break;
+
+        case RefRunState::REF_SHIFT_LEFT:
+            if (measurement.position <= refShiftTarget)
+            {
+                stepRun = false;
+                profileRun = false;
+
+                noInterrupts();
+                refLastState =
+                    ((*LSREF.inputRegister) & LSREF.mask) != 0;
+                refMeasurePass = 2;
+                refMeasureArmed = true;
+                refSecondPreciseCaptured = false;
+                measurement.refValid = false;
+                interrupts();
+
+                io.dir = true;
+                updateOut = true;
+                set_step_frequency(V_MIN_LIMIT);
+                stepRun = true;
+
+                refRunState = RefRunState::REF_MEASURE_LEFT;
+            }
+            break;
+
+        case RefRunState::REF_MEASURE_LEFT:
+            if (refSecondPreciseCaptured)
+            {
+                stepRun = false;
+                profileRun = false;
                 refRunState = RefRunState::REF_CALCULATE;
             }
             break;
 
         case RefRunState::REF_CALCULATE:
             {
-                const int16_t coarseError =
-                    static_cast<int16_t>(refCoarsePosition) -
+                const int16_t playLeft =
+                    static_cast<int16_t>(refPreciseLeft2) -
+                    static_cast<int16_t>(refPreciseLeft);
+
+                const int16_t playRight =
+                    static_cast<int16_t>(refPreciseRight2) -
+                    static_cast<int16_t>(refPreciseRight);
+
+                const int16_t centerShift =
+                    static_cast<int16_t>(refPreciseCenter2) -
                     static_cast<int16_t>(refPreciseCenter);
 
                 Serial.print(F("REF: DATA COARSE="));
                 Serial.print(refCoarsePosition);
-                Serial.print(F(" RIGHT="));
+                Serial.print(F(" RL_R="));
                 Serial.print(refPreciseRight);
-                Serial.print(F(" LEFT="));
+                Serial.print(F(" RL_L="));
                 Serial.print(refPreciseLeft);
-                Serial.print(F(" LEN="));
+                Serial.print(F(" RL_LEN="));
                 Serial.print(refPreciseLength);
-                Serial.print(F(" CENTER="));
-                Serial.print(refPreciseCenter);
-                Serial.print(F(" COARSE_ERR="));
-                Serial.print(coarseError);
+                Serial.print(F(" LR_L="));
+                Serial.print(refPreciseLeft2);
+                Serial.print(F(" LR_R="));
+                Serial.print(refPreciseRight2);
+                Serial.print(F(" LR_LEN="));
+                Serial.print(refPreciseLength2);
+                Serial.print(F(" PLAY_L="));
+                Serial.print(playLeft);
+                Serial.print(F(" PLAY_R="));
+                Serial.print(playRight);
+                Serial.print(F(" CENTER_SHIFT="));
+                Serial.print(centerShift);
                 Serial.print(F(" LSR="));
                 Serial.print(refRightEndPosition);
                 Serial.print(F(" SPAN="));
@@ -726,20 +829,6 @@ static void reference_run()
                         ? refRightEndPosition - 1000
                         : 0);
 
-                refBackoffTarget = refPreciseCenter;
-                io.dir = true;
-                updateOut = true;
-                set_step_frequency(V_MIN_LIMIT);
-                stepRun = true;
-                refRunState = RefRunState::REF_VALID;
-            }
-            break;
-
-        case RefRunState::REF_VALID:
-            if (measurement.position >= refBackoffTarget)
-            {
-                stepRun = false;
-                profileRun = false;
                 refRunActive = false;
                 hw.displayDirty = true;
                 Serial.println(F("REF: VALID"));
@@ -756,16 +845,12 @@ static void reference_run()
             refRunState = RefRunState::IDLE;
             break;
 
-        case RefRunState::REF_APPROACH_REF:
+        case RefRunState::REF_RIGHT_END:
         case RefRunState::REF_SLOW_REF:
         case RefRunState::REF_MEASURE_RIGHT:
-        case RefRunState::REF_SHIFT_LEFT:
         case RefRunState::REF_MEASURE_LEFT:
-        case RefRunState::REF_RIGHT_END:
         case RefRunState::IDLE:
         default:
-            refRunActive = false;
-            refRunState = RefRunState::IDLE;
             break;
     }
 }
@@ -850,10 +935,17 @@ ISR(TIMER1_COMPA_vect)
             refCoarseCaptured = true;
         }
 
-        if (!io.dir && refMeasureArmed && !refPreciseRightCaptured)
+        if (!io.dir && refMeasureArmed &&
+            refMeasurePass == 1 && !refPreciseRightCaptured)
         {
             refPreciseRight = measurement.position;
             refPreciseRightCaptured = true;
+        }
+
+        if (io.dir && refMeasureArmed &&
+            refMeasurePass == 2)
+        {
+            refPreciseLeft2 = measurement.position;
         }
     }
     else if (refLastState && !reference)
@@ -872,7 +964,8 @@ ISR(TIMER1_COMPA_vect)
             measurement.refValid = true;
         }
 
-        if (!io.dir && refMeasureArmed && refPreciseRightCaptured)
+        if (!io.dir && refMeasureArmed &&
+            refMeasurePass == 1 && refPreciseRightCaptured)
         {
             refPreciseLeft = measurement.position;
 
@@ -885,6 +978,25 @@ ISR(TIMER1_COMPA_vect)
                 refPreciseLeft + (refPreciseLength / 2);
 
             refPreciseCaptured = true;
+            refMeasureArmed = false;
+        }
+
+        if (io.dir && refMeasureArmed &&
+            refMeasurePass == 2)
+        {
+            refPreciseRight2 = measurement.position;
+
+            if (refPreciseRight2 >= refPreciseLeft2)
+                refPreciseLength2 =
+                    refPreciseRight2 - refPreciseLeft2;
+            else
+                refPreciseLength2 =
+                    refPreciseLeft2 - refPreciseRight2;
+
+            refPreciseCenter2 =
+                refPreciseLeft2 + (refPreciseLength2 / 2);
+
+            refSecondPreciseCaptured = true;
             refMeasureArmed = false;
         }
     }
@@ -993,6 +1105,8 @@ void init_step_timer()
     refCoarseCaptured = false;
     refPreciseRightCaptured = false;
     refPreciseCaptured = false;
+    refSecondPreciseCaptured = false;
+    refMeasurePass = 0;
     refMeasureArmed = false;
     PORTD &= ~_BV(PD3);
     interrupts();
