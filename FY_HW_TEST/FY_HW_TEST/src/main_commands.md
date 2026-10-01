@@ -30,7 +30,33 @@ Bei den Rampenintervallen bedeutet N=1 Änderung nach jedem STEP, N=2 nach jedem
 |---|---|
 | Snnnn | Bewegungsstrecke in Steps |
 
-GO / LEFT / RIGHT / STOP erfolgen beim aktuellen HW-Test über die Taster. Die serielle Schnittstelle dient für Parameter und Referenztest.
+GO / LEFT / RIGHT / STOP erfolgen beim aktuellen HW-Test über die Taster.
+
+## Track- und Positionsmodus
+
+Die aktuell vermessenen Gleismitten sind als absolute Schrittpositionen im Programm hinterlegt:
+
+| Track | Position |
+|---|---:|
+| BG1 | 1557 |
+| BG2 | 3157 |
+| BG3 | 4757 |
+| BG4 | 6357 |
+| BG5 | 7957 |
+
+| Befehl | Bedeutung |
+|---|---|
+| T1 ... T5 | Track auswählen und die hinterlegte Position anfahren |
+| T0 | Track-Modus verlassen |
+| Pnnnn | absolute Position anfahren |
+
+Bei T1 ... T5 wird die zugehörige Position aus dem Track-Array verwendet.
+
+Pnnnn dient zum direkten Anfahren einer beliebigen absoluten Position. Damit können die gemessenen Trackpositionen experimentell überprüft und bei Bedarf Korrekturwerte ermittelt werden.
+
+Die Positionierung erfolgt zunächst direkt vom aktuellen Standort zum Ziel. Eine definierte Anfahrrichtung bzw. automatische Richtungsumkehr ist derzeit nicht implementiert.
+
+Für T und P muss der Motor mit dem GO-Taster aktiviert sein.
 
 ## Referenzlauf
 
