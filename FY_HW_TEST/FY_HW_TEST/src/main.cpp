@@ -1298,7 +1298,7 @@ void init_step_timer()
     profileStepsRemaining = 0;
     profileMinReloadReached = 65535;
     profileReportPending = false;
-    measurement.position = 1000;
+    measurement.position = MAX_ALLOWED_STEPS / 2;
     measurement.refStart = 0;
     measurement.refEnd = 0;
     measurement.refLength = 0;
