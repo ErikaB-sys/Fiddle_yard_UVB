@@ -36,11 +36,6 @@ constexpr uint8_t CMD_HELP         =   0x25   ;    // Command to get the list of
 constexpr uint8_t CMD_SET_LOCAL    =   0x26   ;    // Command to set the controller to local mode
 constexpr uint8_t CMD_SET_REMOTE   =   0x2A   ;    // Command to set the controller to remote mode
 
-/** Simple UART service aliases for the reference run. */
-constexpr uint8_t REF_CMD_SHORT    =   'R'      ;    // Short reference run
-constexpr uint8_t REF_CMD_LONG     =   'K'      ;    // Long/calibration reference run
-
-
 
 /** Maximum length of a response sent to UART, in bytes. */
 #define MAX_RESPONSE_LENGTH        4
