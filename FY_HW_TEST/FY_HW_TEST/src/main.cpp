@@ -119,10 +119,6 @@ static volatile bool refPreciseCaptured = false;
 static volatile bool refMeasureArmed = false;
 static volatile bool refLastState = false;
 
-// 20 mm Antriebsrad, 200 Schritte/Umdrehung, 1/8 Microstep:
-// ca. 25.46 Schritte/mm -> 16 mm ca. 407 Schritte.
-constexpr uint16_t REF_BACKOFF_STEPS = 407;
-
 static void reference_run()
 {
     if (!refRunActive)
@@ -348,20 +344,11 @@ ISR(TIMER1_COMPA_vect)
             refCoarseCaptured = true;
         }
 
-        if (!io.dir && refMeasureArmed && refPreciseRightCaptured)
+        if (!io.dir && refMeasureArmed && !refPreciseRightCaptured)
         {
-            refPreciseLeft = measurement.position;
-
-            if (refPreciseRight >= refPreciseLeft)
-                refPreciseLength = refPreciseRight - refPreciseLeft;
-            else
-                refPreciseLength = refPreciseLeft - refPreciseRight;
-
-            refPreciseCenter =
-                refPreciseLeft + (refPreciseLength / 2);
-
-            refPreciseCaptured = true;
-            refMeasureArmed = false;
+            // R -> L: erste Kante ist die rechte Fahnenkante.
+            refPreciseRight = measurement.position;
+            refPreciseRightCaptured = true;
         }
     }
     else if (refLastState && !reference)
@@ -380,10 +367,21 @@ ISR(TIMER1_COMPA_vect)
             measurement.refValid = true;
         }
 
-        if (!io.dir && refMeasureArmed && !refPreciseRightCaptured)
+        if (!io.dir && refMeasureArmed && refPreciseRightCaptured)
         {
-            refPreciseRight = measurement.position;
-            refPreciseRightCaptured = true;
+            // R -> L: zweite Kante ist die linke Fahnenkante.
+            refPreciseLeft = measurement.position;
+
+            if (refPreciseRight >= refPreciseLeft)
+                refPreciseLength = refPreciseRight - refPreciseLeft;
+            else
+                refPreciseLength = refPreciseLeft - refPreciseRight;
+
+            refPreciseCenter =
+                refPreciseLeft + (refPreciseLength / 2);
+
+            refPreciseCaptured = true;
+            refMeasureArmed = false;
         }
     }
 
