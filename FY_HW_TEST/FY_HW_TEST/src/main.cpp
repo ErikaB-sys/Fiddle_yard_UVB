@@ -1036,6 +1036,7 @@ static void reference_run()
                     localSequenceActive = false;
                     localTrackActive = true;
                     trackMode = true;
+                    selectedTrack = 3;
                 }
 
                 refRunState = RefRunState::IDLE;
@@ -1515,7 +1516,21 @@ void loop()
                         set_step_frequency(hw.frequency);
                         set_active_button(BUTTON_GO);
 
-                        if (!localTrackActive && !localSequenceActive)
+                        if (localTrackActive)
+                        {
+                            if (selectedTrack >= 1 && selectedTrack <= TRACK_COUNT)
+                            {
+                                Serial.print(F("LOCAL: GO BG"));
+                                Serial.print(selectedTrack);
+                                Serial.print(F(" POS="));
+                                Serial.println(trackPosition[selectedTrack - 1]);
+
+                                start_position_move(trackPosition[selectedTrack - 1]);
+                            }
+                            break;
+                        }
+
+                        if (!localSequenceActive)
                         {
                             localSequenceActive = true;
                             refRunState = RefRunState::REF_START;
@@ -1546,12 +1561,11 @@ void loop()
                             trackMode = true;
                             serialDisplayDirty = true;
 
-                            Serial.print(F("LOCAL: BG"));
+                            Serial.print(F("LOCAL: SELECT BG"));
                             Serial.print(selectedTrack);
                             Serial.print(F(" POS="));
                             Serial.println(trackPosition[selectedTrack - 1]);
-
-                            start_position_move(trackPosition[selectedTrack - 1]);
+                            hw.displayDirty = true;
                             break;
                         }
 
@@ -1581,12 +1595,11 @@ void loop()
                             trackMode = true;
                             serialDisplayDirty = true;
 
-                            Serial.print(F("LOCAL: BG"));
+                            Serial.print(F("LOCAL: SELECT BG"));
                             Serial.print(selectedTrack);
                             Serial.print(F(" POS="));
                             Serial.println(trackPosition[selectedTrack - 1]);
-
-                            start_position_move(trackPosition[selectedTrack - 1]);
+                            hw.displayDirty = true;
                             break;
                         }
 
