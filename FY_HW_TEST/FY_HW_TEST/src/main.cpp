@@ -306,8 +306,15 @@ static void serial_process_line(const char* line)
     switch (serialCommand)
     {
         case 'R':
+        case 'r':
             serialDisplayDirty = true;
-            Serial.println(F("RX: R"));
+            Serial.println(F("RX: REF_SHORT"));
+            break;
+
+        case 'K':
+        case 'k':
+            serialDisplayDirty = true;
+            Serial.println(F("RX: REF_LONG"));
             break;
 
         case 'V':
@@ -410,7 +417,8 @@ static void print_command_help()
     Serial.println(F("  GO      Start move"));
     Serial.println(F("  LEFT    Direction"));
     Serial.println(F("  RIGHT   Direction"));
-    Serial.println(F("  R       Reference run"));
+    Serial.println(F("  R/r     Reference short")); 
+    Serial.println(F("  K/k     Reference long"));
     Serial.println(F("Profile:"));
     Serial.print(F("  VMIN="));
     Serial.print(profileVMin);
