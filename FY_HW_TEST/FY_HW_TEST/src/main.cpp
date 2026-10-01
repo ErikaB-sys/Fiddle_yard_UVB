@@ -127,6 +127,10 @@ static void reference_run()
     switch (refRunState)
     {
         case RefRunState::REF_START:
+            refRunVMax = profileVMin + 20;
+            if (refRunVMax > V_MAX_LIMIT)
+                refRunVMax = V_MAX_LIMIT;
+
             refCoarseCaptured = false;
             refPreciseRightCaptured = false;
             refPreciseCaptured = false;
