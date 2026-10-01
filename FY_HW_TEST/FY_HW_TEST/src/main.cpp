@@ -660,6 +660,7 @@ static void reference_run()
             io.dir = false;
             updateOut = true;
             set_step_frequency(profileVMin);
+            stepRun = true;
 
             Serial.print(F("REF: START VMIN="));
             Serial.print(profileVMin);
