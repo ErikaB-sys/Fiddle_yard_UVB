@@ -49,6 +49,26 @@ static uint16_t profileBrake1 = 2;
 static uint16_t profileBrake2 = 2;
 static uint16_t profileDistance = 1000;
 
+// -----------------------------------------------------------------------------
+// Gleispositionen - Messwerte aus der aktuellen mechanischen Vermessung.
+// 0 = Position noch nicht vermessen.
+// Die Position bezeichnet die Gleismitte der Brücke.
+// -----------------------------------------------------------------------------
+constexpr uint8_t TRACK_COUNT = 5;
+constexpr uint16_t TRACK_POSITION_UNKNOWN = 0;
+
+static const uint16_t trackPosition[TRACK_COUNT] =
+{
+    1557,   // BG1
+    3157,   // BG2
+    4757,   // BG3
+    0,      // BG4 - noch nicht vermessen
+    6357    // BG5
+};
+
+static uint8_t selectedTrack = 0;
+static bool trackMode = false;
+
 // Rampenauflösung: Änderung des Timerwertes nur alle N Steps.
 // 1 = Änderung bei jedem STEP, 2 = jedem zweiten STEP usw.
 constexpr uint8_t RAMP_INTERVAL_MIN = 1;
@@ -359,6 +379,44 @@ static void serial_process_line(const char* line)
 
     switch (serialCommand)
     {
+        case 'T':
+        {
+            const uint16_t track = serialValue;
+
+            if (track == 0)
+            {
+                trackMode = false;
+                selectedTrack = 0;
+                serialDisplayDirty = true;
+                Serial.println(F("RX: TRACK MODE OFF"));
+                break;
+            }
+
+            if (track > TRACK_COUNT)
+            {
+                Serial.println(F("RX: TRACK INVALID"));
+                break;
+            }
+
+            if (trackPosition[track - 1] == TRACK_POSITION_UNKNOWN)
+            {
+                Serial.print(F("RX: BG"));
+                Serial.print(track);
+                Serial.println(F(" POSITION UNKNOWN"));
+                break;
+            }
+
+            selectedTrack = static_cast<uint8_t>(track);
+            trackMode = true;
+            serialDisplayDirty = true;
+
+            Serial.print(F("RX: BG"));
+            Serial.print(track);
+            Serial.print(F(" POS="));
+            Serial.println(trackPosition[track - 1]);
+            break;
+        }
+
         case 'R':
         case 'r':
             if (!io.ena)
@@ -1149,7 +1207,12 @@ void update_display()
     display.print(profileElement);
     display.print(F(" Pos: "));
     display.print(m.position);
-    display.println(F(" TRK: -"));
+    display.print(F(" TRK: "));
+    if (trackMode)
+        display.print(selectedTrack);
+    else
+        display.print('-');
+    display.println();
 
     // Zeile 3: Endschalter und Referenzsensor.
     display.print(F("LS:L"));
