@@ -69,6 +69,18 @@ static const uint16_t trackPosition[TRACK_COUNT] =
 static uint8_t selectedTrack = 0;
 static bool trackMode = false;
 
+// Lokale Bedienung: vor dem Start wird zwischen TRACK und LONG REF gewählt.
+// Nach dem Start dienen die blauen Tasten zur Gleisauswahl.
+enum class LocalStartMode : uint8_t
+{
+    TRACK,
+    LONG_REF
+};
+
+static LocalStartMode localStartMode = LocalStartMode::TRACK;
+static bool localSequenceActive = false;
+static bool localTrackActive = false;
+
 // Rampenauflösung: Änderung des Timerwertes nur alle N Steps.
 // 1 = Änderung bei jedem STEP, 2 = jedem zweiten STEP usw.
 constexpr uint8_t RAMP_INTERVAL_MIN = 1;
@@ -849,6 +861,13 @@ static void reference_run()
 
                     selectedTrack = 3;
                     trackMode = true;
+
+                    if (localSequenceActive)
+                    {
+                        localSequenceActive = false;
+                        localTrackActive = true;
+                    }
+
                     serialDisplayDirty = true;
                     start_position_move(trackPosition[2]);
                     break;
@@ -1011,6 +1030,14 @@ static void reference_run()
                 refRunActive = false;
                 hw.displayDirty = true;
                 Serial.println(F("REF: VALID"));
+
+                if (localSequenceActive && refLongRun)
+                {
+                    localSequenceActive = false;
+                    localTrackActive = true;
+                    trackMode = true;
+                }
+
                 refRunState = RefRunState::IDLE;
             }
             break;
@@ -1307,6 +1334,29 @@ void get_measurement(HWMeasurement& result)
 void update_display()
 {
     display.clearDisplay();
+
+    // Im lokalen Bereitschaftszustand wird der gewählte Startmodus
+    // bewusst groß dargestellt. Nach dem Start bleibt die normale
+    // Diagnoseanzeige erhalten.
+    if (!localTrackActive && !localSequenceActive && !io.ena)
+    {
+        display.setTextSize(2);
+        display.setCursor(0, 0);
+
+        if (localStartMode == LocalStartMode::TRACK)
+            display.println(F("TRACK"));
+        else
+            display.println(F("LONG REF"));
+
+        display.setTextSize(1);
+        display.setCursor(0, 24);
+        display.println(F("BLUE=MODE  GREEN=START"));
+        display.display();
+        display.setTextSize(1);
+        return;
+    }
+
+    display.setTextSize(1);
     display.setCursor(0, 0);
 
     static HWMeasurement displayMeasurement;
@@ -1453,6 +1503,8 @@ void loop()
                         refRunActive = false;
                         refLongRun = false;
                         refRunState = RefRunState::IDLE;
+                        localSequenceActive = false;
+                        localTrackActive = false;
                         set_active_button(BUTTON_STOP);
                         break;
 
@@ -1462,9 +1514,58 @@ void loop()
                         stepRun = false;
                         set_step_frequency(hw.frequency);
                         set_active_button(BUTTON_GO);
+
+                        if (!localTrackActive && !localSequenceActive)
+                        {
+                            localSequenceActive = true;
+                            refRunState = RefRunState::REF_START;
+                            refLongRun =
+                                (localStartMode == LocalStartMode::LONG_REF);
+                            serialDisplayDirty = true;
+
+                            if (refLongRun)
+                                Serial.println(F("LOCAL: LONG REF"));
+                            else
+                                Serial.println(F("LOCAL: TRACK"));
+
+                            refRunActive = true;
+                        }
                         break;
 
                     case BUTTON_LEFT:
+                        if (localSequenceActive || refRunActive)
+                            break;
+
+                        if (localTrackActive)
+                        {
+                            if (selectedTrack >= TRACK_COUNT)
+                                selectedTrack = 1;
+                            else
+                                ++selectedTrack;
+
+                            trackMode = true;
+                            serialDisplayDirty = true;
+
+                            Serial.print(F("LOCAL: BG"));
+                            Serial.print(selectedTrack);
+                            Serial.print(F(" POS="));
+                            Serial.println(trackPosition[selectedTrack - 1]);
+
+                            start_position_move(trackPosition[selectedTrack - 1]);
+                            break;
+                        }
+
+                        if (io.ena)
+                            break;
+
+                        localStartMode =
+                            (localStartMode == LocalStartMode::TRACK)
+                                ? LocalStartMode::LONG_REF
+                                : LocalStartMode::TRACK;
+                        serialDisplayDirty = true;
+                        hw.displayDirty = true;
+                        set_active_button(BUTTON_LEFT);
+                        break;
                         // Endschalterbegrenzung beim Start bleibt erhalten.
                         if ((true ==io.limitLeft) && (true== io.ena ))
                             break;
@@ -1538,73 +1639,38 @@ void loop()
                         break;
 
                     case BUTTON_RIGHT:
-                        // Endschalterbegrenzung beim Start bleibt erhalten.
-                        if ((true == io.limitRight)&& (true== io.ena))
+                        if (localSequenceActive || refRunActive)
                             break;
 
-                        if (!io.ena)
+                        if (localTrackActive)
                         {
-                            for (uint8_t i = 0; i < STEP_FREQUENCY_COUNT; ++i)
-                            {
-                                if (STEP_FREQUENCIES[i] == hw.frequency && i + 1 < STEP_FREQUENCY_COUNT)
-                                {
-                                    hw.frequency = STEP_FREQUENCIES[i + 1];
-                                    set_step_frequency(hw.frequency);
-                                    set_active_button(BUTTON_RIGHT);
-                                    break;
-                                }
-                            }
+                            if (selectedTrack <= 1)
+                                selectedTrack = TRACK_COUNT;
+                            else
+                                --selectedTrack;
+
+                            trackMode = true;
+                            serialDisplayDirty = true;
+
+                            Serial.print(F("LOCAL: BG"));
+                            Serial.print(selectedTrack);
+                            Serial.print(F(" POS="));
+                            Serial.println(trackPosition[selectedTrack - 1]);
+
+                            start_position_move(trackPosition[selectedTrack - 1]);
+                            break;
                         }
-                        else
-                        {
-                            hw.dir = true;
-                            io.dir = true;
 
-                            clamp_profile();
-                            load_motion_profile();
+                        if (io.ena)
+                            break;
 
-                            profileElement = 0;
-                            profileRampCounter = 0;
-                            profileTimerValue = frequency_to_reload(profileVMin);
-                            profileMinReloadReached = profileTimerValue;
-                            profileReportPending = false;
-                            load_next_profile_element();
-                            profileRun = true;
-                            stepRun = true;
-
-                            Serial.print(F("MOVE: DIST="));
-                            Serial.print(profileDistance);
-                            Serial.print(F(" A1="));
-                            Serial.print(profileAccel1);
-                            Serial.print(F(" A2="));
-                            Serial.print(profileAccel2);
-                            Serial.print(F(" A1N="));
-                            Serial.print(profileAccel1Interval);
-                            Serial.print(F(" A2N="));
-                            Serial.print(profileAccel2Interval);
-                            Serial.print(F(" VMIN="));
-                            Serial.print(profileVMin);
-                            Serial.print(F(" VMAX="));
-                            Serial.print(profileVMax);
-                            Serial.print(F(" B1="));
-                            Serial.print(profileBrake1);
-                            Serial.print(F(" B2="));
-                            Serial.print(profileBrake2);
-                            Serial.print(F(" B1N="));
-                            Serial.print(profileBrake1Interval);
-                            Serial.print(F(" B2N="));
-                            Serial.println(profileBrake2Interval);
-                            Serial.print(F("PROFILE: "));
-                            for (uint8_t i = 0; i < 6; ++i)
-                            {
-                                if (i > 0)
-                                    Serial.print(',');
-                                Serial.print(motionProfile[i].Steps);
-                            }
-                            Serial.println();
-
-                            set_active_button(BUTTON_RIGHT);
-                        }
+                        localStartMode =
+                            (localStartMode == LocalStartMode::TRACK)
+                                ? LocalStartMode::LONG_REF
+                                : LocalStartMode::TRACK;
+                        serialDisplayDirty = true;
+                        hw.displayDirty = true;
+                        set_active_button(BUTTON_RIGHT);
                         break;
 
                     default:
