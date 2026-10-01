@@ -62,8 +62,8 @@ static const uint16_t trackPosition[TRACK_COUNT] =
     1557,   // BG1
     3157,   // BG2
     4757,   // BG3
-    0,      // BG4 - noch nicht vermessen
-    6357    // BG5
+    6357,   // BG4
+    7957    // BG5
 };
 
 static uint8_t selectedTrack = 0;
