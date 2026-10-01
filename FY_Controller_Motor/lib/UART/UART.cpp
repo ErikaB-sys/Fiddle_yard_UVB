@@ -107,6 +107,24 @@
     {
         uint8_t cmd = Serial.read();
 
+        // Simple service commands for the reference run.
+        // They are intentionally accepted without a binary telegram/CRC.
+        if (cmd == REF_CMD_SHORT || cmd == 'r' ||
+            cmd == REF_CMD_LONG  || cmd == 'k')
+        {
+            CommandBuffer.status = UART_CommandStatus_t::VALID;
+            CommandBuffer.cmd = CMD_REFERENCE;
+            CommandBuffer.type = CommandType::EXECUTE;
+            CommandBuffer.response = STATUS_Reference;
+            CommandBuffer.data[0] =
+                (cmd == REF_CMD_LONG || cmd == 'k') ? REF_CMD_LONG : REF_CMD_SHORT;
+            expectedLength = 0;
+            dataIndex = 0;
+            receiveState = ReceiveState::FindCommand;
+            commandReady = true;
+            return;
+        }
+
         // Start a new command telegram.
         CommandBuffer.status = UART_CommandStatus_t::VALID;
         CommandBuffer.cmd = cmd;
