@@ -76,6 +76,38 @@ static volatile uint16_t profileMinReloadReached = 65535;
 static volatile bool profileRun = false;
 static volatile bool profileReportPending = false;
 
+// -----------------------------------------------------------------------------
+// Reference run - vollständiges State-Machine-Gerüst, zunächst nur Grundpfad.
+// -----------------------------------------------------------------------------
+enum class RefRunState : uint8_t
+{
+    IDLE,
+    REF_START,
+    REF_LEFT_END,
+    REF_SEARCH_RIGHT,
+    REF_RIGHT_END,
+    REF_RETURN_TO_REF,
+    REF_APPROACH_REF,
+    REF_SLOW_REF,
+    REF_MEASURE_RIGHT,
+    REF_SHIFT_LEFT,
+    REF_MEASURE_LEFT,
+    REF_CALCULATE,
+    REF_VALID,
+    REF_ERROR
+};
+
+static RefRunState refRunState = RefRunState::IDLE;
+static bool refRunActive = false;
+static uint16_t refRunVMax = V_MIN_LIMIT;
+static uint16_t refBackoffTarget = 0;
+
+// 20 mm Antriebsrad, 200 Schritte/Umdrehung, 1/8 Microstep:
+// ca. 25.46 Schritte/mm -> 16 mm ca. 407 Schritte.
+constexpr uint16_t REF_BACKOFF_STEPS = 407;
+
+static void reference_run();
+
 static uint16_t clamp_accel_brake(uint16_t value)
 {
     if (value < ACCEL_MIN)
@@ -307,14 +339,24 @@ static void serial_process_line(const char* line)
     {
         case 'R':
         case 'r':
-            serialDisplayDirty = true;
-            Serial.println(F("RX: REF_SHORT"));
+            if (!refRunActive)
+            {
+                refRunState = RefRunState::REF_START;
+                refRunActive = true;
+                serialDisplayDirty = true;
+                Serial.println(F("RX: REF_SHORT"));
+            }
             break;
 
         case 'K':
         case 'k':
-            serialDisplayDirty = true;
-            Serial.println(F("RX: REF_LONG"));
+            if (!refRunActive)
+            {
+                refRunState = RefRunState::REF_START;
+                refRunActive = true;
+                serialDisplayDirty = true;
+                Serial.println(F("RX: REF_LONG"));
+            }
             break;
 
         case 'V':
@@ -595,6 +637,125 @@ static bool active_button_pressed()
 
 void read_end_switches() {}
 
+static void reference_run()
+{
+    if (!refRunActive)
+        return;
+
+    switch (refRunState)
+    {
+        case RefRunState::REF_START:
+            // Für den ersten Test: langsame, konstante Fahrt.
+            // VMAX liegt nur 20 steps/s über VMIN; gefahren wird zunächst mit VMIN.
+            refRunVMax = profileVMin + 20;
+            if (refRunVMax > V_MAX_LIMIT)
+                refRunVMax = V_MAX_LIMIT;
+
+            hw.ena = true;
+            io.ena = true;
+            hw.dir = false;
+            io.dir = false;
+            set_step_frequency(profileVMin);
+
+            Serial.print(F("REF: START VMIN="));
+            Serial.print(profileVMin);
+            Serial.print(F(" VMAX="));
+            Serial.println(refRunVMax);
+
+            refRunState = RefRunState::REF_LEFT_END;
+            break;
+
+        case RefRunState::REF_LEFT_END:
+            // Die ISR stoppt den Motor beim LSL; hier warten wir nur auf den
+            // zyklisch gelesenen Eingang und setzen dort unseren Positionspunkt.
+            if (io.limitLeft)
+            {
+                stepRun = false;
+                profileRun = false;
+                measurement.position = 1000;
+                refBackoffTarget = measurement.position + REF_BACKOFF_STEPS;
+
+                Serial.print(F("REF: LSL POS="));
+                Serial.print(measurement.position);
+                Serial.print(F(" BACKOFF="));
+                Serial.print(REF_BACKOFF_STEPS);
+                Serial.print(F(" TARGET="));
+                Serial.println(refBackoffTarget);
+
+                hw.dir = true;
+                io.dir = true;
+                set_step_frequency(profileVMin);
+                stepRun = true;
+                refRunState = RefRunState::REF_SEARCH_RIGHT;
+            }
+            break;
+
+        case RefRunState::REF_SEARCH_RIGHT:
+            if (io.limitRight)
+            {
+                stepRun = false;
+                refRunState = RefRunState::REF_RIGHT_END;
+            }
+            else if (measurement.position >= refBackoffTarget)
+            {
+                // Der erste Test endet nach 1,6 cm; der nächste Schritt fährt
+                // von hier aus weiter bis LSR.
+                stepRun = false;
+                refRunState = RefRunState::REF_RIGHT_END;
+            }
+            break;
+
+        case RefRunState::REF_RIGHT_END:
+            // Für den ersten Test ist der Grundpfad bis zum rechten Anschlag
+            // bereits vollständig angelegt; kein Timeout und keine weitere
+            // Plausibilitätslogik.
+            if (io.limitRight)
+            {
+                stepRun = false;
+                refRunState = RefRunState::REF_VALID;
+            }
+            else
+            {
+                // Aktuell nach dem 1,6-cm-Test bewusst fertig.
+                refRunState = RefRunState::REF_VALID;
+            }
+            break;
+
+        case RefRunState::REF_RETURN_TO_REF:
+        case RefRunState::REF_APPROACH_REF:
+        case RefRunState::REF_SLOW_REF:
+        case RefRunState::REF_MEASURE_RIGHT:
+        case RefRunState::REF_SHIFT_LEFT:
+        case RefRunState::REF_MEASURE_LEFT:
+        case RefRunState::REF_CALCULATE:
+            // State-Gerüst vorhanden, Implementierung folgt Schritt für Schritt.
+            break;
+
+        case RefRunState::REF_VALID:
+            stepRun = false;
+            profileRun = false;
+            refRunActive = false;
+            hw.displayDirty = true;
+            Serial.println(F("REF: VALID"));
+            refRunState = RefRunState::IDLE;
+            break;
+
+        case RefRunState::REF_ERROR:
+            stepRun = false;
+            profileRun = false;
+            refRunActive = false;
+            hw.displayDirty = true;
+            Serial.println(F("REF: ERROR"));
+            refRunState = RefRunState::IDLE;
+            break;
+
+        case RefRunState::IDLE:
+        default:
+            refRunActive = false;
+            break;
+    }
+}
+
 void update_outputs()
 {
     digitalWrite(MOTOR_ENA, io.ena ? HIGH : LOW);
@@ -783,7 +944,7 @@ void init_step_timer()
     profileStepsRemaining = 0;
     profileMinReloadReached = 65535;
     profileReportPending = false;
-    measurement.position = measurement.totalLength ;
+    measurement.position = 1000;
     measurement.refStart = 0;
     measurement.refEnd = 0;
     measurement.refLength = 0;
@@ -818,8 +979,7 @@ void update_display()
 
     static HWMeasurement displayMeasurement;
 
-    if (!stepRun)
-        get_measurement(displayMeasurement);
+    get_measurement(displayMeasurement);
 
     const HWMeasurement& m = displayMeasurement;
 
@@ -850,7 +1010,19 @@ void update_display()
 
     // Zeile 4: interner Testzustand.
     display.print(F("State: "));
-    if (hw.activeButton == BUTTON_STOP)
+    if (refRunActive)
+    {
+        switch (refRunState)
+        {
+            case RefRunState::REF_START:       display.println(F("REF_START")); break;
+            case RefRunState::REF_LEFT_END:   display.println(F("REF_LEFT")); break;
+            case RefRunState::REF_SEARCH_RIGHT: display.println(F("REF_RIGHT")); break;
+            case RefRunState::REF_RIGHT_END:  display.println(F("REF_END")); break;
+            case RefRunState::REF_VALID:      display.println(F("REF_VALID")); break;
+            default:                           display.println(F("REF")); break;
+        }
+    }
+    else if (hw.activeButton == BUTTON_STOP)
         display.println(F("STOP"));
     else if (profileRun)
         display.println(F("MOVE"));
@@ -906,6 +1078,7 @@ void loop()
     const uint32_t now = millis();
 
     update_serial();
+    reference_run();
 
     if (profileReportPending)
     {
@@ -941,6 +1114,8 @@ void loop()
                         io.ena = false;
                         stepRun = false;
                         profileRun = false;
+                        refRunActive = false;
+                        refRunState = RefRunState::IDLE;
                         set_active_button(BUTTON_STOP);
                         break;
 
@@ -1122,12 +1297,10 @@ void loop()
         // D13 dient als Loop-Heartbeat. Der Pin wird nicht mehr in der ISR benutzt.
         digitalWrite(LED_BUILTIN_PIN, !digitalRead(LED_BUILTIN_PIN));
 
-        if (hw.displayDirty || serialDisplayDirty)
-        {
-            update_display();
-            hw.displayDirty = false;
-            serialDisplayDirty = false;
-        }
+        // LS/REF/Hall sollen auch während/nach der Fahrt live sichtbar sein.
+        update_display();
+        hw.displayDirty = false;
+        serialDisplayDirty = false;
     }
 
     if (updateOut)
