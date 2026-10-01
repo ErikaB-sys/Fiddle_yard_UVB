@@ -608,6 +608,7 @@ static void serial_process_line(const char* line)
             break;
 
         case 'S':
+        case 's':
             profileDistance = serialValue;
             clamp_profile();
             serialDisplayDirty = true;
