@@ -847,7 +847,7 @@ static void reference_run()
             {
                 stepRun = false;
                 profileRun = false;
-                measurement.position = 1000;
+                measurement.position = MAX_ALLOWED_STEPS / 2;
 
                 if (!refLongRun)
                 {
