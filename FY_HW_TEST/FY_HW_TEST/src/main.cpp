@@ -1092,6 +1092,7 @@ ISR(TIMER1_COMPA_vect)
     // Endschalter haben Vorrang vor dem Profil.
     if (!io.dir && limitLeft)
     {
+        measurement.position = 1000;
         stepRun = false;
         profileRun = false;
         stepLevel = false;
