@@ -55,6 +55,11 @@ constexpr uint8_t RAMP_INTERVAL_MIN = 1;
 constexpr uint8_t RAMP_INTERVAL_MAX = 10;
 
 static uint8_t profileAccel1Interval = 1;
+
+static volatile bool stepRun = false;
+static volatile bool stepLevel = false;
+
+volatile HWMeasurement measurement;
 static uint8_t profileAccel2Interval = 1;
 static uint8_t profileBrake1Interval = 1;
 static uint8_t profileBrake2Interval = 1;
@@ -651,10 +656,9 @@ static void reference_run()
             if (refRunVMax > V_MAX_LIMIT)
                 refRunVMax = V_MAX_LIMIT;
 
-            hw.ena = true;
             io.ena = true;
-            hw.dir = false;
             io.dir = false;
+            updateOut = true;
             set_step_frequency(profileVMin);
 
             Serial.print(F("REF: START VMIN="));
@@ -684,6 +688,7 @@ static void reference_run()
 
                 hw.dir = true;
                 io.dir = true;
+                updateOut = true;
                 set_step_frequency(profileVMin);
                 stepRun = true;
                 refRunState = RefRunState::REF_SEARCH_RIGHT;
@@ -766,11 +771,6 @@ void update_outputs()
     expander.digitalWrite(LED_LEFT_PIN, io.ledLeft ? LOW : HIGH);
     expander.digitalWrite(LED_RIGHT_PIN, io.ledRight ? LOW : HIGH);
 }
-
-static volatile bool stepRun = false;
-static volatile bool stepLevel = false;
-
-volatile HWMeasurement measurement;
 
 static volatile bool refLastState = false;
 static volatile bool refStartValid = false;
