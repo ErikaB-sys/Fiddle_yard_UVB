@@ -120,10 +120,6 @@ static volatile bool refMeasureArmed = false;
 
 static volatile bool refLastState = false;
 
-// 20 mm Antriebsrad, 200 Schritte/Umdrehung, 1/8 Microstep:
-// ca. 25.46 Schritte/mm -> 16 mm ca. 407 Schritte.
-constexpr uint16_t REF_BACKOFF_STEPS = 407;
-
 static void reference_run();
 
 static uint16_t clamp_accel_brake(uint16_t value)
