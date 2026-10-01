@@ -107,552 +107,21 @@ static bool refRunActive = false;
 static uint16_t refRunVMax = V_MIN_LIMIT;
 static uint16_t refBackoffTarget = 0;
 
+static volatile uint16_t refCoarsePosition = 0;
+static volatile uint16_t refRightEndPosition = 0;
+static volatile uint16_t refPreciseRight = 0;
+static volatile uint16_t refPreciseLeft = 0;
+static volatile uint16_t refPreciseLength = 0;
+static volatile uint16_t refPreciseCenter = 0;
+static volatile bool refCoarseCaptured = false;
+static volatile bool refPreciseRightCaptured = false;
+static volatile bool refPreciseCaptured = false;
+static volatile bool refMeasureArmed = false;
+static volatile bool refLastState = false;
+
 // 20 mm Antriebsrad, 200 Schritte/Umdrehung, 1/8 Microstep:
 // ca. 25.46 Schritte/mm -> 16 mm ca. 407 Schritte.
 constexpr uint16_t REF_BACKOFF_STEPS = 407;
-
-static void reference_run();
-
-static uint16_t clamp_accel_brake(uint16_t value)
-{
-    if (value < ACCEL_MIN)
-        return ACCEL_MIN;
-    if (value > ACCEL_MAX)
-        return ACCEL_MAX;
-    return value;
-}
-
-static uint8_t clamp_ramp_interval(uint16_t value)
-{
-    if (value < RAMP_INTERVAL_MIN)
-        return RAMP_INTERVAL_MIN;
-    if (value > RAMP_INTERVAL_MAX)
-        return RAMP_INTERVAL_MAX;
-    return static_cast<uint8_t>(value);
-}
-
-static void clamp_profile()
-{
-    if (profileVMin < V_MIN_LIMIT)
-        profileVMin = V_MIN_LIMIT;
-    if (profileVMin > V_MAX_LIMIT)
-        profileVMin = V_MAX_LIMIT;
-
-    if (profileVMax < V_MIN_LIMIT)
-        profileVMax = V_MIN_LIMIT;
-    if (profileVMax > V_MAX_LIMIT)
-        profileVMax = V_MAX_LIMIT;
-
-    if (profileVMin > profileVMax)
-        profileVMin = profileVMax;
-
-    profileAccel1 = clamp_accel_brake(profileAccel1);
-    profileAccel2 = clamp_accel_brake(profileAccel2);
-    profileBrake1 = clamp_accel_brake(profileBrake1);
-    profileBrake2 = clamp_accel_brake(profileBrake2);
-
-    profileAccel1Interval = clamp_ramp_interval(profileAccel1Interval);
-    profileAccel2Interval = clamp_ramp_interval(profileAccel2Interval);
-    profileBrake1Interval = clamp_ramp_interval(profileBrake1Interval);
-    profileBrake2Interval = clamp_ramp_interval(profileBrake2Interval);
-
-    if (profileDistance == 0)
-        profileDistance = 1;
-    if (profileDistance > MAX_ALLOWED_STEPS)
-        profileDistance = MAX_ALLOWED_STEPS;
-}
-
-static uint16_t reload_to_frequency(uint16_t reload)
-{
-    if (reload == 0)
-        return 0;
-
-    const uint32_t timerClock = F_CPU / 256UL;
-    const uint32_t frequency =
-        (timerClock + reload) / (2UL * (static_cast<uint32_t>(reload) + 1UL));
-
-    return static_cast<uint16_t>(frequency);
-}
-
-static uint16_t frequency_to_reload(uint16_t frequency)
-{
-    uint32_t denominator = 2UL * frequency;
-    uint32_t reload =
-        ((F_CPU / 256UL) + (denominator / 2UL)) / denominator - 1UL;
-
-    if (reload > 65535UL)
-        reload = 65535UL;
-
-    if (reload < 1UL)
-        reload = 1UL;
-
-    return static_cast<uint16_t>(reload);
-}
-
-static void load_motion_profile()
-{
-    MotionProfileParam_t param =
-    {
-        PROFILE_POSI_MIN,
-        PROFILE_KONST_MIN,
-        PROFILE_ACC1_STEPS,
-        PROFILE_ACC2_STEPS,
-        -static_cast<int16_t>(profileAccel1),
-        -static_cast<int16_t>(profileAccel2),
-        static_cast<int16_t>(profileBrake1),
-        static_cast<int16_t>(profileBrake2)
-    };
-
-    calculateMotionProfile(profileDistance, param, motionProfile);
-}
-
-static uint8_t current_profile_ramp_interval()
-{
-    switch (profileElement)
-    {
-        case static_cast<uint8_t>(MotionProfileElement_t::ACC1):
-            return profileAccel1Interval;
-
-        case static_cast<uint8_t>(MotionProfileElement_t::ACC2):
-            return profileAccel2Interval;
-
-        case static_cast<uint8_t>(MotionProfileElement_t::BRE1):
-            return profileBrake1Interval;
-
-        case static_cast<uint8_t>(MotionProfileElement_t::BRE2):
-            return profileBrake2Interval;
-
-        default:
-            return 1;
-    }
-}
-
-static bool load_next_profile_element()
-{
-
-    while (profileElement < 6)
-    {
-        profileStepsRemaining = motionProfile[profileElement].Steps;
-
-        if (profileStepsRemaining > 0)
-        {
-            profileRampCounter = 0;
-            OCR1A = profileTimerValue;
-            return true;
-        }
-
-        ++profileElement;
-    }
-
-    return false;
-}
-
-static void serial_process_line(const char* line)
-{
-    if (line[0] == '\0')
-        return;
-
-    serialCommand = static_cast<uint8_t>(line[0]);
-    serialValue = 0;
-
-    if (line[1] != '\0')
-        serialValue = static_cast<uint16_t>(strtoul(&line[1], nullptr, 10));
-
-    // A1N/A2N/B1N/B2N setzen die Rampenauflösung unabhängig.
-    // Beispiel: A1N3 = A1 nur jeden dritten STEP anwenden.
-    if (line[0] == 'A' && (line[1] == '1' || line[1] == '2') && line[2] == 'N')
-    {
-        const uint8_t value = clamp_ramp_interval(
-            static_cast<uint16_t>(strtoul(&line[3], nullptr, 10)));
-
-        if (line[1] == '1')
-            profileAccel1Interval = value;
-        else
-            profileAccel2Interval = value;
-
-        serialDisplayDirty = true;
-        Serial.print(F("RX: A"));
-        Serial.print(line[1]);
-        Serial.print(F("N="));
-        Serial.println(value);
-        return;
-    }
-
-    if (line[0] == 'B' && (line[1] == '1' || line[1] == '2') && line[2] == 'N')
-    {
-        const uint8_t value = clamp_ramp_interval(
-            static_cast<uint16_t>(strtoul(&line[3], nullptr, 10)));
-
-        if (line[1] == '1')
-            profileBrake1Interval = value;
-        else
-            profileBrake2Interval = value;
-
-        serialDisplayDirty = true;
-        Serial.print(F("RX: B"));
-        Serial.print(line[1]);
-        Serial.print(F("N="));
-        Serial.println(value);
-        return;
-    }
-
-    // A1/B1 setzen die jeweilige Stufe und synchronisieren die zweite Stufe.
-    // A2/B2 überschreiben dagegen ausschließlich die zweite Stufe.
-    if (line[0] == 'A' && line[1] == '1')
-    {
-        profileAccel1 = clamp_accel_brake(
-            static_cast<uint16_t>(strtoul(&line[2], nullptr, 10)));
-        profileAccel2 = profileAccel1;
-        serialDisplayDirty = true;
-        Serial.print(F("RX: A1/A2="));
-        Serial.println(profileAccel1);
-        return;
-    }
-
-    if (line[0] == 'A' && line[1] == '2')
-    {
-        profileAccel2 = clamp_accel_brake(
-            static_cast<uint16_t>(strtoul(&line[2], nullptr, 10)));
-        serialDisplayDirty = true;
-        Serial.print(F("RX: A2="));
-        Serial.println(profileAccel2);
-        return;
-    }
-
-    if (line[0] == 'B' && line[1] == '1')
-    {
-        profileBrake1 = clamp_accel_brake(
-            static_cast<uint16_t>(strtoul(&line[2], nullptr, 10)));
-        profileBrake2 = profileBrake1;
-        serialDisplayDirty = true;
-        Serial.print(F("RX: B1/B2="));
-        Serial.println(profileBrake1);
-        return;
-    }
-
-    if (line[0] == 'B' && line[1] == '2')
-    {
-        profileBrake2 = clamp_accel_brake(
-            static_cast<uint16_t>(strtoul(&line[2], nullptr, 10)));
-        serialDisplayDirty = true;
-        Serial.print(F("RX: B2="));
-        Serial.println(profileBrake2);
-        return;
-    }
-
-    switch (serialCommand)
-    {
-        case 'R':
-        case 'r':
-            if (!io.ena)
-            {
-                Serial.println(F("MOTOR OFF!"));
-                break;
-            }
-
-            if (!refRunActive)
-            {
-                refRunState = RefRunState::REF_START;
-                refRunActive = true;
-                serialDisplayDirty = true;
-                Serial.println(F("RX: REF_SHORT"));
-            }
-            break;
-
-        case 'K':
-        case 'k':
-            if (!io.ena)
-            {
-                Serial.println(F("MOTOR OFF!"));
-                break;
-            }
-
-            if (!refRunActive)
-            {
-                refRunState = RefRunState::REF_START;
-                refRunActive = true;
-                serialDisplayDirty = true;
-                Serial.println(F("RX: REF_LONG"));
-            }
-            break;
-
-        case 'V':
-            profileVMax = serialValue;
-            clamp_profile();
-            if (hw.frequency > profileVMax)
-                hw.frequency = profileVMax;
-            set_step_frequency(hw.frequency);
-            serialDisplayDirty = true;
-            Serial.print(F("RX: V"));
-            Serial.println(profileVMax);
-            break;
-
-        case 'v':
-            profileVMin = serialValue;
-            clamp_profile();
-            if (hw.frequency < profileVMin)
-                hw.frequency = profileVMin;
-            set_step_frequency(hw.frequency);
-            serialDisplayDirty = true;
-            Serial.print(F("RX: v"));
-            Serial.println(profileVMin);
-            break;
-
-        case 'A':
-            // Rückwärtskompatibel: A setzt A1 und A2 synchron.
-            profileAccel1 = clamp_accel_brake(serialValue);
-            profileAccel2 = profileAccel1;
-            serialDisplayDirty = true;
-            Serial.print(F("RX: A1/A2="));
-            Serial.println(profileAccel1);
-            break;
-
-        case 'B':
-            // Rückwärtskompatibel: B setzt B1 und B2 synchron.
-            profileBrake1 = clamp_accel_brake(serialValue);
-            profileBrake2 = profileBrake1;
-            serialDisplayDirty = true;
-            Serial.print(F("RX: B1/B2="));
-            Serial.println(profileBrake1);
-            break;
-
-        case 'S':
-            profileDistance = serialValue;
-            clamp_profile();
-            serialDisplayDirty = true;
-            Serial.print(F("RX: S"));
-            Serial.println(profileDistance);
-            break;
-
-        default:
-            Serial.print(F("RX: unknown command "));
-            Serial.println(static_cast<char>(serialCommand));
-            break;
-    }
-}
-
-void update_serial()
-{
-    static char serialLine[12];
-    static uint8_t serialLineLength = 0;
-
-    while (Serial.available() > 0)
-    {
-        const char data = static_cast<char>(Serial.read());
-
-        if (data == '\r' || data == '\n')
-        {
-            serialLine[serialLineLength] = '\0';
-            serial_process_line(serialLine);
-            serialLineLength = 0;
-        }
-        else if (serialLineLength < sizeof(serialLine) - 1)
-        {
-            serialLine[serialLineLength++] = data;
-        }
-        else
-        {
-            serialLineLength = 0;
-            Serial.println(F("RX: input too long"));
-        }
-    }
-}
-
-static void print_command_help()
-{
-    Serial.println(F("Commands:"));
-    Serial.println(F("  Vnnnn   VMAX steps/s"));
-    Serial.println(F("  vnnnn   VMIN steps/s"));
-    Serial.println(F("  A1n     Accel 1"));
-    Serial.println(F("  A2n     Accel 2"));
-    Serial.println(F("  B1n     Brake 1"));
-    Serial.println(F("  B2n     Brake 2"));
-    Serial.println(F("  A1Nn    Accel 1 interval"));
-    Serial.println(F("  A2Nn    Accel 2 interval"));
-    Serial.println(F("  B1Nn    Brake 1 interval"));
-    Serial.println(F("  B2Nn    Brake 2 interval"));
-    Serial.println(F("          N=1 every STEP, N=2 every 2nd STEP, ..."));
-    Serial.println(F("  Snnnn   Distance"));
-    Serial.println(F("  GO      Start move"));
-    Serial.println(F("  LEFT    Direction"));
-    Serial.println(F("  RIGHT   Direction"));
-    Serial.println(F("  R/r     Reference short")); 
-    Serial.println(F("  K/k     Reference long"));
-    Serial.println(F("Profile:"));
-    Serial.print(F("  VMIN="));
-    Serial.print(profileVMin);
-    Serial.print(F(" VMAX="));
-    Serial.println(profileVMax);
-    Serial.print(F("  A1="));
-    Serial.print(profileAccel1);
-    Serial.print(F(" N="));
-    Serial.print(profileAccel1Interval);
-    Serial.print(F("  A2="));
-    Serial.print(profileAccel2);
-    Serial.print(F(" N="));
-    Serial.println(profileAccel2Interval);
-    Serial.print(F("  B1="));
-    Serial.print(profileBrake1);
-    Serial.print(F(" N="));
-    Serial.print(profileBrake1Interval);
-    Serial.print(F("  B2="));
-    Serial.print(profileBrake2);
-    Serial.print(F(" N="));
-    Serial.println(profileBrake2Interval);
-}
-
-void scanI2C()
-{
-    Serial.println(F("I2C Scanner"));
-    uint8_t found = 0;
-
-    for (uint8_t address = 1; address < 127; address++)
-    {
-        Wire.beginTransmission(address);
-
-        if (Wire.endTransmission() == 0)
-        {
-            Serial.print(F("I2C device: 0x"));
-
-            if (address < 0x10)
-                Serial.print('0');
-
-            Serial.println(address, HEX);
-            found++;
-        }
-    }
-
-    if (found == 0)
-        Serial.println(F("No I2C devices found"));
-
-    Serial.print(F("I2C devices found: "));
-    Serial.println(found);
-}
-
-void initOLED()
-{
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-    {
-        Serial.println(F("Error initializing OLED!"));
-        while (true) {}
-    }
-
-    display.setRotation(2);
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(0, 0);
-
-    display.println(F("FY HW TEST"));
-    display.println(F("OLED: OK"));
-    display.println(F("I2C: 0x3C"));
-
-    display.display();
-}
-
-// static void all_mapping_leds_off();
-
-void init_expander()
-{
-    expander.pinMode(BUTTON_STOP_PIN, INPUT);
-    expander.pinMode(BUTTON_GO_PIN, INPUT);
-    expander.pinMode(BUTTON_LEFT_PIN, INPUT);
-    expander.pinMode(BUTTON_RIGHT_PIN, INPUT);
-
-    expander.pinMode(LED_STOP_PIN, OUTPUT);
-    expander.pinMode(LED_GO_PIN, OUTPUT);
-    expander.pinMode(LED_LEFT_PIN, OUTPUT);
-    expander.pinMode(LED_RIGHT_PIN, OUTPUT);
-
-    if (!expander.begin())
-    {
-        Serial.println(F("Error initializing PCF8574!"));
-        while (true) {}
-    }
-}
-
-void read_IO()
-{
-    io.buttonStop  = (expander.digitalRead(BUTTON_STOP_PIN)  == LOW);
-    io.buttonLeft  = (expander.digitalRead(BUTTON_LEFT_PIN)  == LOW);
-    io.buttonRight = (expander.digitalRead(BUTTON_RIGHT_PIN) == LOW);
-    io.buttonGo    = (expander.digitalRead(BUTTON_GO_PIN)    == LOW);
-
-    io.limitLeft   = digitalRead(LSL.pin);
-    io.limitRight  = digitalRead(LSR.pin);
-    io.reference   = digitalRead(LSREF.pin);
-    io.hall        = digitalRead(LS4.pin);
-}
-
-ButtonEvent read_buttons()
-{
-    const bool stop  = io.buttonStop;
-    const bool left  = io.buttonLeft;
-    const bool right = io.buttonRight;
-    const bool go    = io.buttonGo;
-
-    ButtonEvent event = BUTTON_NONE;
-
-    if (stop && !lastStop)
-        event = BUTTON_STOP;
-    else if (left && !lastLeft)
-        event = BUTTON_LEFT;
-    else if (right && !lastRight)
-        event = BUTTON_RIGHT;
-    else if (go && !lastGo)
-        event = BUTTON_GO;
-
-    lastStop  = stop;
-    lastLeft  = left;
-    lastRight = right;
-    lastGo    = go;
-
-    return event;
-}
-
-void set_active_button(ButtonEvent event)
-{
-    hw.activeButton = event;
-    hw.busy = (event != BUTTON_NONE);
-    hw.button = event;
-
-    io.ledStop  = !io.ena;
-    io.ledGo    = io.ena;
-    io.ledLeft  = (event == BUTTON_LEFT);
-    io.ledRight = (event == BUTTON_RIGHT);
-
-    updateOut = true;
-    hw.displayDirty = true;
-}
-
-void clear_active_button()
-{
-    hw.activeButton = BUTTON_NONE;
-    hw.busy = false;
-    hw.button = BUTTON_NONE;
-
-    io.ledStop = !io.ena;
-    io.ledGo = io.ena;
-    io.ledLeft = false;
-    io.ledRight = false;
-
-    updateOut = true;
-    hw.displayDirty = true;
-}
-
-static bool active_button_pressed()
-{
-    switch (hw.activeButton)
-    {
-        case BUTTON_STOP:  return io.buttonStop;
-        case BUTTON_LEFT:  return io.buttonLeft;
-        case BUTTON_RIGHT: return io.buttonRight;
-        case BUTTON_GO:    return io.buttonGo;
-        default:           return false;
-    }
-}
-
-void read_end_switches() {}
 
 static void reference_run()
 {
@@ -662,47 +131,36 @@ static void reference_run()
     switch (refRunState)
     {
         case RefRunState::REF_START:
-            // Für den ersten Test: langsame, konstante Fahrt.
-            // VMAX liegt nur 20 steps/s über VMIN; gefahren wird zunächst mit VMIN.
-            refRunVMax = profileVMin + 20;
-            if (refRunVMax > V_MAX_LIMIT)
-                refRunVMax = V_MAX_LIMIT;
+            refCoarseCaptured = false;
+            refPreciseRightCaptured = false;
+            refPreciseCaptured = false;
+            refMeasureArmed = false;
+            refCoarsePosition = 0;
+            refRightEndPosition = 0;
+            refPreciseRight = 0;
+            refPreciseLeft = 0;
+            refPreciseLength = 0;
+            refPreciseCenter = 0;
 
-            // ENA wird ausschließlich durch GO/STOP gesteuert.
             io.dir = false;
             updateOut = true;
             set_step_frequency(profileVMin);
             stepRun = true;
 
-            Serial.print(F("REF: START VMIN="));
-            Serial.print(profileVMin);
-            Serial.print(F(" VMAX="));
-            Serial.println(refRunVMax);
-
+            Serial.println(F("REF: START"));
             refRunState = RefRunState::REF_LEFT_END;
             break;
 
         case RefRunState::REF_LEFT_END:
-            // Die ISR stoppt den Motor beim LSL; hier warten wir nur auf den
-            // zyklisch gelesenen Eingang und setzen dort unseren Positionspunkt.
             if (io.limitLeft)
             {
                 stepRun = false;
                 profileRun = false;
                 measurement.position = 1000;
-                refBackoffTarget = measurement.position + REF_BACKOFF_STEPS;
 
-                Serial.print(F("REF: LSL POS="));
-                Serial.print(measurement.position);
-                Serial.print(F(" BACKOFF="));
-                Serial.print(REF_BACKOFF_STEPS);
-                Serial.print(F(" TARGET="));
-                Serial.println(refBackoffTarget);
-
-                hw.dir = true;
                 io.dir = true;
                 updateOut = true;
-                set_step_frequency(profileVMin);
+                set_step_frequency(refRunVMax);
                 stepRun = true;
                 refRunState = RefRunState::REF_SEARCH_RIGHT;
             }
@@ -712,46 +170,72 @@ static void reference_run()
             if (io.limitRight)
             {
                 stepRun = false;
-                refRunState = RefRunState::REF_RIGHT_END;
-            }
-            break;
+                refRightEndPosition = measurement.position;
 
-        case RefRunState::REF_RIGHT_END:
-            // Rechter Anschlag erreicht: 1 cm nach links zurückfahren.
-            {
-                constexpr uint16_t REF_RIGHT_BACKOFF_STEPS = 255;
-
-                refBackoffTarget =
-                    (measurement.position > REF_RIGHT_BACKOFF_STEPS)
-                        ? measurement.position - REF_RIGHT_BACKOFF_STEPS
-                        : 0;
+                noInterrupts();
+                refLastState =
+                    ((*LSREF.inputRegister) & LSREF.mask) != 0;
+                refPreciseRightCaptured = false;
+                refPreciseCaptured = false;
+                refMeasureArmed = true;
+                measurement.refValid = false;
+                interrupts();
 
                 io.dir = false;
                 updateOut = true;
-                set_step_frequency(profileVMin);
+                set_step_frequency(V_MIN_LIMIT);
                 stepRun = true;
 
-                Serial.print(F("REF: LSR POS="));
-                Serial.print(measurement.position);
-                Serial.print(F(" BACKOFF=255 TARGET="));
-                Serial.println(refBackoffTarget);
-
-                refRunState = RefRunState::REF_VALID;
+                refRunState = RefRunState::REF_RETURN_TO_REF;
             }
             break;
 
         case RefRunState::REF_RETURN_TO_REF:
-        case RefRunState::REF_APPROACH_REF:
-        case RefRunState::REF_SLOW_REF:
-        case RefRunState::REF_MEASURE_RIGHT:
-        case RefRunState::REF_SHIFT_LEFT:
-        case RefRunState::REF_MEASURE_LEFT:
+            if (refPreciseCaptured)
+            {
+                stepRun = false;
+                profileRun = false;
+                refRunState = RefRunState::REF_CALCULATE;
+            }
+            break;
+
         case RefRunState::REF_CALCULATE:
-            // State-Gerüst vorhanden, Implementierung folgt Schritt für Schritt.
+            {
+                const int16_t coarseError =
+                    static_cast<int16_t>(refCoarsePosition) -
+                    static_cast<int16_t>(refPreciseCenter);
+
+                Serial.print(F("REF: DATA COARSE="));
+                Serial.print(refCoarsePosition);
+                Serial.print(F(" RIGHT="));
+                Serial.print(refPreciseRight);
+                Serial.print(F(" LEFT="));
+                Serial.print(refPreciseLeft);
+                Serial.print(F(" LEN="));
+                Serial.print(refPreciseLength);
+                Serial.print(F(" CENTER="));
+                Serial.print(refPreciseCenter);
+                Serial.print(F(" COARSE_ERR="));
+                Serial.print(coarseError);
+                Serial.print(F(" LSR="));
+                Serial.print(refRightEndPosition);
+                Serial.print(F(" SPAN="));
+                Serial.println(
+                    refRightEndPosition > 1000
+                        ? refRightEndPosition - 1000
+                        : 0);
+
+                refBackoffTarget = refPreciseCenter;
+                io.dir = true;
+                updateOut = true;
+                set_step_frequency(V_MIN_LIMIT);
+                stepRun = true;
+                refRunState = RefRunState::REF_VALID;
+            }
             break;
 
         case RefRunState::REF_VALID:
-            if (measurement.position <= refBackoffTarget)
+            if (measurement.position >= refBackoffTarget)
             {
                 stepRun = false;
                 profileRun = false;
@@ -771,13 +255,18 @@ static void reference_run()
             refRunState = RefRunState::IDLE;
             break;
 
+        case RefRunState::REF_APPROACH_REF:
+        case RefRunState::REF_SLOW_REF:
+        case RefRunState::REF_MEASURE_RIGHT:
+        case RefRunState::REF_SHIFT_LEFT:
+        case RefRunState::REF_MEASURE_LEFT:
         case RefRunState::IDLE:
         default:
             refRunActive = false;
+            refRunState = RefRunState::IDLE;
             break;
     }
 }
-
 void update_outputs()
 {
     digitalWrite(MOTOR_ENA, io.ena ? HIGH : LOW);
@@ -852,6 +341,28 @@ ISR(TIMER1_COMPA_vect)
         measurement.refStart = measurement.position;
         refStartValid = true;
         measurement.refValid = false;
+
+        if (io.dir && !refCoarseCaptured)
+        {
+            refCoarsePosition = measurement.position;
+            refCoarseCaptured = true;
+        }
+
+        if (!io.dir && refMeasureArmed && refPreciseRightCaptured)
+        {
+            refPreciseLeft = measurement.position;
+
+            if (refPreciseRight >= refPreciseLeft)
+                refPreciseLength = refPreciseRight - refPreciseLeft;
+            else
+                refPreciseLength = refPreciseLeft - refPreciseRight;
+
+            refPreciseCenter =
+                refPreciseLeft + (refPreciseLength / 2);
+
+            refPreciseCaptured = true;
+            refMeasureArmed = false;
+        }
     }
     else if (refLastState && !reference)
     {
@@ -867,6 +378,12 @@ ISR(TIMER1_COMPA_vect)
                     measurement.refStart - measurement.refEnd;
 
             measurement.refValid = true;
+        }
+
+        if (!io.dir && refMeasureArmed && !refPreciseRightCaptured)
+        {
+            refPreciseRight = measurement.position;
+            refPreciseRightCaptured = true;
         }
     }
 
@@ -971,6 +488,10 @@ void init_step_timer()
     leftReferenceApplied = false;
     rightLengthCaptured = false;
     refLastState = (PINB & _BV(PB3)) != 0;
+    refCoarseCaptured = false;
+    refPreciseRightCaptured = false;
+    refPreciseCaptured = false;
+    refMeasureArmed = false;
     PORTD &= ~_BV(PD3);
     interrupts();
 
@@ -1087,7 +608,6 @@ void setup()
 
     clamp_profile();
     Serial.println(F("init done"));
-    print_command_help();
 }
 
 void loop()
