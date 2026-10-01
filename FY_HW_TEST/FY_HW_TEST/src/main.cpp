@@ -780,7 +780,7 @@ void update_outputs()
     expander.digitalWrite(LED_RIGHT_PIN, io.ledRight ? LOW : HIGH);
 }
 
-static volatile bool refLastState = false;
+
 static volatile bool refStartValid = false;
 static volatile bool leftReferenceApplied = false;
 static volatile bool rightLengthCaptured = false;
