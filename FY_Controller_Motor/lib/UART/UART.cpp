@@ -486,7 +486,22 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
         // Special 
     }
 
-   void UART:: handle_Busy()
+   void UART::handleGetFirmware()
+{
+    Serial.print(F("FW: "));
+    Serial.println(FW_NAME);
+    Serial.print(F("VER: "));
+    Serial.println(FW_VERSION);
+    Serial.print(F("BUILD: "));
+    Serial.print(FW_BUILD);
+    Serial.print(F(" "));
+    Serial.println(FW_TIME);
+    Serial.print(F("GIT: "));
+    Serial.println(FW_GIT_COMMIT);
+}
+
+
+void UART:: handle_Busy()
    {
     //setResponse(STATUS_NACK, 0xFF ,1);
     
