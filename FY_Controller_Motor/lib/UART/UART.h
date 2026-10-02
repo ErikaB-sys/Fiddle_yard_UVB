@@ -81,7 +81,7 @@ private:
 
     ResponseBuffer_t ResponseBuffer;
 
-    BabelFish BabelFish;
+    BabelFish _babelFish;
 
     /** @brief Receives and decodes one or more available serial characters. */
     void receive();
