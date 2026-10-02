@@ -26,10 +26,10 @@ constexpr uint16_t MM_TO_STEPS(float mm)
 }
 
 #ifndef POS_MIN
-constexpr uint16_t POS_MIN = MM_TO_STEPS(2.0);
+constexpr uint16_t POS_MIN = 160;
 #endif
 #ifndef KONST_MIN
-constexpr uint16_t KONST_MIN = MM_TO_STEPS(5.0);
+constexpr uint16_t KONST_MIN = 400;
 #endif 
 
 
@@ -45,7 +45,7 @@ static constexpr uint16_t POSITION_UNKNOWN = UINT16_MAX / 2;
     (TIMER_FREQUENCY / (TIMER_PRESCALER * 2UL * \
     (static_cast<uint32_t>(v) * STEPS_PER_UMD / MM_PER_UMD)) - 1UL)
 
-constexpr uint16_t V_MIN = 80;
+constexpr uint16_t V_MIN = 120;
 constexpr uint16_t V_MAX = 800;
 
 constexpr uint16_t TIMER_V_MIN = static_cast<uint16_t>(SPEED_TO_TIMER(V_MIN));
