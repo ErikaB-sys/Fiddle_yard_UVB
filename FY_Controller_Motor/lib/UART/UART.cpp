@@ -41,8 +41,14 @@ void UART::update()
         return;
     }
 
+    if (ResponseBuffer.responsePending)
+    {
+        sendResponse();
+        return;
+    }
+
     // The command mailbox is locked until the current command has
-    // been completely processed and its response has been sent.
+    // been completely processed.
     if (commandReady)
         return;
 
@@ -51,16 +57,7 @@ void UART::update()
     if (!commandReady)
         return;
 
-    if (CommandBuffer.status != UART_CommandStatus_t::VALID)
-    {
-        sendNack(CommandBuffer.status);
-        commandReady = false;
-        clearCommandStatus();
-        return;
-    }
-
     decodeCommand();
-    sendResponse();
 
     commandReady = false;
 }
@@ -84,13 +81,28 @@ void UART::receive()
 
             // CommandBuffer.command.crc ^= 0x01;   // TEST ONLY: corrupt CRC
 
-            validateCommand();
+            if (!validateCommand())
+            {
+                const uint8_t reason =
+                    static_cast<uint8_t>(CommandBuffer.status);
+
+                setResponse(STATUS_NACK, &reason, 1);
+                commandReady = false;
+                return;
+            }
+
             commandReady = true;
         }
         else if (result == BabelFishResult::INVALID)
         {
             CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
-            commandReady = true;
+
+            const uint8_t reason =
+                static_cast<uint8_t>(CommandBuffer.status);
+
+            setResponse(STATUS_NACK, &reason, 1);
+            commandReady = false;
+            return;
         }
     }
 }
