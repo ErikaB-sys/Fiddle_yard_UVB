@@ -12,4 +12,4 @@ try:
 except (subprocess.CalledProcessError, FileNotFoundError):
     revision = "unknown"
 
-print("'-DFW_GIT_COMMIT=\\\"%s\\\"'" % revision)
+print("-DFW_GIT_COMMIT=\\\"%s\\\"" % revision)
