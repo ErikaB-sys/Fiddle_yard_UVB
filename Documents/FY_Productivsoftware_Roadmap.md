@@ -5,7 +5,7 @@
 ```mermaid
 flowchart TD
     A["HW-Test Erkenntnisse<br/>#105"] --> B["Motor / Profil<br/>#104"]
-    V["Firmware-Identität<br/>#107"] -. Build-/Diagnosebasis .-> B
+    V["Firmware-Identität<br/>#107/ DONE"] -. Build-/Diagnosebasis .-> B
 
     B --> C["UART / Intermediate Commands<br/>#13"]
     C --> D["Erstes Positions-Command / Motor-Schnittstelle<br/>#28"]
