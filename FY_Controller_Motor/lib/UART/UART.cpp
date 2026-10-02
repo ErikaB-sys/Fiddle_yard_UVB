@@ -6,6 +6,7 @@
 #include "Protokoll.h"
 #include "UART.h"
 #include "Error.h"
+#include "Firmware.h"
 
 // daten typen der module 
 #include "Motor.h"
@@ -235,6 +236,10 @@
         break;
         case CMD_HELP         :
                 handleHelp();
+        break;
+
+        case CMD_GET_FIRMWARE :
+                handleGetFirmware();
         break;
 
         default     :
