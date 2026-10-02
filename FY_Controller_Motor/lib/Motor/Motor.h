@@ -13,7 +13,8 @@
 #endif
 
 #ifndef STEPS_PER_UMD
-#define STEPS_PER_UMD 1600
+// Verifiziert mit FY_HW_TEST: 200 Vollschritte/U * 1/4 Microstepping
+#define STEPS_PER_UMD 800
 #endif
 
 // Profil default werte 
@@ -29,10 +30,7 @@ constexpr uint16_t POS_MIN = MM_TO_STEPS(2.0);
 #endif
 #ifndef KONST_MIN
 constexpr uint16_t KONST_MIN = MM_TO_STEPS(5.0);
-
 #endif 
-
-
 
 
 static constexpr uint16_t POSITION_UNKNOWN = UINT16_MAX / 2;
@@ -40,24 +38,18 @@ static constexpr uint16_t POSITION_UNKNOWN = UINT16_MAX / 2;
 // Geschwindigkeit
 // -----------------------------------------------------------------------------
 
-
-
-
 #define TIMER_FREQUENCY 16000000UL
-#define TIMER_PRESCALER 1
+#define TIMER_PRESCALER 256
 
 #define SPEED_TO_TIMER(v) \
     (TIMER_FREQUENCY / (TIMER_PRESCALER * 2UL * \
-    ((v) * STEPS_PER_UMD / MM_PER_UMD)))
+    (static_cast<uint32_t>(v) * STEPS_PER_UMD / MM_PER_UMD)) - 1UL)
 
-constexpr uint16_t V_MIN = 2;
-constexpr uint16_t V_MAX = 50;
+constexpr uint16_t V_MIN = 80;
+constexpr uint16_t V_MAX = 800;
 
 constexpr uint16_t TIMER_V_MIN = static_cast<uint16_t>(SPEED_TO_TIMER(V_MIN));
-
 constexpr uint16_t TIMER_V_MAX = static_cast<uint16_t>(SPEED_TO_TIMER(V_MAX));
-
-
 
 
 struct MotorJob_t
@@ -82,7 +74,6 @@ enum class MotorState_t
 // -----------------------------------------------------------------------------
 // Fahrprofil-Parameter
 // -----------------------------------------------------------------------------
-
 
 
 enum  class MotorProfile_t
@@ -118,6 +109,11 @@ struct MotorProfileParam_t
     int16_t Bre1Accel;
     int16_t Bre2Accel;
 
+    // Unabhängige Rampenintervalle, verifiziert in FY_HW_TEST.
+    uint16_t Acc1RampInterval;
+    uint16_t Acc2RampInterval;
+    uint16_t Bre1RampInterval;
+    uint16_t Bre2RampInterval;
 };
 
 enum class MotorJobResult_t
@@ -169,12 +165,17 @@ public:
     
 
 
-
 private:
   // Hardware
     uint8_t _Dir_pin;
     uint8_t _Step_pin;
     uint8_t _ENA_pin;
+
+    // Cached AVR port registers for timing-critical STEP/DIR access.
+    volatile uint8_t* _StepPort = nullptr;
+    volatile uint8_t* _DirPort  = nullptr;
+    uint8_t _StepMask = 0;
+    uint8_t _DirMask  = 0;
 
 
     // State
@@ -190,7 +191,7 @@ private:
     uint16_t _TargetPosition;
     // Results of Movment 
     MotorJobResult_t _JobResult;
-    uint16_t _Position;    // Absolute position, valid after reference run 
+    volatile uint16_t _Position;    // Absolute position, valid after reference run 
 
    // Prüfungen der Daten  
    bool prepareSetPosition();
@@ -200,7 +201,6 @@ private:
    bool CheckBorder();
    bool prepareParameter();
    
-
    
     static MotorProfileParam_t _ProfileParam;
 
@@ -214,6 +214,7 @@ private:
     void Timer1_Init();
     void Timer1_Start();
     void Timer1_Stop();
+    uint16_t current_profile_ramp_interval() const;
 
     //------------------------------------------------------------------------------------
     /// @defgroup Fahrprofil 
@@ -235,7 +236,10 @@ private:
                              Steps   Steps     Steps       Steps   Steps    Steps
    
    */
-    volatile bool _TimerValid = false;
+    volatile bool _TimerValid = false;   // Profil ist vorbereitet
+    volatile bool _StepRun = false;      // STEP-Ausgabe freigegeben
+    volatile bool _StepLevel = false;    // aktueller STEP-Pegel
+    volatile uint16_t _ProfileRampCounter = 0;
 
     // Motorprofil: ACC1, ACC2, KONST, BRE1, BRE2, POSI
     // testtabelle als default wert 
@@ -272,9 +276,11 @@ private:
     static constexpr uint16_t POS_MAX = 6400;
 
     // Timergrenzen
-    // Kleinerer Wert = höhere Geschwindigkeit
-    static constexpr uint16_t TIMER_MIN = 100;
-    static constexpr uint16_t TIMER_MAX = 30000;
+    // Kleinerer Wert = höhere Geschwindigkeit.
+    // TIMER_V_MAX entspricht der oberen Frequenzgrenze,
+    // TIMER_V_MIN der unteren Geschwindigkeitsgrenze.
+    static constexpr uint16_t TIMER_MIN = TIMER_V_MAX;
+    static constexpr uint16_t TIMER_MAX = TIMER_V_MIN;
 
     // Timeränderung pro Schritt
     // negativ = schneller
@@ -283,6 +289,3 @@ private:
     static constexpr int16_t ACCEL_MAX = 100;
 
 };
-
-
-  
