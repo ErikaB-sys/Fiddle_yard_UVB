@@ -37,59 +37,89 @@ void BabelFish::update()
 {
     while (Serial.available())
     {
-        const char c = static_cast<char>(Serial.read());
-
-        // Local echo: send every typed character back immediately.
-        // CR/LF are handled as line termination below.
-        if (c == '\r')
-        {
-            Serial.println();
-            _input[_inputLength] = '\0';
-            processLine();
-            _inputLength = 0;
-            _input[0] = '\0';
-            continue;
-        }
-
-        if (c == '\n')
-        {
-            // Accept terminals configured for LF or CR/LF.
-            // After CR the line has already been processed.
-            if (_inputLength == 0)
-                continue;
-
-            Serial.println();
-            _input[_inputLength] = '\0';
-            processLine();
-            _inputLength = 0;
-            _input[0] = '\0';
-            continue;
-        }
-
-        // Basic terminal backspace handling.
-        if (c == '\b' || c == 0x7F)
-        {
-            if (_inputLength > 0)
-            {
-                --_inputLength;
-                Serial.print(F("\b \b"));
-            }
-            continue;
-        }
-
-        // Echo ordinary characters immediately.
-        Serial.write(static_cast<uint8_t>(c));
-
-        if (_inputLength < INPUT_LENGTH)
-        {
-            _input[_inputLength++] = c;
-        }
-        else
-        {
-            // Keep the line bounded. The complete line will be rejected.
-            _input[_inputLength] = '\0';
-        }
+        BabelFishCommand_t command{};
+        process(
+            static_cast<char>(Serial.read()),
+            command
+        );
     }
+}
+
+BabelFishResult BabelFish::process(
+    char c,
+    BabelFishCommand_t& command)
+{
+    command = {};
+
+    // Local echo: send every typed character back immediately.
+    // CR/LF are handled as line termination below.
+    if (c == '\r')
+    {
+        Serial.println();
+        _input[_inputLength] = '\0';
+        processLine();
+        _inputLength = 0;
+        _input[0] = '\0';
+
+        if (_command.valid)
+        {
+            command = _command;
+            _command.valid = false;
+            return BabelFishResult::COMMAND_READY;
+        }
+
+        return BabelFishResult::INVALID;
+    }
+
+    if (c == '\n')
+    {
+        // Accept terminals configured for LF or CR/LF.
+        // After CR the line has already been processed.
+        if (_inputLength == 0)
+            return BabelFishResult::NONE;
+
+        Serial.println();
+        _input[_inputLength] = '\0';
+        processLine();
+        _inputLength = 0;
+        _input[0] = '\0';
+
+        if (_command.valid)
+        {
+            command = _command;
+            _command.valid = false;
+            return BabelFishResult::COMMAND_READY;
+        }
+
+        return BabelFishResult::INVALID;
+    }
+
+    // Basic terminal backspace handling.
+    if (c == '\b' || c == 0x7F)
+    {
+        if (_inputLength > 0)
+        {
+            --_inputLength;
+            Serial.print(F("\b \b"));
+        }
+
+        return BabelFishResult::NONE;
+    }
+
+    // Echo ordinary characters immediately.
+    Serial.write(static_cast<uint8_t>(c));
+
+    if (_inputLength < INPUT_LENGTH)
+    {
+        _input[_inputLength++] = c;
+    }
+    else
+    {
+        // Keep the line bounded. The complete line will be rejected.
+        _input[_inputLength] = '\0';
+    }
+
+    return BabelFishResult::NONE;
 }
 
 bool BabelFish::commandAvailable() const
