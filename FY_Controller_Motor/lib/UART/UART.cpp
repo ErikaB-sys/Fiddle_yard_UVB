@@ -27,7 +27,7 @@ void UART::begin(UART_Context_t& context, FY_ModuleContext_t& modules)
     UART_context = &context;
     FY_ModuleContext = &modules;
 
-    BabelFish.begin();
+    _babelFish.begin();
 
     sendHello();
 }
@@ -76,7 +76,7 @@ void UART::receive()
         const char c = static_cast<char>(Serial.read());
 
         const BabelFishResult result =
-            BabelFish.process(c, CommandBuffer.command);
+            _babelFish.process(c, CommandBuffer.command);
 
         if (result == BabelFishResult::COMMAND_READY)
         {
