@@ -9,6 +9,15 @@ try:
         cwd=project_dir,
         stderr=subprocess.DEVNULL,
     ).decode("utf-8").strip()
+
+    status = subprocess.check_output(
+        ["git", "status", "--porcelain"],
+        cwd=project_dir,
+        stderr=subprocess.DEVNULL,
+    ).decode("utf-8").strip()
+
+    if status:
+        revision += "-dirty"
 except (subprocess.CalledProcessError, FileNotFoundError):
     revision = "unknown"
 
