@@ -192,6 +192,7 @@ private:
     // Results of Movment 
     MotorJobResult_t _JobResult;
     volatile uint16_t _Position;    // Absolute position, valid after reference run 
+    volatile bool _DirectionRight = true; // logische Bewegungsrichtung fuer ISR
 
    // Prüfungen der Daten  
    bool prepareSetPosition();
