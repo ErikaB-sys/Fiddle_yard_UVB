@@ -22,11 +22,20 @@ struct BabelFishCommand_t
     bool valid{false};
 };
 
+enum class BabelFishResult : uint8_t
+{
+    NONE,
+    COMMAND_READY,
+    INVALID
+};
+
 class BabelFish
 {
 public:
     void begin(uint32_t baudRate = 115200);
     void update();
+
+    BabelFishResult process(char c, BabelFishCommand_t& command);
 
     bool commandAvailable() const;
     bool getCommand(BabelFishCommand_t& command);
