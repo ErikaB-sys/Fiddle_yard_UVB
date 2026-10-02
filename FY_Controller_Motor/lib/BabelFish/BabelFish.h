@@ -10,13 +10,15 @@
  * echoes the complete input line, and converts recognized commands
  * into the binary command representation used by the controller.
  *
- * The adapter does not execute commands. It only translates them.
+ * The adapter does not execute commands. It translates the ASCII input
+ * into a complete command telegram including its CRC.
  */
 struct BabelFishCommand_t
 {
     uint8_t cmd{0};
     uint8_t data[MAX_COMMAND_LENGTH - 1]{};
     uint8_t length{0};
+    uint8_t crc{0};
     bool valid{false};
 };
 
@@ -44,9 +46,9 @@ private:
     static bool equalsIgnoreCase(const char* left, const char* right);
     static bool parseUInt8(const char* text, uint8_t& value);
     static bool parseUInt16(const char* text, uint16_t& value);
+    static uint8_t calcCRC(uint8_t cmd, const uint8_t* data, uint8_t length);
 
     bool makeSimpleCommand(uint8_t cmd);
-    void echoLine() const;
     void reportInvalid() const;
     void reportBinaryCommand() const;
 };
