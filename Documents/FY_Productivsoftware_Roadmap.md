@@ -5,6 +5,7 @@
 ```mermaid
 flowchart TD
     A["HW-Test Erkenntnisse<br/>#105"] --> B["Motor / Profil<br/>#104"]
+    V["Firmware-Identität<br/>#107"] -. Build-/Diagnosebasis .-> B
     B --> C["Motor Execution / STEP<br/>#51"]
     B -. parallel .-> T["Tests / Native<br/>#46 + PC-Tests"]
     C --> D["Motorzustand / Sicherheit<br/>#86 + #26 + #50 + #52"]
@@ -28,13 +29,14 @@ flowchart TD
 
 ## Arbeitsprinzip
 
-1. Motor / Profil zuerst produktiv belastbar machen.
-2. Darauf Motorzustand, Sensoren und Referenz aufbauen.
-3. Danach Parameter-, Kalibrier- und Positionsmodell festlegen.
-4. Keyboard, Display und UART auf dem stabilen Kern aufsetzen.
-5. Servicefunktionen bewusst vom normalen Bedienablauf trennen.
-6. Den System Executive erst einführen, wenn die darunterliegenden Module ausreichend stabil sind.
-7. Tests parallel laufen lassen und die einzelnen Schritte begleiten.
+1. Firmware-Identität als kleine Build-/Diagnosebasis festlegen.
+2. Motor / Profil zuerst produktiv belastbar machen.
+3. Darauf Motorzustand, Sensoren und Referenz aufbauen.
+4. Danach Parameter-, Kalibrier- und Positionsmodell festlegen.
+5. Keyboard, Display und UART auf dem stabilen Kern aufsetzen.
+6. Servicefunktionen bewusst vom normalen Bedienablauf trennen.
+7. Den System Executive erst einführen, wenn die darunterliegenden Module ausreichend stabil sind.
+8. Tests parallel laufen lassen und die einzelnen Schritte begleiten.
 
 ## Regeln
 
@@ -45,3 +47,4 @@ flowchart TD
 - Parameter und EEPROM werden in #106 schrittweise klassifiziert.
 - `response()` der Produktiv-UART wird im Zuge der UART-Überarbeitung konkretisiert.
 - Neue Issues nur anlegen, wenn aus der Umsetzung tatsächlich eine Lücke entsteht.
+- Die Firmware-Identität wird zentral gepflegt: Release-Version manuell, Builddatum/-zeit und Git-Commit automatisch aus dem Build ableiten.
