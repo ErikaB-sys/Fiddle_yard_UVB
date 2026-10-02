@@ -22,6 +22,15 @@ enum class UART_CommandStatus_t : uint8_t
     CRC_INVALID
 };
 
+/// @brief No command data is available.
+constexpr uint8_t UART_ERROR_NO_CONTENT      = 0x01;
+/// @brief No UART connection has been detected.
+constexpr uint8_t UART_ERROR_NO_CONNECTION   = 0x02;
+/// @brief The received command is unknown.
+constexpr uint8_t UART_ERROR_UNKNOWN_COMMAND = 0x04;
+/// @brief The command is invalid for the current state.
+constexpr uint8_t UART_ERROR_INVALID_STATE   = 0x08;
+
 // UART communication speed: 115200 baud, 8 data bits, no parity, 1 stop bit (8N1).
 #define UART_BAUD_RATE 115200
 
