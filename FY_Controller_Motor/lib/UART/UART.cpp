@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include "FY_System.h"
@@ -7,339 +6,246 @@
 #include "UART.h"
 #include "Error.h"
 #include "Firmware.h"
-
-// daten typen der module 
 #include "Motor.h"
 
+UART::UART()
+{
+    UART_context = nullptr;
+    FY_ModuleContext = nullptr;
+    UART_Error = 0;
 
+    CommandBuffer = {};
+    CommandBuffer.status = UART_CommandStatus_t::VALID;
 
+    ResponseBuffer = {};
+}
 
+void UART::begin(UART_Context_t& context, FY_ModuleContext_t& modules)
+{
+    Serial.begin(UART_BAUD_RATE);
 
-/// @todo  bool _ResponsePending; um die korekte antwort zu senden 
-///UART empfängt CMD
-///        ↓
-///Command an Motor
-///        ↓
-///Motor.Update()
-///        ↓
-///Ergebnis / Fehler
-///        ↓
-///ResponsePending = true
-///        ↓
-///UART.update()
-///        ↓
-///Response senden
-///        ↓
-///ResponsePending = false
-/// @todo set job einbauen 
+    UART_context = &context;
+    FY_ModuleContext = &modules;
 
+    BabelFish.begin();
 
+    sendHello();
+}
 
-   UART:: UART()
-   {
-       //Init some Data 
-       UART_context= nullptr;
-       UART_Error = 0;
-       uint8_t data[MAX_COMMAND_LENGTH - 1]{};
-
-       commandLength =1;
-       CommandBuffer.status = UART_CommandStatus_t::VALID;
-
-
-
-   }
-    
-  
-    ///@brief 
-    /// @param context 
-    void UART::begin(UART_Context_t& context,FY_ModuleContext_t& modules)
+void UART::update()
+{
+    if (UART_context == nullptr)
     {
-         // Check if  content is set
-         Serial.begin( UART_BAUD_RATE);
-         this-> UART_context = &context;
-         this-> FY_ModuleContext = &modules;
-
-      // try to connect to the master e.g.ESP32
-            sendHello();
-            
-             // what will be the Answer ? 
-    }
-    
-    
-
-    /* cyclic funktion to receive and send date from / to the master on serieal */
-    void UART::update()
-    {
-     if ( this-> UART_context ==  nullptr)
-             {       
-            UART_Error |= UART_ERROR_NO_CONTENT;
-            Serial.println(F("No content. The UART is feeling lonely."));
-            return;
-             }
-    if (true == commandReady)
-    return;
-        receive();
-
-        if (true == commandReady)
-        {
-            decodeCommand();
-            sendResponse();
-
-        commandReady = false; 
-            // erst jetzt darf der nächste Command kommen
-        
-        }
+        UART_Error |= UART_ERROR_NO_CONTENT;
+        Serial.println(F("No content. The UART is feeling lonely."));
+        return;
     }
 
+    // The command mailbox is locked until the current command has
+    // been completely processed and its response has been sent.
+    if (commandReady)
+        return;
 
+    receive();
 
-    /**
-     * @brief Receives and processes one UART telegram byte at a time.
-     *
-     * The receive state machine searches for a valid command, reads the
-     * command's expected payload, and then invokes CRC checking.
-     */
-    void UART::receive()
+    if (!commandReady)
+        return;
+
+    if (CommandBuffer.status != UART_CommandStatus_t::VALID)
     {
-    switch (receiveState)
-        {case ReceiveState::FindCommand:
-    // Read and validate a command byte when data is available.
-    if (Serial.available())
+        sendNack(CommandBuffer.status);
+        commandReady = false;
+        clearCommandStatus();
+        return;
+    }
+
+    decodeCommand();
+    sendResponse();
+
+    commandReady = false;
+}
+
+/**
+ * @brief Receives ASCII input through the UART and lets BabelFish
+ *        decode it directly into the UART command buffer.
+ */
+void UART::receive()
+{
+    while (Serial.available() && !commandReady)
     {
-        uint8_t cmd = Serial.read();
+        const char c = static_cast<char>(Serial.read());
 
-        // Start a new command telegram.
-        CommandBuffer.status = UART_CommandStatus_t::VALID;
-        CommandBuffer.cmd = cmd;
+        const BabelFishResult result =
+            BabelFish.process(c, CommandBuffer.command);
 
-        // Compare the received byte with all known command definitions.
-        bool commandFound = false;
-
-        for (uint8_t i = 0; i < COMMAND_COUNT; i++)
+        if (result == BabelFishResult::COMMAND_READY)
         {
-            if (commandDefinitions[i].id == cmd)
-            {
-                CommandBuffer.type = commandDefinitions[i].type;
-                CommandBuffer.response = commandDefinitions[i].response;
+            CommandBuffer.status = UART_CommandStatus_t::VALID;
 
-                // Store the expected payload length and prepare for data reception.
-                expectedLength = commandDefinitions[i].telegramLength - 1;
-                dataIndex = 0;
-                lastByteTime = micros(); // Start für Timout überwachung 
-                receiveState = ReceiveState::ReadData;
+            if (!validateCommand())
+                CommandBuffer.status = UART_CommandStatus_t::DATA_INVALID;
 
-                commandFound = true;
-                break;
-            }
+            commandReady = true;
         }
-
-        // No valid command was found.
-        if (!commandFound)
+        else if (result == BabelFishResult::INVALID)
         {
             CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
-        }
-       }
-       break;
-       case ReceiveState::ReadData:
-          if (Serial.available())
-          {
-              CommandBuffer.data[dataIndex++] = Serial.read();
-      
-              // A byte was received, so restart the inter-byte timeout.
-              lastByteTime = micros();
-      
-              // All expected data bytes received.
-              if (dataIndex >= expectedLength)
-              {
-                  receiveState = ReceiveState::CheckCRC;
-              }
-          }
-          else if (micros() - lastByteTime > UART_TIMEOUT_US)
-          {
-              // Telegram incomplete.
-              CommandBuffer.status = UART_CommandStatus_t::DATA_INVALID;
-              receiveState = ReceiveState::FindCommand;
-          }
-        break;
-     
-        case ReceiveState::CheckCRC:
-           if (Serial.available())
-           {
-               CommandBuffer.CMD_CRC = Serial.read();
-       
-               // CRC byte received.
-               lastByteTime = micros();
-       
-               if (Check_CRC())
-               {
-                   CommandBuffer.status = UART_CommandStatus_t::VALID;
-                   commandReady =true; 
-               }
-               else
-               {
-                   CommandBuffer.status = UART_CommandStatus_t::CRC_INVALID;
-               }
-       
-               receiveState = ReceiveState::FindCommand;
-           }
-           else if (micros() - lastByteTime > UART_TIMEOUT_US)
-           {
-               // CRC byte missing.
-               CommandBuffer.status = UART_CommandStatus_t::CRC_INVALID;
-               receiveState = ReceiveState::FindCommand;
-           }
-           break;
-        default: 
-           break;
-
-        }
-
-    } 
-    
-     /// @brief decode the Type 
-
-     void UART::decodeCommand()
-    {
-       switch (CommandBuffer.type)
-       {
-        case CommandType::IMMEDIATE:
-            decodeImmediate();
-            break;
-
-        case CommandType::EXECUTE:
-            decodeExecute();
-            break;
-
-        case CommandType::PRIORITY:
-            decodePriority();
-            break;
-       }
-    }
-
-
-    void UART::decodeImmediate()
-    {
-        switch(CommandBuffer.cmd)
-        {
-        case   CMD_GET_STATUS   :
-            handleGetStatus();
-        break;
-
-        case   CMD_GET_ERROR :
-           handleGetError();
-        break;
-        case  CMD_GET_POSITION :
-              handleGetPosition();
-        break;
-        case  CMD_GET_TRACK   :
-             handleGetTrack();
-        break;
-        case CMD_HELP         :
-                handleHelp();
-        break;
-
-        case CMD_GET_FIRMWARE :
-                handleGetFirmware();
-        break;
-
-        default     :
-          CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
-        // Unknown Handle
-        break;
-
-        }
-
-
-
-    }
-
-    void UART::decodeExecute()
-    {
-        // Execute the command when the status permits command processing.
-        // The current status is stored in the UART context.
-           if (UART_context->systemStatus->state == FY_SystemState_t::Busy)
-             {
-                 handle_Busy();
-                 return;
-             }
-
-
-            switch (CommandBuffer.cmd)
-            {
-            case CMD_REFERENCE:
-                handleReference();
-                break;
-
-            case CMD_SET_SPEED:
-                handleSetSpeed();
-                break;
-
-            case CMD_GO:
-                handleGo();
-                break;
-
-            case CMD_LEFT:
-                handleLeft();
-                break;
-
-            case CMD_RIGHT:
-                handleRight();
-                break;
-
-            case CMD_SET_POSITION:
-                handleSetPosition();
-                break;
-
-            case CMD_SET_TRACK:
-                handleSetTrack();
-                break;
-
-            case CMD_SET_REMOTE:
-                handleSetRemote();
-                break;
-
-            case CMD_SET_LOCAL:
-                handleSetLocal();
-                break;
-
-            default:
-                // Mark unsupported commands as invalid.
-                CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
-                break;
-            }
-     }
-    
-     
-    void UART::decodePriority()
-    {
-        switch (CommandBuffer.cmd)
-        {
-            case CMD_STOPP:
-                handleStop();
-                break;
-
-            default:
-                CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
-                break;
+            commandReady = true;
         }
     }
+}
 
+/**
+ * @brief Validates command ID and telegram length against Protokoll.h.
+ */
+bool UART::validateCommand()
+{
+    for (uint8_t i = 0; i < COMMAND_COUNT; ++i)
+    {
+        if (commandDefinitions[i].id != CommandBuffer.command.cmd)
+            continue;
 
+        CommandBuffer.type = commandDefinitions[i].type;
+        CommandBuffer.response = commandDefinitions[i].response;
 
-     void UART::sendResponse()
-     {
+        if (commandDefinitions[i].telegramLength != CommandBuffer.command.length)
+            return false;
 
+        return true;
+    }
+
+    return false;
+}
+
+void UART::decodeCommand()
+{
+    switch (CommandBuffer.type)
+    {
+    case CommandType::IMMEDIATE:
+        decodeImmediate();
+        break;
+
+    case CommandType::EXECUTE:
+        decodeExecute();
+        break;
+
+    case CommandType::PRIORITY:
+        decodePriority();
+        break;
+    }
+}
+
+void UART::decodeImmediate()
+{
+    switch (CommandBuffer.command.cmd)
+    {
+    case CMD_GET_STATUS:
+        handleGetStatus();
+        break;
+
+    case CMD_GET_ERROR:
+        handleGetError();
+        break;
+
+    case CMD_GET_POSITION:
+        handleGetPosition();
+        break;
+
+    case CMD_GET_TRACK:
+        handleGetTrack();
+        break;
+
+    case CMD_HELP:
+        handleHelp();
+        break;
+
+    case CMD_GET_FIRMWARE:
+        handleGetFirmware();
+        break;
+
+    default:
+        CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
+        break;
+    }
+}
+
+void UART::decodeExecute()
+{
+    if (UART_context->systemStatus->state == FY_SystemState_t::Busy)
+    {
+        handle_Busy();
+        return;
+    }
+
+    switch (CommandBuffer.command.cmd)
+    {
+    case CMD_REFERENCE:
+        handleReference();
+        break;
+
+    case CMD_SET_SPEED:
+        handleSetSpeed();
+        break;
+
+    case CMD_GO:
+        handleGo();
+        break;
+
+    case CMD_LEFT:
+        handleLeft();
+        break;
+
+    case CMD_RIGHT:
+        handleRight();
+        break;
+
+    case CMD_SET_POSITION:
+        handleSetPosition();
+        break;
+
+    case CMD_SET_TRACK:
+        handleSetTrack();
+        break;
+
+    case CMD_SET_REMOTE:
+        handleSetRemote();
+        break;
+
+    case CMD_SET_LOCAL:
+        handleSetLocal();
+        break;
+
+    default:
+        CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
+        break;
+    }
+}
+
+void UART::decodePriority()
+{
+    switch (CommandBuffer.command.cmd)
+    {
+    case CMD_STOPP:
+        handleStop();
+        break;
+
+    default:
+        CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
+        break;
+    }
+}
+
+void UART::sendResponse()
+{
     if (!ResponseBuffer.responsePending)
         return;
 
     Serial.write(ResponseBuffer.id);
 
     for (uint8_t i = 0; i < ResponseBuffer.length; ++i)
-    {
         Serial.write(ResponseBuffer.data[i]);
-    }
 
-    uint8_t crc = Calc_CRC(
+    const uint8_t crc = Calc_CRC(
         ResponseBuffer.id,
         ResponseBuffer.data,
         ResponseBuffer.length
@@ -348,70 +254,58 @@
     Serial.write(crc);
 
     ResponseBuffer.responsePending = false;
-    }
-    
-
-
-     /// @brief 
-     void UART::sendHello()
-     {
-     Serial.println (F("Hello my friend"));
-     
-     }
-     void UART::setResponse(uint8_t id, uint8_t* data, uint8_t length)
-        {
-            ResponseBuffer.id = id;
-            ResponseBuffer.data = data;
-            ResponseBuffer.length = length;
-            ResponseBuffer.responsePending = true;
-        }
-
-     bool UART::CheckBusy()
-     {
-        return (true);
-     }
-
-     bool UART::CheckError()
-     {
-        return (true);
-     }
-
-    bool UART::SetCommand()
-     {  MotorJob_t job{};
-
-        // Das modul Motor  muss bekannt wein  sonst wirds  nix  
-        if (FY_ModuleContext == nullptr || FY_ModuleContext->motor == nullptr)
-         return false;
-
-    
-
-    job.cmd = CommandBuffer.cmd;
-
-    for (uint8_t i = 0; i < MAX_COMMAND_LENGTH - 1; i++)
-        job.data[i] = CommandBuffer.data[i];
-
-    return (FY_ModuleContext ->motor->setJob(job));
-    }
-     
-
-     ///@brief 
-     bool UART::Check_CRC()
-{
-   #ifdef UART_USE_RX_CRC
-    uint8_t crc = Calc_CRC(
-        CommandBuffer.cmd,
-        CommandBuffer.data,
-        expectedLength
-    );
-
-    return crc == CommandBuffer.CMD_CRC;
-    #else
-    return true ;
-    #endif
-
 }
-   
-     
+
+void UART::sendNack(UART_CommandStatus_t status)
+{
+    const uint8_t reason = static_cast<uint8_t>(status);
+    setResponse(STATUS_NACK, &reason, 1);
+    sendResponse();
+}
+
+void UART::sendHello()
+{
+    Serial.println(F("Hello my friend"));
+}
+
+void UART::setResponse(uint8_t id, const uint8_t* data, uint8_t length)
+{
+    if (length > MAX_RESPONSE_LENGTH)
+        length = MAX_RESPONSE_LENGTH;
+
+    ResponseBuffer.id = id;
+    ResponseBuffer.length = length;
+
+    for (uint8_t i = 0; i < length; ++i)
+        ResponseBuffer.data[i] = data[i];
+
+    ResponseBuffer.responsePending = true;
+}
+
+bool UART::CheckBusy()
+{
+    return true;
+}
+
+bool UART::CheckError()
+{
+    return true;
+}
+
+bool UART::SetCommand()
+{
+    MotorJob_t job{};
+
+    if (FY_ModuleContext == nullptr || FY_ModuleContext->motor == nullptr)
+        return false;
+
+    job.cmd = CommandBuffer.command.cmd;
+
+    for (uint8_t i = 0; i < MAX_COMMAND_LENGTH - 1; ++i)
+        job.data[i] = CommandBuffer.command.data[i];
+
+    return FY_ModuleContext->motor->setJob(job);
+}
 
 uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
 {
@@ -424,69 +318,76 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
         for (uint8_t bit = 0; bit < 8; ++bit)
         {
             if (crc & 0x80)
-            {
-                crc = (crc << 1) ^ 0x07;
-            }
+                crc = static_cast<uint8_t>((crc << 1) ^ 0x07);
             else
-            {
                 crc <<= 1;
-            }
         }
     }
 
     return crc;
 }
-     ///@brief  Errorhandling 
-         UART_CommandStatus_t UART::getCommandStatus() 
-    {
-        return CommandBuffer.status;
-    }
-    
-    void UART::clearCommandStatus()
-    {
-        CommandBuffer.status = UART_CommandStatus_t::VALID;
-    }
-    
 
+UART_CommandStatus_t UART::getCommandStatus()
+{
+    return CommandBuffer.status;
+}
 
+void UART::clearCommandStatus()
+{
+    CommandBuffer.status = UART_CommandStatus_t::VALID;
+}
 
+void UART::handleStop()
+{
+    setResponse(
+        STATUS_System,
+        reinterpret_cast<const uint8_t*>(UART_context->systemStatus),
+        sizeof(FY_SystemStatus_t)
+    );
+}
 
-     ///@brief chapter handle fkt 
+void UART::handleGetStatus()
+{
+    setResponse(
+        STATUS_System,
+        reinterpret_cast<const uint8_t*>(UART_context->systemStatus),
+        sizeof(FY_SystemStatus_t)
+    );
+}
 
-     /// @brief Stop fuktion Halt wthout any  discussions 
-     void UART::handleStop()
-     {
-        // ENA auf OFF oder 12V  OFF setzen
-        setResponse(STATUS_System,reinterpret_cast<uint8_t*>(UART_context->systemStatus),sizeof(FY_SystemStatus_t));
+void UART::handleGetError()
+{
+    setResponse(
+        STATUS_System,
+        reinterpret_cast<const uint8_t*>(&UART_context->systemStatus->error),
+        sizeof(FY_System_Error_t)
+    );
+}
 
-     }
+void UART::handleGetPosition()
+{
+    setResponse(
+        STATUS_Position,
+        reinterpret_cast<const uint8_t*>(UART_context->motorPosition),
+        sizeof(int32_t)
+    );
+}
 
+void UART::handleGetTrack()
+{
+    setResponse(
+        STATUS_Track,
+        reinterpret_cast<const uint8_t*>(UART_context->Track_INFO),
+        1
+    );
+}
 
-    void  UART:: handleGetStatus()
-    {
-        setResponse(STATUS_System,reinterpret_cast<uint8_t*>(UART_context->systemStatus),sizeof(FY_SystemStatus_t));
-    }
-    void  UART:: handleGetError()
-    {
-         setResponse(STATUS_System, reinterpret_cast<uint8_t*>(&UART_context->systemStatus->error), sizeof(FY_System_Error_t));
-    }
- void UART::handleGetPosition()
-    {
-     setResponse(
-         STATUS_Position, reinterpret_cast<uint8_t*>(UART_context->motorPosition),sizeof(int32_t));
+void UART::handleHelp()
+{
+    // Special response still to be defined.
+}
 
-    }
-    void  UART:: handleGetTrack()
-    {
-        setResponse(STATUS_Track,reinterpret_cast<uint8_t*>(UART_context->Track_INFO),1);
-        
-    }
-    void  UART:: handleHelp()
-    {
-        // Special 
-    }
-
-   void UART::handleGetFirmware()
+void UART::handleGetFirmware()
 {
     Serial.print(F("FW: "));
     Serial.println(FW_NAME);
@@ -500,98 +401,59 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
     Serial.println(FW_GIT_COMMIT);
 }
 
+void UART::handle_Busy()
+{
+    // Busy response still to be defined.
+}
 
-void UART:: handle_Busy()
-   {
-    //setResponse(STATUS_NACK, 0xFF ,1);
-    
+void UART::handle_ACK()
+{
+    // ACK response still to be defined.
+}
 
-   }
-     void UART:: handle_ACK()
-   {
-    //setResponse(STATUS_NACK, 0xFF ,1);
-    
+void UART::handleReference()
+{
+    SetCommand();
+}
 
-   }
+void UART::handleSetSpeed()
+{
+    SetCommand();
+}
 
+void UART::handleGo()
+{
+    SetCommand();
+}
 
+void UART::handleLeft()
+{
+    SetCommand();
+}
 
+void UART::handleRight()
+{
+    SetCommand();
+}
 
-    void  UART:: handleReference()
-    {   // test Fehler 
-        // Test  Busy 
-        //testen ob  Referenziert 
-        SetCommand();
-        
-        
-    }
-    void  UART:: handleSetSpeed()
-    {    // test Fehler 
-        // Test  Busy
-        //Test on Speed im bereich MIN/ MAX
-        SetCommand();
+void UART::handleSetPosition()
+{
+    SetCommand();
+}
 
-        
-    }
-    void  UART:: handleGo()
-    {  // test Fehler 
-        // Test  Busy
-        //Test ob Steps >0 ( oder Steps min) 
-         SetCommand();
-        
-    }
-    void  UART:: handleLeft()
-    {  // test Fehler 
-        // Test  Busy
-        // Refernziert ?
-        // Test ob noch Move Left möglich 
-        SetCommand();
-        
-    }
-    void  UART:: handleRight()
-    { // test Fehler 
-        // Test  Busy
-        // Refernziert ?
-        // Test ob noch Move Right möglich 
-        SetCommand();
-        
-    }
-    void  UART:: handleSetPosition()
-    {   // test Fehler 
-        // Test  Busy
-        // Refernziert ?
-        // Test ob POS im Bereich  MIN / Max Position
-        SetCommand();
-    }
-    void  UART:: handleSetTrack()
-    {  // CMD | Tracknummer | (CRC)
-        
-        // test SYSTEM Fehler 
-        // Test MOTOR Busy
-        // SYSTEM Refernziert 
-        // (CRC OK ) 
-        // CommandBuffer.data[0] == UART_context->Track_INFO ->akt_track !! type casten 
-                
-        if ((CommandBuffer.data[0] >= static_cast<uint8_t>(FY_Track::BG1))
-          && (CommandBuffer.data[0] <= static_cast<uint8_t>(FY_Track::BG5)))
-          {
-           
-          }
-   
-        
-    }
-    void  UART:: handleSetRemote()
-    {   
-
-
-    }
-    void  UART:: handleSetLocal()
+void UART::handleSetTrack()
+{
+    if ((CommandBuffer.command.data[0] >= static_cast<uint8_t>(FY_Track::BG1)) &&
+        (CommandBuffer.command.data[0] <= static_cast<uint8_t>(FY_Track::BG5)))
     {
-       // test Fehler 
-        // Test  Busy
-        // Refernziert ?
-        // Test ob Lokales Befhels gerät da 
-        //SetCommand();
-      
+        // Track validation will be completed with the motor command path.
     }
+}
 
+void UART::handleSetRemote()
+{
+}
+
+void UART::handleSetLocal()
+{
+}
