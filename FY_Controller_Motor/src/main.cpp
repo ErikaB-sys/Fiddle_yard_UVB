@@ -4,6 +4,7 @@
 #include "Main.h"
 #include "Motor.h"
 #include "UART.h"
+#include "BabelFish.h"
 #include "Error.h"
 #include "Keyboard.h"
 #include "Switches.h"
@@ -20,7 +21,8 @@ FY_SystemInitStatus_t FY_System; // System status variables
 
 // FY instances of the classes for the project ( forwart declarations )
 Switches         FY_Switches; // Create a Switches object for managing switches
-UART             FY_uart;  // Create a UART object with the specified device and baud rate
+UART             FY_uart;  // Legacy binary UART module; kept for the existing module context
+BabelFish         FY_babelfish; // ASCII -> binary command adapter
 Motor            FY_motor; //  Forwart  from Motor 
 Keyboard         FY_Keyboard; // local keyboard for PC-less operation 
 UART_Context_t   Main_Context;  // See https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/73
@@ -65,8 +67,8 @@ FY_ModuleContext_t FY_Modules{
     &FY_Switches
 };
 
-  // Initialize serial communication
-  FY_uart.begin(uartContext, FY_Modules);
+  // ASCII command adapter: human-readable input -> binary CMD.
+  FY_babelfish.begin(115200);
   // init Motor driver
   FY_motor.begin(MOTOR_DIR_PIN , MOTOR_PWM_PIN , MOTOR_ENABLE_PIN);
 
@@ -128,7 +130,7 @@ Serial.println(F("init done "));
 void loop() {
   // put your main code here, to run repeatedly:
   //get all informatins 
-  FY_uart.update();
+  FY_babelfish.update();
   
   /*
   FY_buttons.Update();
