@@ -96,7 +96,14 @@ void UART::receive()
 }
 
 /**
- * @brief Validates command ID and telegram length against Protokoll.h.
+ * @brief Validates the received command against the UART protocol.
+ *
+ * Validation order is deliberately uniform:
+ * 1. Command ID
+ * 2. Telegram length
+ * 3. CRC
+ *
+ * Command classification is assigned only after all validation checks pass.
  */
 bool UART::validateCommand()
 {
@@ -105,15 +112,30 @@ bool UART::validateCommand()
         if (commandDefinitions[i].id != CommandBuffer.command.cmd)
             continue;
 
+        if (commandDefinitions[i].telegramLength != CommandBuffer.command.length)
+        {
+            CommandBuffer.status = UART_CommandStatus_t::DATA_INVALID;
+            return false;
+        }
+
+        const uint8_t calculatedCrc = Calc_CRC(
+            CommandBuffer.command.cmd,
+            CommandBuffer.command.data,
+            static_cast<uint8_t>(CommandBuffer.command.length - 1)
+        );
+
+        if (calculatedCrc != CommandBuffer.command.crc)
+        {
+            CommandBuffer.status = UART_CommandStatus_t::CRC_INVALID;
+            return false;
+        }
+
         CommandBuffer.type = commandDefinitions[i].type;
         CommandBuffer.response = commandDefinitions[i].response;
-
-        if (commandDefinitions[i].telegramLength != CommandBuffer.command.length)
-            return false;
-
         return true;
     }
 
+    CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
     return false;
 }
 
