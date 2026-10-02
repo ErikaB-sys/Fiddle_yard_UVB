@@ -32,6 +32,7 @@ constexpr uint8_t CMD_GET_POSITION =   0x15   ;    // Command to get the current
 constexpr uint8_t CMD_SET_TRACK    =   0x1C   ;    // Command to set the track number of the motor
 constexpr uint8_t CMD_GET_TRACK    =   0x23   ;    // Command to get the current track number of the motor
 constexpr uint8_t CMD_HELP         =   0x25   ;    // Command to get the list of available commands
+constexpr uint8_t CMD_GET_FIRMWARE =   0x27   ;    // Command to get firmware identity information
 
 constexpr uint8_t CMD_SET_LOCAL    =   0x26   ;    // Command to set the controller to local mode
 constexpr uint8_t CMD_SET_REMOTE   =   0x2A   ;    // Command to set the controller to remote mode
@@ -118,6 +119,7 @@ const CommandDefinition commandDefinitions[] =
     { CMD_GET_POSITION,  CommandType::IMMEDIATE, 1, STATUS_Position,     false },
     { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1, STATUS_Track,        false },
     { CMD_HELP,          CommandType::IMMEDIATE, 1, STATUS_Help,         false },
+    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 1, STATUS_Help,         false },
     { CMD_REFERENCE,     CommandType::EXECUTE,   1, STATUS_Reference,    false },
     { CMD_SET_SPEED,     CommandType::EXECUTE,   3, STATUS_Motor,        false },
     { CMD_GO,            CommandType::EXECUTE,   1, STATUS_ACK,           true },
