@@ -186,6 +186,11 @@ bool BabelFish::decodeLine()
         _command.data[1] = static_cast<uint8_t>(position >> 8);
         _command.length = 3;
         _command.valid = true;
+        _command.crc = calcCRC(
+            _command.cmd,
+            _command.data,
+            _command.length - 1
+        );
         return true;
     }
 
@@ -204,6 +209,11 @@ bool BabelFish::decodeLine()
         _command.data[0] = track;
         _command.length = 2;
         _command.valid = true;
+        _command.crc = calcCRC(
+            _command.cmd,
+            _command.data,
+            _command.length - 1
+        );
         return true;
     }
 
@@ -220,6 +230,11 @@ bool BabelFish::decodeLine()
         _command.data[1] = static_cast<uint8_t>(speed >> 8);
         _command.length = 3;
         _command.valid = true;
+        _command.crc = calcCRC(
+            _command.cmd,
+            _command.data,
+            _command.length - 1
+        );
         return true;
     }
 
@@ -232,7 +247,31 @@ bool BabelFish::makeSimpleCommand(uint8_t cmd)
     _command.cmd = cmd;
     _command.length = 1;
     _command.valid = true;
+    _command.crc = calcCRC(_command.cmd, nullptr, 0);
     return true;
+}
+
+uint8_t BabelFish::calcCRC(
+    uint8_t cmd,
+    const uint8_t* data,
+    uint8_t length)
+{
+    uint8_t crc = cmd;
+
+    for (uint8_t i = 0; i < length; ++i)
+    {
+        crc ^= data[i];
+
+        for (uint8_t bit = 0; bit < 8; ++bit)
+        {
+            if (crc & 0x80)
+                crc = static_cast<uint8_t>((crc << 1) ^ 0x07);
+            else
+                crc <<= 1;
+        }
+    }
+
+    return crc;
 }
 
 void BabelFish::reportInvalid() const
@@ -249,7 +288,13 @@ void BabelFish::reportBinaryCommand() const
 
     Serial.print(_command.cmd, HEX);
     Serial.print(F(" LEN="));
-    Serial.println(_command.length);
+    Serial.print(_command.length);
+    Serial.print(F(" CRC=0x"));
+
+    if (_command.crc < 0x10)
+        Serial.print('0');
+
+    Serial.println(_command.crc, HEX);
 }
 
 void BabelFish::trim(char* text)
