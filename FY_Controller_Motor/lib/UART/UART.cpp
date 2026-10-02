@@ -82,7 +82,9 @@ void UART::receive()
         {
             CommandBuffer.status = UART_CommandStatus_t::VALID;
 
-            if (!validateCommand())
+             //   CommandBuffer.command.crc ^= 0x01;   // TEST ONLY: corrupt CRC
+            
+                if (!validateCommand())
                 CommandBuffer.status = UART_CommandStatus_t::DATA_INVALID;
 
             commandReady = true;
