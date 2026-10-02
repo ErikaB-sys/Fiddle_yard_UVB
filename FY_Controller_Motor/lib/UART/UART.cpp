@@ -34,6 +34,13 @@ void UART::begin(UART_Context_t& context, FY_ModuleContext_t& modules)
 
 void UART::update()
 {
+    if (UART_context == nullptr)
+    {
+        UART_Error |= UART_ERROR_NO_CONTENT;
+        Serial.println(F("No content. The UART is feeling lonely."));
+        return;
+    }
+
     // The command mailbox is locked until the current command has
     // been completely processed and its response has been sent.
     if (commandReady)
