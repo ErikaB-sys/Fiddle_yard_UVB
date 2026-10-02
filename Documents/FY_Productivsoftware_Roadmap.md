@@ -6,40 +6,55 @@
 flowchart TD
     A["HW-Test Erkenntnisse<br/>#105"] --> B["Motor / Profil<br/>#104"]
     V["Firmware-Identität<br/>#107"] -. Build-/Diagnosebasis .-> B
-    B --> C["Motor Execution / STEP<br/>#51"]
-    B -. parallel .-> T["Tests / Native<br/>#46 + PC-Tests"]
-    C --> D["Motorzustand / Sicherheit<br/>#86 + #26 + #50 + #52"]
-    D --> E["Sensoren<br/>#93"]
-    E --> F["Referenz<br/>#85 + #94"]
-    F --> G["Parameter & Kalibrierung<br/>#106"]
-    G --> H["Position / Trackmodell<br/>#11"]
-    H --> I["Keyboard / LOCAL<br/>#88 + #89"]
-    I --> J["Display<br/>#90"]
-    I --> K["UART / Service<br/>#13 + #17 + #28 + #29 + #39"]
-    J --> L["LOCAL / REMOTE<br/>#91"]
-    K --> L
-    K -. Service .-> S["Servicebetrieb<br/>#95"]
-    L --> M["System Executive<br/>#96"]
-    M --> N["Gesamtintegration<br/>#30 + Tests"]
-    T -. Validierung .-> D
-    T -. Validierung .-> F
+
+    B --> C["UART / Intermediate Commands<br/>#13"]
+    C --> D["Erstes Positions-Command / Motor-Schnittstelle<br/>#28"]
+    D --> E["Parameter / Profilwerte<br/>#106 + #104"]
+    E --> F["Motorbewegung / Execution / STEP<br/>#51"]
+
+    F -. parallel .-> T["Tests / Native<br/>#46 + PC-Tests"]
+    F --> G["Motorzustand / Sicherheit<br/>#86 + #26 + #50 + #52"]
+    G --> H["Sensoren<br/>#93"]
+    H --> I["Referenz<br/>#85 + #94"]
+    I --> J["Position / Trackmodell<br/>#11"]
+    J --> K["Keyboard / LOCAL<br/>#88 + #89"]
+    K --> L["Display<br/>#90"]
+    K --> M["UART / Service<br/>#13 + #17 + #28 + #29 + #39"]
+    L --> N["LOCAL / REMOTE<br/>#91"]
+    M --> N
+    M -. Service .-> S["Servicebetrieb<br/>#95"]
+    N --> O["System Executive<br/>#96"]
+    O --> P["Gesamtintegration<br/>#30 + Tests"]
+
     T -. Validierung .-> G
-    T -. Validierung .-> N
+    T -. Validierung .-> I
+    T -. Validierung .-> J
+    T -. Validierung .-> P
 ```
+
+## Arbeitsreihenfolge
+
+Die Motorintegration wird bewusst in kleinen, testbaren Schritten aufgebaut. Die echte Hardware ist dabei zunächst **nicht erforderlich**; die Produktivsoftware wird auf dem Schreibtisch-Mockup entwickelt und geprüft.
+
+1. **Firmware-Identität** als kleine Build-/Diagnosebasis festlegen.
+2. **Motor-/Profil-Erkenntnisse aus dem HW-Test** übernehmen, ohne den HW-Test-Code zu kopieren.
+3. **Intermediate Commands** zuerst produktiv stabilisieren. Damit wird die Kommunikation CMD → Verarbeitung → Response unabhängig von echter Motorbewegung überprüfbar.
+4. **Erstes Positions-Command / Motor-Schnittstelle** einführen. Zunächst reicht die Verbindung bis zur Motorlogik bzw. zum Mockup; die vollständige STEP-Ausführung folgt später.
+5. **Parameter- und Profilmodell** schrittweise festlegen. Als Startpunkt werden die im HW-Test verifizierten und veränderbaren Parameterwerte verwendet. Die endgültige Klassifizierung von Default-, Konfigurations-, Kalibrier-, Laufzeit- und Diagnosewerten erfolgt in #106.
+6. **Motorbewegung / Execution / STEP** in die Produktivsoftware überführen. Die verifizierte Profilberechnung aus #104 und die STEP-Ausführung aus #51 werden dabei getrennt gehalten: Profil berechnet, Execution führt aus.
+7. **Mockup vollständig gegen die Produktivschnittstellen testen.**
+8. Erst wenn Kommunikation, Position, Parameter und Motor-Execution auf dem Mockup funktionieren, erfolgt der **erste Live-Test mit Steppertreiber und echter Motor-Hardware**.
+9. Danach Motorzustand, Sicherheit, Sensoren und Referenz schrittweise ergänzen.
+10. Erst auf diesem stabilen Kern folgen Bedienung, Service und Systemintegration.
 
 ## Arbeitsprinzip
 
-1. Firmware-Identität als kleine Build-/Diagnosebasis festlegen.
-2. Motor / Profil zuerst produktiv belastbar machen.
-3. Darauf Motorzustand, Sensoren und Referenz aufbauen.
-4. Danach Parameter-, Kalibrier- und Positionsmodell festlegen.
-5. Keyboard, Display und UART auf dem stabilen Kern aufsetzen.
-6. Servicefunktionen bewusst vom normalen Bedienablauf trennen.
-7. Den System Executive erst einführen, wenn die darunterliegenden Module ausreichend stabil sind.
-8. Tests parallel laufen lassen und die einzelnen Schritte begleiten.
-
-## Regeln
-
+- Die drei Command-Klassen werden bewusst nacheinander genutzt: **INTERMEDIATE → Positions-/Bewegungsauftrag → weitere ausführende Commands**.
+- Kommunikation wird vor echter Motorbewegung stabilisiert.
+- Das erste Positions-Command bildet die Brücke zwischen UART und Motor-Schnittstelle.
+- Parameter werden zunächst aus dem HW-Test übernommen, aber ihre endgültige Struktur wird nicht vorweggenommen.
+- Die reale Hardware dient erst dann als Integrationsprüfung, wenn die Produktivlogik auf dem Mockup nachvollziehbar funktioniert.
+- Der Steppertreiber ist eine nachgelagerte Hardware-Schnittstelle; seine konkrete Implementierung wird nicht zum Vorab-Gegenstand der Motor-API gemacht.
 - Der HW-Test-Code wird nicht kopiert.
 - Übernommen werden bestätigte Anforderungen, Zustände, Abläufe, Parameter und technische Prinzipien.
 - UART bleibt bei jedem Entwicklungsschritt funktionsfähig, damit der Nano weiterhin beobachtet und getestet werden kann.
