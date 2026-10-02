@@ -21,9 +21,38 @@ MotorProfileParam_t Motor::_ProfileParam =
     -2,                      // Acc1Accel
     -1,                      // Acc2Accel
     +1,                      // Bre1Accel
-    +2                       // Bre2Accel
+    +2,                      // Bre2Accel
+    1,                       // Acc1RampInterval
+    1,                       // Acc2RampInterval
+    1,                       // Bre1RampInterval
+    1                        // Bre2RampInterval
 };
 
+
+// -----------------------------------------------------------------------------
+// Hilfsfunktionen Timer
+// -----------------------------------------------------------------------------
+
+static uint16_t frequency_to_reload(uint16_t frequency)
+{
+    if (frequency == 0)
+        return 65535;
+
+    const uint32_t denominator =
+        2UL * TIMER_PRESCALER * static_cast<uint32_t>(frequency);
+
+    uint32_t reload =
+        ((TIMER_FREQUENCY / denominator) +
+         (denominator / 2UL)) - 1UL;
+
+    if (reload < 1UL)
+        reload = 1UL;
+
+    if (reload > 65535UL)
+        reload = 65535UL;
+
+    return static_cast<uint16_t>(reload);
+}
 
 
 // -----------------------------------------------------------------------------
@@ -32,12 +61,9 @@ MotorProfileParam_t Motor::_ProfileParam =
 
 Motor::Motor()
 {
-    // Initial state
     _Job.valid = false;
-
-    // TODO
+    _JobResult = MotorJobResult_t::NONE;
 }
-
 
 
 // -----------------------------------------------------------------------------
@@ -46,14 +72,6 @@ Motor::Motor()
 
 bool Motor::begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin)
 {
-    // TODO:
-    // - store pin numbers
-
-  // Treiber deaktiviert
-    // - configure pins
-    // - set initial output states
-    // - configure Timer2
-
     _Dir_pin  = Dir_pin;
     _Step_pin = Step_pin;
     _ENA_pin  = ENA_pin;
@@ -62,35 +80,44 @@ bool Motor::begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin)
     pinMode(_Step_pin, OUTPUT);
     pinMode(_ENA_pin, OUTPUT);
 
-    digitalWrite(_Step_pin, LOW);
-    digitalWrite(_Dir_pin, LOW);
+    // Die Portregister werden einmalig aufgeloest.
+    // In der ISR wird damit kein digitalWrite() benoetigt.
+    _StepPort = portOutputRegister(digitalPinToPort(_Step_pin));
+    _DirPort  = portOutputRegister(digitalPinToPort(_Dir_pin));
+    _StepMask = digitalPinToBitMask(_Step_pin);
+    _DirMask  = digitalPinToBitMask(_Dir_pin);
 
-    // Motor initially disabled
-    digitalWrite(_ENA_pin, HIGH);
-// Bewegungs und ISR Daten 
+    if ((_StepPort == nullptr) || (_DirPort == nullptr) ||
+        (_StepMask == 0) || (_DirMask == 0))
+    {
+        return false;
+    }
+
+    // Initiale Hardwarezustaende.
+    *_StepPort &= static_cast<uint8_t>(~_StepMask);
+    *_DirPort  &= static_cast<uint8_t>(~_DirMask);
+    digitalWrite(_ENA_pin, HIGH);       // Treiber deaktiviert
 
     // Dieses Motor-Objekt ist dasjenige, das Timer1 verwendet.
     _TimerMotor = this;
 
-    Timer1_Init();// prepair timer 1  for creating  Steps 
-    Timer1_Stop(); // dont move!!
+    Timer1_Init();
+    Timer1_Stop();
 
-    // Daten 
     _State = MotorState_t::IDLE;
-    _ProfileElement =  MotorProfile_t::ACC1;
+    _ProfileElement = MotorProfile_t::ACC1;
     _StepsRemaining = 0;
-    _TimerValue     = 0;
-    _Position       = POSITION_UNKNOWN;
+    _TimerValue = TIMER_V_MIN;
+    _ProfileRampCounter = 0;
+    _StepRun = false;
+    _StepLevel = false;
+    _TimerValid = false;
+    _Position = POSITION_UNKNOWN;
     _TargetPosition = 0;
-
-
-
-
-
+    _JobResult = MotorJobResult_t::NONE;
 
     return true;
 }
-
 
 
 // -----------------------------------------------------------------------------
@@ -100,106 +127,85 @@ bool Motor::begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin)
 void Motor::Update()
 {
     // Called cyclically from loop()
-    //IDLE → Auftrag angenommen → MOVING → IDLE
- //no  new  job ? 
-      if (false == _Job.valid)
-                  return;
- // wenn  valider Job dann  vorbereiten 
+    // IDLE -> Auftrag angenommen -> MOVING -> IDLE
+    if (false == _Job.valid)
+        return;
 
-    // TODO:
     switch (_State)
     {
-    case MotorState_t::IDLE :
-    // wait  for Job 
-    
-             switch (_Job.cmd)
-             { // all checks  -> Moving 
-             case CMD_GO:
-                  //Timer1_Start();
-              break ;   
+    case MotorState_t::IDLE:
+        switch (_Job.cmd)
+        {
+        case CMD_GO:
+            // Timer1_Start();
+            break;
 
-             case CMD_REFERENCE:
-                 // start reference run 
-                  break;
-             case CMD_LEFT:
-                  if ( true == prepareLeft())
-                  {     _State = MotorState_t::MOVING;             }
-                  else 
-                  { // Error setzen 
-                      _State = MotorState_t::ERROR; }
-                 break;       
-             case CMD_RIGHT:
-             if ( true == prepareRight())
-                  {     _State = MotorState_t::MOVING;             }
-                  else 
-                  { //pos  Error setzen 
-                      _State = MotorState_t::ERROR; }
+        case CMD_REFERENCE:
+            // start reference run
+            break;
 
-             case CMD_SET_POSITION:
-                   if (true == prepareSetPosition())
-                   {     _State = MotorState_t::MOVING;             }
-                  else 
-                  { //pos  Error setzen 
-                      _State =MotorState_t:: ERROR; }
-             break;      
-             case CMD_SET_TRACK: 
-                   if (true == prepareSetTrack())
-                   {     _State = MotorState_t:: MOVING;             }
-                  else 
-                  { //pos  Error setzen 
-                      _State = MotorState_t::ERROR; }
-                break;
-             case CMD_SET_SPEED : 
-              //or config data
-               // -> Config 
-               if  (true ==  prepareParameter())
-                   {     _State = MotorState_t::CONF;             }
-                  else 
-                  { //pos  Error setzen 
-                      _State = MotorState_t::ERROR; }
-             break;
+        case CMD_LEFT:
+            if (true == prepareLeft())
+                _State = MotorState_t::MOVING;
+            else
+                _State = MotorState_t::ERROR;
+            break;
 
-             default:
-               _State = MotorState_t::ERROR; 
-                break;
-             }
-    
-   
-  
+        case CMD_RIGHT:
+            if (true == prepareRight())
+                _State = MotorState_t::MOVING;
+            else
+                _State = MotorState_t::ERROR;
+            break;
+
+        case CMD_SET_POSITION:
+            if (true == prepareSetPosition())
+                _State = MotorState_t::MOVING;
+            else
+                _State = MotorState_t::ERROR;
+            break;
+
+        case CMD_SET_TRACK:
+            if (true == prepareSetTrack())
+                _State = MotorState_t::MOVING;
+            else
+                _State = MotorState_t::ERROR;
+            break;
+
+        case CMD_SET_SPEED:
+            if (true == prepareParameter())
+                _State = MotorState_t::CONF;
+            else
+                _State = MotorState_t::ERROR;
+            break;
+
+        default:
+            _State = MotorState_t::ERROR;
+            break;
+        }
         break;
-    case MotorState_t::CONF :
-      // Parameter  ist in range ?
-      if (prepareParameter())
-      {
-         _State = MotorState_t::IDLE;
-      };
 
-     //-> Idle 
+    case MotorState_t::CONF:
+        if (prepareParameter())
+            _State = MotorState_t::IDLE;
+        break;
 
-    break;
-    case MotorState_t::MOVING :
-        // while  moving stay 
-        // pos reached 
-        // or Stopp cmd --> Stopped 
+    case MotorState_t::MOVING:
+        // while moving stay
+        // position reached or STOP command -> stopped
+        break;
 
-    break;
-    case MotorState_t::STOPPED :
-       // New  Job ? 
-       // Y -> moving 
-        // n -> IDLE
-    break;
-    case  MotorState_t::ERROR  :
-    
-    break;
+    case MotorState_t::STOPPED:
+        // New job -> moving, otherwise -> idle
+        break;
+
+    case MotorState_t::ERROR:
+        break;
+
     default:
-     _State = MotorState_t::ERROR;
-
+        _State = MotorState_t::ERROR;
         break;
-    
-    } //end  of Switch motorstate 
-    // - evaluate current motor state
-    // - start / continue / finish movement
-    // - handle profile changes
+    }
 }
 
 
@@ -263,21 +269,30 @@ bool Motor::setJob(MotorJob_t newjob)
 
 void Motor::Stop()
 {
-    // TODO:
-    // - stop generating STEP pulses
-    // - keep motor enabled
-    // - update state
-    digitalWrite(_ENA_pin , HIGH);
-    
+    // Stoppen beendet nur die STEP-Erzeugung.
+    // Der Treiber bleibt aktiviert, damit die Position gehalten wird.
+    _StepRun = false;
+    _StepLevel = false;
+
+    if (_StepPort != nullptr)
+        *_StepPort &= static_cast<uint8_t>(~_StepMask);
+
+    Timer1_Stop();
+    _State = MotorState_t::STOPPED;
 }
 
 void Motor::Emergency_break()
 {
-    // TODO:
-    // - immediately disable motor
-    // - stop Timer2 / STEP generation
-    // - update state
+    // Sofortiger Stopp und anschliessendes Deaktivieren des Treibers.
+    _StepRun = false;
+    _StepLevel = false;
 
+    if (_StepPort != nullptr)
+        *_StepPort &= static_cast<uint8_t>(~_StepMask);
+
+    Timer1_Stop();
+    digitalWrite(_ENA_pin, HIGH);
+    _State = MotorState_t::STOPPED;
 }
 
 
@@ -293,70 +308,57 @@ bool Motor::Reference()
 
     return false;
 }
-//-----------------------------------------------------------------------------
-//   Helping functions 
-//-----------------------------------------------------------------------------
 
 
-   bool Motor::prepareSetPosition()
-   {
-    // refernziert ?   -> missing ref Error 
+// -----------------------------------------------------------------------------
+// Helping functions
+// -----------------------------------------------------------------------------
 
-        // position innerhalb ?  --> out of range Error 
+bool Motor::prepareSetPosition()
+{
+    // referenziert ?   -> missing ref Error
+    // position innerhalb ? -> out of range Error
+    // calcProfile();
+    return true;
+}
 
-    // calcprofil() ; 
-     return (true);
+bool Motor::prepareLeft()
+{
+    // referenziert ?   -> missing ref Error
+    // akt. pos + TrackSTEP -> position innerhalb ? -> out of range Error
+    // calcProfile();
+    return true;
+}
 
-   }
-   bool Motor::prepareLeft()
-   {   // 
+bool Motor::prepareRight()
+{
+    // referenziert ?   -> missing ref Error
+    // akt. pos + TrackSTEP -> position innerhalb ? -> out of range Error
+    // calcProfile();
+    return true;
+}
 
+bool Motor::prepareSetTrack()
+{
+    // referenziert ?   -> missing ref Error
+    // TRACK innerhalb ? -> TRACK out of range Error
+    // Track2Pos();
+    // calcProfile();
+    return true;
+}
 
+bool Motor::CheckBorder()
+{
+    return true;
+}
 
-    // refernziert ?   -> missing ref Error   
-     // akt pos  + TrackSTEP ( ein gleis ? ) 
-         // position innerhalb ?  --> out of range Error 
+bool Motor::prepareParameter()
+{
+    // valider parameter? -> invalidparamError
+    // parameter in range -> OORParamError
+    return true;
+}
 
-    // calcprofil() ; 
-     return (true);  
-   }
-
-
-   bool Motor::prepareRight()
-   {
-      // refernziert ?   -> missing ref Error   
-     // akt pos  +  TrackSTEP ( ein gleis ? ) 
-         // position innerhalb ?  --> out of range Error 
-
-    // calcprofil() ; 
-     return (true) ;
-   }
-   bool Motor::prepareSetTrack()
-   {
-     // refernziert ?   -> missing ref Error  
-         // TRACK innerhalb ?  --> TRACKout of range Error  
-     // Track2Pos ( );
-        
-    // calcprofil() ; 
-     return (true);
-
-   };
-   bool Motor::CheckBorder()
-   {
-
-      
-    return (true);
-
-   };
-   bool Motor::prepareParameter()
-   {
-        // valider parameter?  --> invalidparamError 
-        // parameter in range   --> OORParamError 
-         return (true);
-        
-   };
-   
-   // start fkt !!!
 
 // -----------------------------------------------------------------------------
 // Status / information
@@ -364,30 +366,22 @@ bool Motor::Reference()
 
 bool Motor::isMoving()
 {
-    if (MotorState_t::MOVING == _State)
-       {return true;}
-       else
-       {
-    return false;
-       }
+    return (MotorState_t::MOVING == _State);
 }
 
 uint16_t Motor::getPosition()
 {
- // ggf  den zähler aus demIntrrupt mit kurzer Interrupt Sperre  holen
-
+    // ggf. den Zaehler aus dem Interrupt mit kurzer Interrupt-Sperre holen
     return _Position;
 }
 
 uint16_t Motor::motor_getTargetPosition()
 {
-  
-    return   _TargetPosition;
+    return _TargetPosition;
 }
 
 MotorState_t Motor::motor_getState()
 {
-    
     return _State;
 }
 
@@ -395,49 +389,19 @@ MotorJobResult_t Motor::getJobResult() const
 {
     return _JobResult;
 }
-/// @brief 
-// -----------------------------------------------------------------------------
-// Movement profile 
-// -----------------------------------------------------------------------------
-// ================================================================
-// Fahrprofil:
-//
-// Geschwindigkeit
-//      ^
-// Vmax |                 +-------------+
-//      |              /                 /
-// Vmin |-------------+                   +----------------
-//      +--------------------------------------------------> Weg
-//             ACC1   ACC2    KONST      BRE1   BRE2   POSI
-//             <----> <---->  <--------> <----> <----> <-->
-//              Steps  Steps      Steps    Steps  Steps  Steps
-//
-// ACC1 / ACC2 : Beschleunigung
-// KONST       : Fahrt mit V_MAX
-// BRE1 / BRE2 : Bremsen
-// POSI        : Restweg mit V_MIN
-//
-// ACC1 == BRE2
-// ACC2 == BRE1
-//
-// Summe aller Steps == angeforderte Strecke
-// ================================================================
 
-/**
- * @brief Berechnet das Fahrprofil für die angeforderte Strecke.
- *
- * Das Profil wird in die sechs Phasen ACC1, ACC2, KONST, BRE1, BRE2 und POSI
- * aufgeteilt. Beschleunigungs- und Bremsphasen werden dabei symmetrisch
- * berücksichtigt. Bei sehr kurzen Strecken wird die gesamte Strecke mit der
- * Mindestgeschwindigkeit gefahren.
- *
- * @param distance Angeforderte Strecke in Schritten.
- * @return true, wenn das Fahrprofil erfolgreich berechnet wurde.
- */
+
+// -----------------------------------------------------------------------------
+// Movement profile
+// -----------------------------------------------------------------------------
+// Die Profilberechnung bleibt in diesem Schritt unveraendert.
+// Sie wird als eigener Schritt gegen die in FY_HW_TEST verifizierte
+// Berechnung abgeglichen.
+
 bool Motor::calcProfile(uint16_t distance)
 {
     // Sehr kurze Strecke:
-    // Kein vollständiges Profil möglich.
+    // Kein vollstaendiges Profil moeglich.
     // Die gesamte Strecke wird mit V_MIN gefahren.
     if (distance <= (_ProfileParam.PosiMin + _ProfileParam.KonstMin))
     {
@@ -454,14 +418,12 @@ bool Motor::calcProfile(uint16_t distance)
         return true;
     }
 
-    // Profil zunächst vollständig löschen.
     for (uint8_t i = 0; i < 6; ++i)
     {
         Motor_profil[i].Steps = 0;
         Motor_profil[i].Accel = 0;
     }
 
-    // POSI und KONST_MIN reservieren.
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::POSI)].Steps =
         _ProfileParam.PosiMin;
 
@@ -473,49 +435,39 @@ bool Motor::calcProfile(uint16_t distance)
         - _ProfileParam.PosiMin
         - _ProfileParam.KonstMin;
 
-    // ACC1 / BRE2
-    // Beide Bereiche werden gleich groß.
     uint16_t outer = remaining / 2;
 
     if (outer > _ProfileParam.Acc1Steps)
         outer = _ProfileParam.Acc1Steps;
 
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Steps =
-        outer;
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Steps = outer;
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Accel =
         _ProfileParam.Acc1Accel;
 
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Steps =
-        outer;
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Steps = outer;
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Accel =
         _ProfileParam.Bre2Accel;
 
     remaining -= outer * 2;
 
-    // ACC2 / BRE1
     uint16_t inner = remaining / 2;
 
     if (inner > _ProfileParam.Acc2Steps)
         inner = _ProfileParam.Acc2Steps;
 
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Steps =
-        inner;
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Steps = inner;
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Accel =
         _ProfileParam.Acc2Accel;
 
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Steps =
-        inner;
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Steps = inner;
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Accel =
         _ProfileParam.Bre1Accel;
 
     remaining -= inner * 2;
 
-    // Quantisierungs-/Begrenzungsrest geht in KONST.
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps +=
         remaining;
 
-    // Sicherheit: Die Summe aller Profilbereiche muss exakt
-    // der angeforderten Strecke entsprechen.
     uint16_t sum = 0;
 
     for (uint8_t i = 0; i < 6; ++i)
@@ -533,164 +485,340 @@ bool Motor::calcProfile(uint16_t distance)
 
 
 // -----------------------------------------------------------------------------
-// Timer1 interrupt
+// Timer1
 // -----------------------------------------------------------------------------
+
 void Motor::Timer1_Init()
 {
-    // Timer 1 stoppen und konfigurieren
+    noInterrupts();
+
     TCCR1A = 0;
     TCCR1B = 0;
-    TCNT1  = 0;
+    TCNT1 = 0;
 
     // CTC-Modus: TOP = OCR1A
-    TCCR1B |= (1 << WGM12);
+    TCCR1B |= _BV(WGM12);
 
-    // Compare-Match-A-Interrupt aktivieren
-    TIMSK1 |= (1 << OCIE1A);
+    // Compare-Match-A-Interrupt dauerhaft aktiv.
+    // Die Bewegung wird separat ueber _StepRun freigegeben.
+    TIMSK1 |= _BV(OCIE1A);
 
-    // Startwert
-    OCR1A = 1000;
+    OCR1A = TIMER_V_MIN;
 
-    // Prescaler = 1
-    TCCR1B |= (1 << CS10);
+    // Verifiziert in FY_HW_TEST: Prescaler /256.
+    TCCR1B |= _BV(CS12);
+
+    _StepRun = false;
+    _StepLevel = false;
+    _ProfileRampCounter = 0;
+
+    interrupts();
 }
 
 void Motor::Timer1_Start()
 {
-        // Profil immer am Anfang beginnen
+    if (!_TimerValid)
+        return;
+
+    // Profil immer am Anfang beginnen.
     _ProfileElement = MotorProfile_t::ACC1;
 
-    // Anzahl der Schritte des ersten Profilelements laden
-    _StepsRemaining =
-        Motor_profil[static_cast<uint8_t>(_ProfileElement)].Steps;
-        // timer einstellen 
-      _TimerValue= TIMER_V_MIN;
-       OCR1A = _TimerValue;
-       // und ab geht die wilde  Fahrt .....
-    TCCR1B |= (1 << CS10);
+    // Erstes nicht-leeres Profilelement suchen.
+    _StepsRemaining = 0;
+
+    for (uint8_t i = 0; i < 6; ++i)
+    {
+        const uint8_t element =
+            static_cast<uint8_t>(_ProfileElement);
+
+        _StepsRemaining = Motor_profil[element].Steps;
+
+        if (_StepsRemaining > 0)
+            break;
+
+        switch (_ProfileElement)
+        {
+        case MotorProfile_t::ACC1:
+            _ProfileElement = MotorProfile_t::ACC2;
+            break;
+        case MotorProfile_t::ACC2:
+            _ProfileElement = MotorProfile_t::KONST;
+            break;
+        case MotorProfile_t::KONST:
+            _ProfileElement = MotorProfile_t::BRE1;
+            break;
+        case MotorProfile_t::BRE1:
+            _ProfileElement = MotorProfile_t::BRE2;
+            break;
+        case MotorProfile_t::BRE2:
+            _ProfileElement = MotorProfile_t::POSI;
+            break;
+        case MotorProfile_t::POSI:
+            break;
+        }
+    }
+
+    _TimerValue = TIMER_V_MIN;
+    _ProfileRampCounter = 0;
+    _StepLevel = false;
+    _StepRun = (_StepsRemaining > 0);
+
+    OCR1A = _TimerValue;
+
+    if (_StepRun)
+    {
+        // Treiber aktivieren.
+        digitalWrite(_ENA_pin, LOW);
+
+        // Timer1 laeuft bereits im CTC-Modus mit /256.
+        TCCR1B |= _BV(CS12);
+    }
 }
 
 void Motor::Timer1_Stop()
 {
-    TCCR1B &= ~((1 << CS12) | (1 << CS11) | (1 << CS10));
+    TCCR1B &= ~(_BV(CS12) | _BV(CS11) | _BV(CS10));
 }
+
+uint16_t Motor::current_profile_ramp_interval() const
+{
+    switch (_ProfileElement)
+    {
+    case MotorProfile_t::ACC1:
+        return (_ProfileParam.Acc1RampInterval == 0)
+            ? 1
+            : _ProfileParam.Acc1RampInterval;
+
+    case MotorProfile_t::ACC2:
+        return (_ProfileParam.Acc2RampInterval == 0)
+            ? 1
+            : _ProfileParam.Acc2RampInterval;
+
+    case MotorProfile_t::BRE1:
+        return (_ProfileParam.Bre1RampInterval == 0)
+            ? 1
+            : _ProfileParam.Bre1RampInterval;
+
+    case MotorProfile_t::BRE2:
+        return (_ProfileParam.Bre2RampInterval == 0)
+            ? 1
+            : _ProfileParam.Bre2RampInterval;
+
+    case MotorProfile_t::KONST:
+    case MotorProfile_t::POSI:
+    default:
+        return 0;
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+// Timer1 ISR
+// -----------------------------------------------------------------------------
 
 void Motor::Timer1_ISR()
 {
-    // ------------------------------------------------------------
-    // Timer1_ISR() wird direkt vom AVR-Interrupt aufgerufen.
-    //
-    // Da die Funktion static ist, gibt es hier kein "this".
-    // _TimerMotor zeigt deshalb auf das Motor-Objekt, dessen
-    // Timerdaten wir bearbeiten müssen.
-    // ------------------------------------------------------------
-
     Motor* motor = _TimerMotor;
 
-    // Sicherheitsprüfung:
-    // Falls noch kein Motor-Objekt mit Timer1 verbunden wurde,
-    // gibt es hier nichts zu tun.
     if (motor == nullptr)
+        return;
+
+    // Timer1 darf weiterlaufen, auch wenn gerade kein STEP erzeugt wird.
+    // Damit bleibt die ISR-Struktur fuer spaetere Referenzphasen offen.
+    if (!motor->_StepRun)
     {
+        motor->_StepLevel = false;
+
+        if (motor->_StepPort != nullptr)
+            *motor->_StepPort &=
+                static_cast<uint8_t>(~motor->_StepMask);
+
         return;
     }
 
-    if (!motor->_TimerValid)
-    {
-        return;
-    }
+    // -----------------------------------------------------------------
+    // Endschalter – noch nicht implementiert
+    //
+    // HW_TEST:
+    //   LSL und LSR werden vor der STEP-Erzeugung geprueft.
+    //
+    // Pseudocode:
+    //
+    //   if (direction == LEFT && LSL_active)
+    //   {
+    //       stop movement;
+    //       _JobResult = ENDSTOP_LEFT;
+    //       return;
+    //   }
+    //
+    //   if (direction == RIGHT && LSR_active)
+    //   {
+    //       stop movement;
+    //       _JobResult = ENDSTOP_RIGHT;
+    //       return;
+    //   }
+    //
+    // Wichtig:
+    //   Endschalter haben Vorrang vor der Profilabarbeitung.
+    // -----------------------------------------------------------------
 
-    // ------------------------------------------------------------
-    // Hier arbeitet die ISR jetzt ganz normal mit den Membern
-    // des Motor-Objektes.
-    // ------------------------------------------------------------
+    motor->_StepLevel = !motor->_StepLevel;
 
-    static bool ticktack = false;
-
-    ticktack = !ticktack;
-
-    if (ticktack)
+    if (motor->_StepLevel)
     {
         // STEP HIGH
+        if (motor->_StepPort != nullptr)
+            *motor->_StepPort |= motor->_StepMask;
 
+        return;
     }
-    else
+
+    // STEP LOW
+    if (motor->_StepPort != nullptr)
+        *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
+
+    // Ein vollstaendiger STEP ist abgeschlossen.
+    if (motor->_DirectionRight)
     {
-        // STEP LOW
+        ++motor->_Position;
+    }
+    else if (motor->_Position > 0)
+    {
+        --motor->_Position;
+    }
 
-        // Ein vollständiger STEP ist abgeschlossen.
-        motor->_StepsRemaining--;
+    // -----------------------------------------------------------------
+    // Referenzsensor – noch nicht implementiert
+    //
+    // HW_TEST wertet hier die Signalflanken aus:
+    //
+    //   rising edge:
+    //       refStart / PreciseReference erfassen
+    //
+    //   falling edge:
+    //       refEnd / Referenzbreite berechnen
+    //
+    // Pseudocode:
+    //
+    //   if (reference_changed)
+    //       process_reference_edge();
+    //
+    // Die konkrete Referenzlogik gehoert spaeter in den Referenzlauf
+    // und darf die normale Profilbewegung nicht mit zusaetzlicher
+    // Logik belasten.
+    // -----------------------------------------------------------------
 
-      if (motor->_StepsRemaining == 0)
-          {
-           // Zum nächsten Profilelement wechseln
-          for (uint8_t i = 0; i < 6; i++)
-           {
-             // nächstes Profilelement bestimmen
-             switch (motor->_ProfileElement)
-               {
-                 case MotorProfile_t::ACC1:
-                     motor->_ProfileElement = MotorProfile_t::ACC2;
-                     break;
-         
-                 case MotorProfile_t::ACC2:
-                     motor->_ProfileElement = MotorProfile_t::KONST;
-                     break;
-         
-                 case MotorProfile_t::KONST:
-                     motor->_ProfileElement = MotorProfile_t::BRE1;
-                     break;
-         
-                 case MotorProfile_t::BRE1:
-                     motor->_ProfileElement = MotorProfile_t::BRE2;
-                     break;
-         
-                 case MotorProfile_t::BRE2:
-                     motor->_ProfileElement = MotorProfile_t::POSI;
-                     break;
-         
-                 case MotorProfile_t::POSI:
-                     // Kein weiteres Profilelement vorhanden.
-                     motor->_TimerValid = false;
-                     motor->Timer1_Stop();
-                     return;
-                }
-   
-             // Schritte des neuen Profilelements laden
-             uint8_t element =
-                 static_cast<uint8_t>(motor->_ProfileElement);
-         
-             motor->_StepsRemaining =
-                 motor->Motor_profil[element].Steps;
-         
-                // Profilelement gefunden
-              if (motor->_StepsRemaining > 0)
-                {
-                    break;
-                }
-            }
-            // Jetzt steht fest, welches Profilelement für
-            // den NÄCHSTEN Schritt gilt.
-            
-            motor->_TimerValue +=
-                motor->Motor_profil[
-                    static_cast<uint8_t>(motor->_ProfileElement)
-                ].Accel;
-            
-            // Timerwert für den nächsten Interrupt übernehmen.
-            OCR1A = motor->_TimerValue;
-      
+    if (motor->_StepsRemaining > 0)
+        --motor->_StepsRemaining;
+
+    // Die Rampenaenderung gehoert zum gerade ausgefuehrten
+    // Profilelement. Es gibt keinen Sprung beim Wechsel ACC -> KONST.
+    const int16_t rampAccel =
+        motor->Motor_profil[
+            static_cast<uint8_t>(motor->_ProfileElement)
+        ].Accel;
+
+    const uint16_t rampInterval =
+        motor->current_profile_ramp_interval();
+
+    if ((rampAccel != 0) && (rampInterval > 0))
+    {
+        ++motor->_ProfileRampCounter;
+
+        if (motor->_ProfileRampCounter >= rampInterval)
+        {
+            motor->_ProfileRampCounter = 0;
+
+            const int32_t nextTimer =
+                static_cast<int32_t>(motor->_TimerValue) + rampAccel;
+
+            if (nextTimer < TIMER_MIN)
+                motor->_TimerValue = TIMER_MIN;
+            else if (nextTimer > TIMER_MAX)
+                motor->_TimerValue = TIMER_MAX;
+            else
+                motor->_TimerValue =
+                    static_cast<uint16_t>(nextTimer);
         }
-     }
+    }
+
+    // Timerwert fuer den naechsten Interrupt uebernehmen.
+    OCR1A = motor->_TimerValue;
+
+    if (motor->_StepsRemaining != 0)
+        return;
+
+    // ---------------------------------------------------------------
+    // Aktuelles Profilelement ist abgeschlossen.
+    // Erst jetzt zum naechsten Element wechseln.
+    // ---------------------------------------------------------------
+    bool nextElementLoaded = false;
+
+    for (uint8_t i = 0; i < 6; ++i)
+    {
+        switch (motor->_ProfileElement)
+        {
+        case MotorProfile_t::ACC1:
+            motor->_ProfileElement = MotorProfile_t::ACC2;
+            break;
+
+        case MotorProfile_t::ACC2:
+            motor->_ProfileElement = MotorProfile_t::KONST;
+            break;
+
+        case MotorProfile_t::KONST:
+            motor->_ProfileElement = MotorProfile_t::BRE1;
+            break;
+
+        case MotorProfile_t::BRE1:
+            motor->_ProfileElement = MotorProfile_t::BRE2;
+            break;
+
+        case MotorProfile_t::BRE2:
+            motor->_ProfileElement = MotorProfile_t::POSI;
+            break;
+
+        case MotorProfile_t::POSI:
+            // Kein weiteres Profilelement vorhanden.
+            break;
+        }
+
+        const uint8_t element =
+            static_cast<uint8_t>(motor->_ProfileElement);
+
+        motor->_StepsRemaining = motor->Motor_profil[element].Steps;
+
+        if (motor->_StepsRemaining > 0)
+        {
+            nextElementLoaded = true;
+            break;
+        }
+
+        if (motor->_ProfileElement == MotorProfile_t::POSI)
+            break;
+    }
+
+    if (!nextElementLoaded)
+    {
+        // Profilende:
+        // letzter Schritt ist ausgefuehrt, danach keine weitere
+        // STEP-Erzeugung mehr.
+        motor->_TimerValid = false;
+        motor->_StepRun = false;
+        motor->_StepLevel = false;
+        motor->_JobResult = MotorJobResult_t::DONE;
+
+        if (motor->_StepPort != nullptr)
+            *motor->_StepPort &=
+                static_cast<uint8_t>(~motor->_StepMask);
+
+        motor->Timer1_Stop();
+        return;
+    }
 }
 
 
-
-
-
 ISR(TIMER1_COMPA_vect)
-{/// @brief  Compare
-
-Motor::Timer1_ISR();
-
+{
+    Motor::Timer1_ISR();
 }
