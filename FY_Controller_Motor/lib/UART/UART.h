@@ -164,6 +164,8 @@ private:
     void handleGetPosition();
     void handleGetTrack();
     void handleHelp();
+    /** @brief Sends firmware identity information as a human-readable diagnostic response. */
+    void handleGetFirmware();
 
     /** @brief Command handlers for configuration and movement requests. */
     void handleReference();
