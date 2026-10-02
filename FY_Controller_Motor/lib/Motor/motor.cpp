@@ -113,6 +113,7 @@ bool Motor::begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin)
     _StepLevel = false;
     _TimerValid = false;
     _Position = POSITION_UNKNOWN;
+    _DirectionRight = true;
     _TargetPosition = 0;
     _JobResult = MotorJobResult_t::NONE;
 
