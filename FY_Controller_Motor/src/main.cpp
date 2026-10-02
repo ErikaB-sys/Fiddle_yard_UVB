@@ -1,32 +1,20 @@
-
 #include "FY_System.h"
 #include "Config.h"
 #include "Main.h"
 #include "Motor.h"
 #include "UART.h"
-#include "BabelFish.h"
 #include "Error.h"
 #include "Keyboard.h"
 #include "Switches.h"
 #include "Firmware.h"
 
-// WRITE TEST 2026-10-02
+FY_SystemInitStatus_t FY_System;
 
-
-
-
- // Variables for the project
-//FY_System is a variable of type FY_SystemStatus that represents the current status of the system. It is defined to hold system-related information, allowing for monitoring and management of system operations.
-FY_SystemInitStatus_t FY_System; // System status variables
-
-// FY instances of the classes for the project ( forwart declarations )
-Switches         FY_Switches; // Create a Switches object for managing switches
-UART             FY_uart;  // Legacy binary UART module; kept for the existing module context
-BabelFish         FY_babelfish; // ASCII -> binary command adapter
-Motor            FY_motor; //  Forwart  from Motor 
-Keyboard         FY_Keyboard; // local keyboard for PC-less operation 
-UART_Context_t   Main_Context;  // See https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/73
-
+Switches       FY_Switches;
+UART           FY_uart;
+Motor          FY_motor;
+Keyboard       FY_Keyboard;
+UART_Context_t Main_Context;
 
 FY_SystemStatus_t systemStatus;
 FY_ModuleContext_t FY_Modules{};
@@ -48,32 +36,28 @@ void printFirmwareInfo()
   Serial.println(FW_GIT_COMMIT);
 }
 
-
-void setup() {
-// first of all setup data structurs 
-UART_Context_t uartContext
+void setup()
 {
-    &systemStatus,
-   // &uartError,
-  //  &motorPosition,
-  //  &motorTrack,
-  //  &motorSpeed
-};
+  Main_Context.systemStatus = &systemStatus;
+  Main_Context.uartError = nullptr;
+  Main_Context.motorPosition = nullptr;
+  Main_Context.Track_INFO = nullptr;
+  Main_Context.motorSpeed = nullptr;
 
-FY_ModuleContext_t FY_Modules{
-    &FY_motor,
-    &FY_uart,
-    &FY_Keyboard,
-    &FY_Switches
-};
+  FY_Modules = {
+      &FY_motor,
+      &FY_uart,
+      &FY_Keyboard,
+      &FY_Switches
+  };
 
-  // ASCII command adapter: human-readable input -> binary CMD.
-  FY_babelfish.begin(115200);
-  // init Motor driver
-  FY_motor.begin(MOTOR_DIR_PIN , MOTOR_PWM_PIN , MOTOR_ENABLE_PIN);
+  FY_uart.begin(Main_Context, FY_Modules);
 
-  // UART error abfragen !
-
+  FY_motor.begin(
+      MOTOR_DIR_PIN,
+      MOTOR_PWM_PIN,
+      MOTOR_ENABLE_PIN
+  );
 
   FY_Keyboard.begin(
       BUTTON_LEFT,
@@ -86,20 +70,14 @@ FY_ModuleContext_t FY_Modules{
       PORT_EXPANDER_ADDRESS
   );
 
-    FY_Switches.begin(
-        SWITCH_REF_D,
-        SWITCH_TRIM_LEFT_D,
-        SWITCH_TRIM_RIGHT_D,
-        SWITCH_TIMING_BELT_D
-    );
+  FY_Switches.begin(
+      SWITCH_REF_D,
+      SWITCH_TRIM_LEFT_D,
+      SWITCH_TRIM_RIGHT_D,
+      SWITCH_TIMING_BELT_D
+  );
 
-
-
-
-
-
-  #ifdef DebugSwitches
-  // send init result on Uart
+#ifdef DebugSwitches
   Serial.print(F("Display adress: "));
   Serial.println(FY_display.getAddress(), HEX);
   Serial.print(F("Portexpander adress: "));
@@ -121,25 +99,19 @@ FY_ModuleContext_t FY_Modules{
   Serial.println(FY_Switches.GetDigitalValue(SWITCH_TRIM_RIGHT), DEC);
 #endif
 
-printFirmwareInfo();
+  printFirmwareInfo();
 
-Serial.println(F("init done "));
-
+  Serial.println(F("init done "));
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
-  //get all informatins 
-  FY_babelfish.update();
-  
+void loop()
+{
+  FY_uart.update();
+
   /*
-  FY_buttons.Update();
+  FY_Keyboard.Update();
   FY_Switches.update();
-  // Zentral state mashine for the project
-  FY_motor.update();
-  //Tell the world what is going on 
+  FY_motor.Update();
   FY_display.update();
-*/
-  }
-
-
+  */
+}
