@@ -20,9 +20,8 @@ constexpr uint8_t CMD_GET_ERROR    =   0x1A   ;    // Command to get the current
 constexpr uint8_t CMD_REFERENCE    =   0x16   ;    // Command to reference the motor position
 constexpr uint8_t CMD_SET_SPEED    =   0x2B   ;    // Command to set the speed of the motor
 
-
 constexpr uint8_t CMD_STOPP        =   0x01   ;    // Command to stop the motor
-constexpr uint8_t CMD_GO           =   0x07   ;    // Command to start the motor   
+constexpr uint8_t CMD_GO           =   0x07   ;    // Command to start the motor
 constexpr uint8_t CMD_LEFT         =   0x0B   ;    // Command to move the motor left
 constexpr uint8_t CMD_RIGHT        =   0x0D   ;    // Command to move the motor right
 
@@ -55,16 +54,16 @@ constexpr uint8_t  STATUS_CMD                   =  0x15;
 /** Response containing the current motor position. */
 constexpr uint8_t STATUS_Position               =  0x20    ;   // Status ID Position Information
 /** Response containing reference-operation information. */
-constexpr uint8_t STATUS_Reference              =  0x30   ;    // Status ID  Reference Information
+constexpr uint8_t STATUS_Reference              = 0x30   ;    // Status ID  Reference Information
 /** Response containing track information. */
-constexpr uint8_t STATUS_Track                  =  0x40    ;   // Status ID  Track informatiom
+constexpr uint8_t STATUS_Track                  = 0x40    ;   // Status ID  Track informatiom
 /** Response containing motor information. */
-constexpr uint8_t STATUS_Motor                  =  0x50;    //Status ID Motor information
+constexpr uint8_t STATUS_Motor                  = 0x50;    //Status ID Motor information
 /** Acknowledgement response for movement commands. */
-constexpr uint8_t STATUS_ACK                    =  0x60;      // Answer on moving Commands  if accepted
-constexpr uint8_t STATUS_NACK                    =  0x70;     // Answer on moving Commands if Busy
+constexpr uint8_t STATUS_ACK                    = 0x60;      // Answer on moving Commands  if accepted
+constexpr uint8_t STATUS_NACK                    = 0x70;     // Answer on moving Commands if Busy
 /** Response indicating that the help text has been sent. */
-constexpr uint8_t STATUS_Help                   =  0x18   ;    // Status indicating that the list of available commands has been sent to Uart
+constexpr uint8_t STATUS_Help                   = 0x18   ;    // Status indicating that the list of available commands has been sent to Uart
 
 
 
@@ -89,8 +88,8 @@ struct CommandDefinition
     CommandType type;           ///< Command scheduling type.
     uint8_t telegramLength;     ///< Total telegram length including command byte
     uint8_t response;           ///< Response status identifier.
-     bool requiresReference;      /// need reference run 
-  
+     bool requiresReference;      /// need reference run
+
 };
 
 // ---------------------------------------------------------
@@ -125,8 +124,8 @@ const CommandDefinition commandDefinitions[] =
     { CMD_GO,            CommandType::EXECUTE,   1, STATUS_ACK,           true },
     { CMD_LEFT,          CommandType::EXECUTE,   1, STATUS_ACK,           true },
     { CMD_RIGHT,         CommandType::EXECUTE,   1, STATUS_ACK,           true },
-    { CMD_SET_POSITION,  CommandType::EXECUTE,   1, STATUS_ACK,           true },
-    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, STATUS_ACK,           true },
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, STATUS_ACK,           true },
+    { CMD_SET_TRACK,     CommandType::EXECUTE,   2, STATUS_ACK,           true },
     { CMD_SET_REMOTE,    CommandType::EXECUTE,   1, STATUS_CMD,          false },
     { CMD_SET_LOCAL,     CommandType::EXECUTE,   1, STATUS_CMD,          false },
     { CMD_STOPP,         CommandType::PRIORITY,  1, STATUS_System,       false }
@@ -145,6 +144,6 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Track,   3 },
 { STATUS_Motor, 3   },
 { STATUS_ACK,  1  },
-{ STATUS_Help, 1  }  // ! help send a long String 
+{ STATUS_Help, 1  }  // ! help send a long String
 };
 
