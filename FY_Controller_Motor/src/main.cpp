@@ -7,6 +7,7 @@
 #include "Error.h"
 #include "Keyboard.h"
 #include "Switches.h"
+#include "Firmware.h"
 
 // WRITE TEST 2026-10-02
 
@@ -27,6 +28,24 @@ UART_Context_t   Main_Context;  // See https://github.com/ErikaB-sys/Fiddle_yard
 
 FY_SystemStatus_t systemStatus;
 FY_ModuleContext_t FY_Modules{};
+
+void printFirmwareInfo()
+{
+  Serial.print(F("FW: "));
+  Serial.println(FW_NAME);
+
+  Serial.print(F("VER: "));
+  Serial.println(FW_VERSION);
+
+  Serial.print(F("BUILD: "));
+  Serial.print(FW_BUILD);
+  Serial.print(F(" "));
+  Serial.println(FW_TIME);
+
+  Serial.print(F("GIT: "));
+  Serial.println(FW_GIT_COMMIT);
+}
+
 
 void setup() {
 // first of all setup data structurs 
@@ -99,6 +118,8 @@ FY_ModuleContext_t FY_Modules{
   Serial.print(F("  "));
   Serial.println(FY_Switches.GetDigitalValue(SWITCH_TRIM_RIGHT), DEC);
 #endif
+
+printFirmwareInfo();
 
 Serial.println(F("init done "));
 
