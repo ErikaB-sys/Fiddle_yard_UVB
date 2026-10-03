@@ -55,9 +55,9 @@ constexpr uint8_t SWITCH_TRIM_RIGHT_D  =  PB3; // D11
 constexpr uint8_t SWITCH_TIMING_BELT_D =  PB4; // D12
 
 // Motor control pins on the Arduino board
-constexpr uint8_t MOTOR_PWM_PIN      =     PD3;
-constexpr uint8_t MOTOR_DIR_PIN      =     PD4;
-constexpr uint8_t MOTOR_ENABLE_PIN   =     PD2;
+constexpr uint8_t MOTOR_PWM_PIN      =     PD3;   //withe Wire 
+constexpr uint8_t MOTOR_DIR_PIN      =     PD4;   //yellow Wire 
+constexpr uint8_t MOTOR_ENABLE_PIN   =     PD2;   //Blue  wire 
 
 // Virtual pins for the expander
 // All pin numbers are defined as >=100 to avoid conflicts with normal Arduino pins
