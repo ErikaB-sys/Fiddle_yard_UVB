@@ -2,10 +2,12 @@
 #include <Wire.h>
 
 // Arduino Nano hardware: I2C pins are fixed.
+// Keep Arduino pin macros outside initializer lists for MISRA 12.3.
 constexpr uint8_t KEYBOARD_SDA_PIN = A4;
 constexpr uint8_t KEYBOARD_SCL_PIN = A5;
 
 // Button inputs are idle HIGH on the tested FY hardware.
+// Keep the Arduino macro outside initializer lists for MISRA 12.3.
 constexpr bool BUTTON_INITIAL_STATE = HIGH;
 
 Keyboard::Button::Button(
