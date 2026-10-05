@@ -70,11 +70,11 @@ Motor::Motor()
 // Initialization
 // -----------------------------------------------------------------------------
 
-bool Motor::begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin)
+bool Motor::begin()
 {
-    _Dir_pin  = Dir_pin;
-    _Step_pin = Step_pin;
-    _ENA_pin  = ENA_pin;
+    _Dir_pin  = MOTOR_DIR_PIN;
+    _Step_pin = MOTOR_PWM_PIN;
+    _ENA_pin  = MOTOR_ENABLE_PIN;
 
     pinMode(_Dir_pin, OUTPUT);
     pinMode(_Step_pin, OUTPUT);
