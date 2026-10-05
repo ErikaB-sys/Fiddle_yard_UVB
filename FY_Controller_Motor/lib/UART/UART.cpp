@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include "FY_System.h"
-#include "HW_Config.h"
 #include "Protokoll.h"
 #include "UART.h"
 #include "Error.h"
