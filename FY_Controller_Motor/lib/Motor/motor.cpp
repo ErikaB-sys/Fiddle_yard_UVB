@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "FY_System.h"
+#include "HW_Config.h"
 #include "Motor.h"
 #include "Protokoll.h"
 #include "Error.h"
