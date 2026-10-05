@@ -12,7 +12,7 @@ public:
         TIMING_BELT = SWITCH_TIMING_BELT_ID
     };
 
-    void begin(uint8_t Ref_in ,uint8_t end_L_in ,uint8_t end_R_in ,uint8_t  Belt_in );
+    void begin();
 
     int getAnalogValue(Id id) const;
     bool getDigitalValue(Id id) const;
