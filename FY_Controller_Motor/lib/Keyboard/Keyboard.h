@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 #include <PCF8574.h>
-#include "Config.h"
+#include "HW_Config.h"
 
 /**
  * FY UVB local keyboard and status display.
@@ -13,7 +13,7 @@
  * - the controller supplies the status shown on the OLED
  * - LOCAL/REMOTE is a controller state, not a UI-only state
  *
- * Fixed FY hardware configuration is taken from Config.h.
+ * Fixed FY hardware configuration is taken from HW_Config.h.
  *
  * The implementation uses a page-buffered U8g2 display to keep RAM usage
  * suitable for the ATmega328P.
