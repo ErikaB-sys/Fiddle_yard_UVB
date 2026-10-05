@@ -1,5 +1,5 @@
 #include "FY_System.h"
-#include "Config.h"
+#include "HW_Config.h"
 #include "Main.h"
 #include "Motor.h"
 #include "UART.h"
