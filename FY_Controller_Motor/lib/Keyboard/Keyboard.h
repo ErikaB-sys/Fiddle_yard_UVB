@@ -61,7 +61,7 @@ public:
 private:
     class Button {
     public:
-        Button(PCF8574* extender, uint8_t pin);
+        Button(PCF8574* extender, uint8_t pin, bool initialState);
 
         void begin();
         bool pressed();
