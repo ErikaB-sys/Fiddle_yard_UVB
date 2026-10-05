@@ -43,11 +43,9 @@ Keyboard::Keyboard()
       _right(&_extender, buttonToExtenderPin(BUTTON_RIGHT)),
       _ok(&_extender, buttonToExtenderPin(BUTTON_GO)),
       _stop(&_extender, buttonToExtenderPin(BUTTON_STOP)),
-      _display(U8G2_R0, U8X8_PIN_NONE),
-      _displayAddress(DISPLAY_ADDRESS),
-      _extenderAddress(PORT_EXPANDER_ADDRESS) {
+      _display(U8G2_R0, U8X8_PIN_NONE) {
     // U8g2 expects the I2C address multiplied by two.
-    _display.setI2CAddress(_displayAddress * 2);
+    _display.setI2CAddress(DISPLAY_ADDRESS * 2);
 }
 
 bool Keyboard::i2cDevicePresent(uint8_t address) {
@@ -73,24 +71,7 @@ uint8_t Keyboard::buttonToExtenderPin(uint8_t virtualPin) {
     }
 }
 
-void Keyboard::begin(uint8_t leftPin,
-                     uint8_t rightPin,
-                     uint8_t okPin,
-                     uint8_t stopPin,
-                     uint8_t displayAddress,
-                     uint8_t extenderAddress) {
-    _displayAddress = displayAddress;
-    _extenderAddress = extenderAddress;
-
-    // Button mapping is configured explicitly at system startup.
-    _left = Button(&_extender, buttonToExtenderPin(leftPin));
-    _right = Button(&_extender, buttonToExtenderPin(rightPin));
-    _ok = Button(&_extender, buttonToExtenderPin(okPin));
-    _stop = Button(&_extender, buttonToExtenderPin(stopPin));
-
-    // U8g2 expects the I2C address multiplied by two.
-    _display.setI2CAddress(_displayAddress * 2);
-
+void Keyboard::begin() {
     Wire.begin();
 
     _left.begin();
@@ -98,8 +79,8 @@ void Keyboard::begin(uint8_t leftPin,
     _ok.begin();
     _stop.begin();
 
-    _displayConnected = i2cDevicePresent(_displayAddress);
-    _extenderConnected = i2cDevicePresent(_extenderAddress);
+    _displayConnected = i2cDevicePresent(DISPLAY_ADDRESS);
+    _extenderConnected = i2cDevicePresent(PORT_EXPANDER_ADDRESS);
 
     if (_extenderConnected) {
         // P0..P3 are LEDs, P4..P7 are the four buttons.
@@ -291,8 +272,6 @@ void Keyboard::draw() {
     } while (_display.nextPage());
 }
 
-
-void Keyboard::Write_to_display ( const int8_t *string ,uint8_t pos_x , uint8_t pos_y)
+void Keyboard::Write_to_display(const int8_t* string, uint8_t pos_x, uint8_t pos_y)
 {
-
 }
