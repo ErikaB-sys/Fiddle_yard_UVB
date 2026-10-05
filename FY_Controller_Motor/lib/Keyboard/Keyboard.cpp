@@ -41,7 +41,7 @@ Keyboard::Keyboard()
     : _left(&_extender, buttonToExtenderPin(BUTTON_LEFT)),
       _right(&_extender, buttonToExtenderPin(BUTTON_RIGHT)),
       _ok(&_extender, buttonToExtenderPin(BUTTON_GO)),
-      _stop(&_extender, buttonToExtenderPin(BUTTON_STOP)),
+      _stop(&_extender, buttonToExtenderPin(BUTTON_STOP)), // cppcheck-suppress misra-c2012-12.3
       _display(U8G2_R0, U8X8_PIN_NONE) {
 }
 
