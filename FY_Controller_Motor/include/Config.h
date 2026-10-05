@@ -21,8 +21,12 @@
 // Main configuration of the FY controller
 // I2C address definitions (default)
 #define DISPLAY_ADDRESS         0x3C
-#define PORT_EXPANDER_ADDRESS   0x20 
-/* A4 & A5  I²C Bus*/
+#define PORT_EXPANDER_ADDRESS   0x20
+
+// Arduino Nano hardware: I2C pins are fixed.
+// Keep Arduino pin macros outside initializer lists for MISRA 12.3.
+constexpr uint8_t I2C_SDA_PIN = A4;
+constexpr uint8_t I2C_SCL_PIN = A5;
 
 // Pin definitions for switches, buttons, and LEDs on the Arduino board
 
