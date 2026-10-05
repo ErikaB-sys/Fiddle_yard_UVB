@@ -5,7 +5,7 @@ lib\BabelFish\BabelFish.cpp,232,error,misra-config,Because of missing configurat
 lib\BabelFish\BabelFish.cpp,255,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,395,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\Keyboard\Keyboard.cpp,9,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
-lib\Keyboard\Keyboard.cpp,47,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
+lib\Keyboard\Keyboard.cpp,45,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
 lib\Keyboard\Keyboard.cpp,28,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'HIGH' is unknown
 lib\Keyboard\Keyboard.cpp,28,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'LOW' is unknown
 lib\Motor\motor.cpp,90,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
