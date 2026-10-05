@@ -1,4 +1,5 @@
 #include "Keyboard.h"
+#include "HW_Config.h"
 #include <Wire.h>
 
 Keyboard::Button::Button(
