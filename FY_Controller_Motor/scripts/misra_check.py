@@ -67,13 +67,15 @@ with open(full_report_file, newline="", encoding="utf-8") as source:
 
             severity = row[2].strip().lower()
             finding_id = row[3].strip().lower()
+            is_misra = finding_id.startswith("misra-c2012-")
+            is_config = finding_id == "misra-config"
 
-            if severity == "error" or finding_id.startswith("misra-c2012-"):
+            if severity == "error" or is_misra:
                 writer.writerow(row)
 
-            if finding_id.startswith("misra-c2012-"):
+            if is_misra:
                 misra_findings += 1
-            elif severity == "error":
+            elif severity == "error" and not is_config:
                 error_findings += 1
 
 if misra_findings > 0:
