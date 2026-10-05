@@ -6,14 +6,14 @@ lib\BabelFish\BabelFish.cpp,211,error,misra-config,Because of missing configurat
 lib\BabelFish\BabelFish.cpp,232,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,255,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,395,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\Keyboard\Keyboard.cpp,271,style,unusedPrivateFunction,Unused private function: 'Keyboard::drawDiagnostic'
-lib\Keyboard\Keyboard.cpp,298,style,functionStatic,The member function 'Keyboard::Write_to_display' can be static.
-lib\Keyboard\Keyboard.cpp,271,style,functionStatic,The member function 'Keyboard::drawDiagnostic' can be static.
-lib\Keyboard\Keyboard.cpp,161,style,shadowFunction,Argument 'mode' shadows outer function
-lib\Keyboard\Keyboard.cpp,7,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
-lib\Keyboard\Keyboard.cpp,46,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
-lib\Keyboard\Keyboard.cpp,25,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'HIGH' is unknown
-lib\Keyboard\Keyboard.cpp,25,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'LOW' is unknown
+lib\Keyboard\Keyboard.cpp,278,style,unusedPrivateFunction,Unused private function: 'Keyboard::drawDiagnostic'
+lib\Keyboard\Keyboard.cpp,305,style,functionStatic,The member function 'Keyboard::Write_to_display' can be static.
+lib\Keyboard\Keyboard.cpp,278,style,functionStatic,The member function 'Keyboard::drawDiagnostic' can be static.
+lib\Keyboard\Keyboard.cpp,168,style,shadowFunction,Argument 'mode' shadows outer function
+lib\Keyboard\Keyboard.cpp,14,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
+lib\Keyboard\Keyboard.cpp,53,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
+lib\Keyboard\Keyboard.cpp,32,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'HIGH' is unknown
+lib\Keyboard\Keyboard.cpp,32,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'LOW' is unknown
 lib\Motor\motor.cpp,62,warning,uninitMemberVar,Member variable 'Motor::_Dir_pin' is not initialized in the constructor.
 lib\Motor\motor.cpp,62,warning,uninitMemberVar,Member variable 'Motor::_Step_pin' is not initialized in the constructor.
 lib\Motor\motor.cpp,62,warning,uninitMemberVar,Member variable 'Motor::_ENA_pin' is not initialized in the constructor.
