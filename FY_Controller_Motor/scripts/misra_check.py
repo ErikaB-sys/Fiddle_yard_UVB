@@ -87,6 +87,19 @@ with open(cppcheck_compile_db, "w", encoding="utf-8") as target:
 
 os.remove(project_compile_db)
 
+# Third-party code is explicitly excluded from the project MISRA gate.
+# Keep the list in a separate, versioned file so exclusions remain visible
+# and reviewable.
+exclude_file = os.path.join(project_dir, "scripts", "misra_exclude.txt")
+suppressions = []
+
+if os.path.isfile(exclude_file):
+    with open(exclude_file, encoding="utf-8") as source:
+        for line in source:
+            pattern = line.strip()
+            if pattern and not pattern.startswith("#"):
+                suppressions.append("*:" + pattern)
+
 cmd = [
     cppcheck,
     "--enable=warning,style,performance",
@@ -96,8 +109,10 @@ cmd = [
     "--template={file},{line},{severity},{id},{message}",
     "--output-file=.cppcheck/misra_full.csv",
     "--cppcheck-build-dir=.cppcheck",
-    "-i=.pio/libdeps/**",
 ]
+
+for suppression in suppressions:
+    cmd.append("--suppress=" + suppression)
 
 result = subprocess.call(cmd, cwd=project_dir)
 
