@@ -3,7 +3,6 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 #include <PCF8574.h>
-#include "HW_Config.h"
 
 /**
  * FY UVB local keyboard and status display.
