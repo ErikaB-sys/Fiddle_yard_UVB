@@ -13,8 +13,7 @@
  * - the controller supplies the status shown on the OLED
  * - LOCAL/REMOTE is a controller state, not a UI-only state
  *
- * Button arguments use the virtual button definitions from Config.h.
- * The physical buttons are connected to the I2C port expander.
+ * Fixed FY hardware configuration is taken from Config.h.
  *
  * The implementation uses a page-buffered U8g2 display to keep RAM usage
  * suitable for the ATmega328P.
@@ -36,22 +35,17 @@ public:
 
     Keyboard();
 
-    void begin(uint8_t leftPin,
-               uint8_t rightPin,
-               uint8_t okPin,
-               uint8_t stopPin,
-               uint8_t displayAddress = DISPLAY_ADDRESS,
-               uint8_t extenderAddress = PORT_EXPANDER_ADDRESS);
+    void begin();
 
     Event update();
-  
+
     void setMode(Mode mode);
     void setTrack(uint8_t track);
     void setMoving(bool moving);
     void setError(uint8_t errorCode);
     void clearError();
     void setLastCommand(uint8_t commandId);
-    void Write_to_display (  const int8_t *string,uint8_t pos_x , uint8_t pos_y);
+    void Write_to_display(const int8_t* string, uint8_t pos_x, uint8_t pos_y);
     bool hasError() const;
     bool is_connected() const;
     Mode mode() const;
@@ -80,9 +74,6 @@ private:
     Button _stop;
 
     U8G2_SSD1306_128X64_NONAME_1_HW_I2C _display;
-
-    uint8_t _displayAddress;
-    uint8_t _extenderAddress;
 
     Mode _mode = Mode::LOCAL;
     uint8_t _track = 0;
