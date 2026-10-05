@@ -1,0 +1,5 @@
+# Third-party code excluded from the FY MISRA gate.
+# One Cppcheck file pattern per line.
+
+.pio/libdeps/*
+*/framework-arduino-avr/*
