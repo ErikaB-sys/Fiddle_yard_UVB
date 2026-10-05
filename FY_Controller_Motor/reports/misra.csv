@@ -1,7 +1,3 @@
-.pio\libdeps\nanoatmega328\U8g2\src\clib\u8x8.h,417,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
-.pio\libdeps\nanoatmega328\U8g2\src\clib\u8x8.h,425,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
-.pio\libdeps\nanoatmega328\U8g2\src\U8x8lib.h,198,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
-.pio\libdeps\nanoatmega328\U8g2\src\U8g2lib.h,66,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
 lib\Keyboard\Keyboard.cpp,44,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
 lib\Motor\Motor.h,59,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Unknown constant MAX_COMMAND_LENGTH, please review configuration
 lib\Motor\Motor.cpp,91,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
@@ -30,12 +26,3 @@ lib\UART\UART.cpp,207,error,misra-config,Because of missing configuration, misra
 lib\UART\UART.cpp,332,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\UART\UART.cpp,479,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
 lib\UART\UART.cpp,480,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\USBAPI.h,30,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\USBAPI.h,31,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\USBAPI.h,29,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Arduino.h,122,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-.pio\libdeps\nanoatmega328\U8g2\src\clib\u8g2.h,227,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-.pio\libdeps\nanoatmega328\U8g2\src\clib\u8g2.h,210,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-.pio\libdeps\nanoatmega328\U8g2\src\clib\u8g2.h,211,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-.pio\libdeps\nanoatmega328\U8g2\src\clib\u8x8.h,1137,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-.pio\libdeps\nanoatmega328\U8g2\src\clib\u8x8.h,213,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
