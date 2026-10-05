@@ -2,6 +2,8 @@
 // Motor.h
 //default declarations 
 
+#include "Config.h"
+
 
 // -----------------------------------------------------------------------------
 // Mechanik
@@ -133,7 +135,7 @@ public:
     static void Timer1_ISR();
 
     // Initialize the motor control pins.
-    bool begin(uint8_t Dir_pin, uint8_t Step_pin, uint8_t ENA_pin);
+    bool begin();
     
     // Update the motor control state.
     void Update();
