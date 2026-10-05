@@ -77,8 +77,6 @@ void Keyboard::begin(uint8_t leftPin,
                      uint8_t rightPin,
                      uint8_t okPin,
                      uint8_t stopPin,
-                     uint8_t sdaPin,
-                     uint8_t sclPin,
                      uint8_t displayAddress,
                      uint8_t extenderAddress) {
     _displayAddress = displayAddress;
