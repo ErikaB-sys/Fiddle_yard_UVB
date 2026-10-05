@@ -14,13 +14,8 @@ if env.IsIntegrationDump():
 if os.environ.get("FY_MISRA_COMPILEDB") == "1":
     Return()
 
-# Use PlatformIO's own compilation database with the complete build context.
-# Toolchain include paths are added by PlatformIO when the compiledb target runs.
 project_dir = env.subst("$PROJECT_DIR")
 cppcheck_dir = os.path.join(project_dir, ".cppcheck")
-compile_db_file = os.path.join(cppcheck_dir, "compile_commands.json")
-env.Replace(COMPILATIONDB_INCLUDE_TOOLCHAIN=True)
-env.Replace(COMPILATIONDB_PATH=compile_db_file)
 
 print("\n🔍 Running MISRA / Cppcheck before build...\n")
 
@@ -42,9 +37,9 @@ if cppcheck is None:
     print("❌ Cppcheck not found. MISRA check aborted.")
     sys.exit(1)
 
-# Generate a fresh compilation database from the active PlatformIO
-# environment. This keeps defines, include paths and toolchain settings
-# aligned with the actual firmware build.
+# PlatformIO writes compile_commands.json into the project root.
+# Generate a fresh database from the active PlatformIO environment so that
+# Cppcheck sees the same defines, include paths and toolchain as the firmware.
 pio_result = os.environ.copy()
 pio_result["FY_MISRA_COMPILEDB"] = "1"
 
@@ -63,12 +58,20 @@ if subprocess.call(compiledb_cmd, cwd=project_dir, env=pio_result) != 0:
     print("\n❌ Failed to generate PlatformIO compilation database. Build aborted.\n")
     sys.exit(1)
 
-if not os.path.isfile(compile_db_file):
+project_compile_db = os.path.join(project_dir, "compile_commands.json")
+cppcheck_compile_db = os.path.join(cppcheck_dir, "compile_commands.json")
+
+if not os.path.isfile(project_compile_db):
     print(
         "\n❌ PlatformIO compilation database not found. "
         "MISRA check aborted.\n"
     )
     sys.exit(1)
+
+# Keep the generated database out of the project root and together with the
+# Cppcheck cache. The copy is regenerated on every MISRA run.
+shutil.copyfile(project_compile_db, cppcheck_compile_db)
+os.remove(project_compile_db)
 
 cmd = [
     cppcheck,
