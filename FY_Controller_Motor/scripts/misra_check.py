@@ -96,6 +96,7 @@ cmd = [
     "--template={file},{line},{severity},{id},{message}",
     "--output-file=.cppcheck/misra_full.csv",
     "--cppcheck-build-dir=.cppcheck",
+    "-i=.pio/libdeps/**",
 ]
 
 result = subprocess.call(cmd, cwd=project_dir)
