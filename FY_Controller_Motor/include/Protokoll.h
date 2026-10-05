@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Arduino.h>
 
 /**
  * @file Protokoll.h
@@ -10,6 +11,10 @@
  * to UART communication; it is not used for I2C or SPI.
  */
 
+
+// Protocol options
+//#define UART_USE_CRC_TX
+//#define UART_USE_CRC_RX
 
 /** Maximum length of a command received from UART, in bytes. */
 #define MAX_COMMAND_LENGTH  5
@@ -147,3 +152,11 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Help, 1  }  // ! help send a long String
 };
 
+
+// Command data exchanged through the UART protocol.
+struct FY_Command_t
+{
+    uint8_t id;
+    uint8_t data[MAX_COMMAND_LENGTH];
+    bool pending;
+};
