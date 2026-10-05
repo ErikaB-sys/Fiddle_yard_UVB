@@ -64,8 +64,6 @@ void setup()
       BUTTON_RIGHT,
       BUTTON_GO,
       BUTTON_STOP,
-      I2C_SDA_PIN,
-      I2C_SCL_PIN,
       DISPLAY_ADDRESS,
       PORT_EXPANDER_ADDRESS
   );
