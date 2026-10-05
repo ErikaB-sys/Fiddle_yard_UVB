@@ -40,8 +40,6 @@ public:
                uint8_t rightPin,
                uint8_t okPin,
                uint8_t stopPin,
-               uint8_t sdaPin,
-               uint8_t sclPin,
                uint8_t displayAddress = DISPLAY_ADDRESS,
                uint8_t extenderAddress = PORT_EXPANDER_ADDRESS);
 
@@ -61,7 +59,7 @@ public:
 private:
     class Button {
     public:
-        Button(PCF8574* extender, uint8_t pin, bool initialState);
+        Button(PCF8574* extender, uint8_t pin);
 
         void begin();
         bool pressed();
@@ -85,8 +83,6 @@ private:
 
     uint8_t _displayAddress;
     uint8_t _extenderAddress;
-    uint8_t _sdaPin;
-    uint8_t _sclPin;
 
     Mode _mode = Mode::LOCAL;
     uint8_t _track = 0;
