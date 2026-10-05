@@ -6,9 +6,10 @@ lib\BabelFish\BabelFish.cpp,211,error,misra-config,Because of missing configurat
 lib\BabelFish\BabelFish.cpp,232,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,255,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,395,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\Keyboard\Keyboard.cpp,297,style,functionStatic,The member function 'Keyboard::Write_to_display' can be static.
-lib\Keyboard\Keyboard.cpp,270,style,functionStatic,The member function 'Keyboard::drawDiagnostic' can be static.
-lib\Keyboard\Keyboard.cpp,160,style,shadowFunction,Argument 'mode' shadows outer function
+lib\Keyboard\Keyboard.cpp,268,style,unusedPrivateFunction,Unused private function: 'Keyboard::drawDiagnostic'
+lib\Keyboard\Keyboard.cpp,295,style,functionStatic,The member function 'Keyboard::Write_to_display' can be static.
+lib\Keyboard\Keyboard.cpp,268,style,functionStatic,The member function 'Keyboard::drawDiagnostic' can be static.
+lib\Keyboard\Keyboard.cpp,158,style,shadowFunction,Argument 'mode' shadows outer function
 lib\Keyboard\Keyboard.cpp,9,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
 lib\Keyboard\Keyboard.cpp,47,style,misra-c2012-12.3,misra violation (use --rule-texts=<file> to get proper output)
 lib\Keyboard\Keyboard.cpp,28,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'HIGH' is unknown
