@@ -1,23 +1,19 @@
 #include "Keyboard.h"
 #include <Wire.h>
 
-// Button inputs are idle HIGH on the tested FY hardware.
-// Keep the Arduino macro outside initializer lists for MISRA 12.3.
-constexpr bool BUTTON_INITIAL_STATE = HIGH;
-
 Keyboard::Button::Button(
     PCF8574* extender,
-    uint8_t pin,
-    bool initialState)
+    uint8_t pin)
     : _extender(extender),
       _pin(pin),
-      _lastState(initialState),
+      _lastState(false),
       _lastDebounceTime(0) {
 }
 
 void Keyboard::Button::begin() {
     _extender->pinMode(_pin, INPUT);
     _lastState = _extender->digitalRead(_pin);
+    _lastDebounceTime = 0;
 }
 
 bool Keyboard::Button::pressed() {
@@ -43,15 +39,13 @@ bool Keyboard::Button::pressed() {
 
 Keyboard::Keyboard()
     : _extender(PORT_EXPANDER_ADDRESS),
-      _left(&_extender, buttonToExtenderPin(BUTTON_LEFT), BUTTON_INITIAL_STATE),
-      _right(&_extender, buttonToExtenderPin(BUTTON_RIGHT), BUTTON_INITIAL_STATE),
-      _ok(&_extender, buttonToExtenderPin(BUTTON_GO), BUTTON_INITIAL_STATE),
-      _stop(&_extender, buttonToExtenderPin(BUTTON_STOP), BUTTON_INITIAL_STATE),
+      _left(&_extender, buttonToExtenderPin(BUTTON_LEFT)),
+      _right(&_extender, buttonToExtenderPin(BUTTON_RIGHT)),
+      _ok(&_extender, buttonToExtenderPin(BUTTON_GO)),
+      _stop(&_extender, buttonToExtenderPin(BUTTON_STOP)),
       _display(U8G2_R0, U8X8_PIN_NONE),
       _displayAddress(DISPLAY_ADDRESS),
-      _extenderAddress(PORT_EXPANDER_ADDRESS),
-      _sdaPin(I2C_SDA_PIN),
-      _sclPin(I2C_SCL_PIN) {
+      _extenderAddress(PORT_EXPANDER_ADDRESS) {
     // U8g2 expects the I2C address multiplied by two.
     _display.setI2CAddress(_displayAddress * 2);
 }
@@ -89,14 +83,12 @@ void Keyboard::begin(uint8_t leftPin,
                      uint8_t extenderAddress) {
     _displayAddress = displayAddress;
     _extenderAddress = extenderAddress;
-    _sdaPin = sdaPin;
-    _sclPin = sclPin;
 
     // Button mapping is configured explicitly at system startup.
-    _left = Button(&_extender, buttonToExtenderPin(leftPin), BUTTON_INITIAL_STATE);
-    _right = Button(&_extender, buttonToExtenderPin(rightPin), BUTTON_INITIAL_STATE);
-    _ok = Button(&_extender, buttonToExtenderPin(okPin), BUTTON_INITIAL_STATE);
-    _stop = Button(&_extender, buttonToExtenderPin(stopPin), BUTTON_INITIAL_STATE);
+    _left = Button(&_extender, buttonToExtenderPin(leftPin));
+    _right = Button(&_extender, buttonToExtenderPin(rightPin));
+    _ok = Button(&_extender, buttonToExtenderPin(okPin));
+    _stop = Button(&_extender, buttonToExtenderPin(stopPin));
 
     // U8g2 expects the I2C address multiplied by two.
     _display.setI2CAddress(_displayAddress * 2);
