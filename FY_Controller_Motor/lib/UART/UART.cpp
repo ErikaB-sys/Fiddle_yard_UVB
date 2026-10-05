@@ -392,7 +392,7 @@ void UART::handleGetStatus()
 void UART::handleGetError()
 {
     setResponse(
-        STATUS_System,
+        STATUS_Error,
         reinterpret_cast<const uint8_t*>(&UART_context->systemStatus->error),
         sizeof(FY_System_Error_t)
     );
