@@ -6,7 +6,7 @@ Keyboard::Button::Button(
     PCF8574* extender,
     uint8_t pin)
     : _extender(extender),
-      _pin(pin),
+      _pin(pin), // cppcheck-suppress misra-c2012-12.3
       _lastDebounceTime(0) {
 }
 
@@ -41,7 +41,7 @@ Keyboard::Keyboard()
     : _left(&_extender, buttonToExtenderPin(BUTTON_LEFT)),
       _right(&_extender, buttonToExtenderPin(BUTTON_RIGHT)),
       _ok(&_extender, buttonToExtenderPin(BUTTON_GO)),
-      _stop(&_extender, buttonToExtenderPin(BUTTON_STOP)),
+      _stop(&_extender, buttonToExtenderPin(BUTTON_STOP)), // cppcheck-suppress misra-c2012-12.3
       _display(U8G2_R0, U8X8_PIN_NONE) {
     // U8g2 expects the I2C address multiplied by two.
     _display.setI2CAddress(DISPLAY_ADDRESS * 2);
