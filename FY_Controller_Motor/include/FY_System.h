@@ -1,8 +1,10 @@
 #pragma once
 
 #include <Arduino.h>
-#include "Protokoll.h"
 
+
+// System debug options
+//#define DebugSwitches
 
 /**
  * @brief Represents the current operating state of the system controller.
@@ -120,13 +122,6 @@ struct FY_Track_t
     FY_Track target_track{FY_Track::BG1}; ///< Requested destination track.
     FY_Track akt_track   {FY_Track::BG1};    ///< Currently active track.
 };  
-struct FY_Command_t
-{
-
-    uint8_t id;
-    uint8_t data[MAX_COMMAND_LENGTH];
-    bool pending;
-};
 
 
 // Die brücke zwischen den Modulen  
