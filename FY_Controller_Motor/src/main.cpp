@@ -53,48 +53,32 @@ void setup()
 
   FY_uart.begin(Main_Context, FY_Modules);
 
-  FY_motor.begin(
-      MOTOR_DIR_PIN,
-      MOTOR_PWM_PIN,
-      MOTOR_ENABLE_PIN
-  );
+  FY_motor.begin();
 
-  FY_Keyboard.begin(
-      BUTTON_LEFT,
-      BUTTON_RIGHT,
-      BUTTON_GO,
-      BUTTON_STOP,
-      DISPLAY_ADDRESS,
-      PORT_EXPANDER_ADDRESS
-  );
+  FY_Keyboard.begin();
 
-  FY_Switches.begin(
-      SWITCH_REF_D,
-      SWITCH_TRIM_LEFT_D,
-      SWITCH_TRIM_RIGHT_D,
-      SWITCH_TIMING_BELT_D
-  );
+  FY_Switches.begin();
 
 #ifdef DebugSwitches
   Serial.print(F("Display adress: "));
-  Serial.println(FY_display.getAddress(), HEX);
+  Serial.println(DISPLAY_ADDRESS, HEX);
   Serial.print(F("Portexpander adress: "));
-  Serial.println(FY_portexpander.getAddress(), HEX);
+  Serial.println(PORT_EXPANDER_ADDRESS, HEX);
 
   Serial.print(F("Refsw: "));
-  Serial.print(FY_Switches.getAnalogValue(SWITCH_REF));
+  Serial.print(FY_Switches.getAnalogValue(Switches::Id::REF));
   Serial.print(F("  "));
-  Serial.println(FY_Switches.GetDigitalValue(SWITCH_REF), DEC);
+  Serial.println(FY_Switches.getDigitalValue(Switches::Id::REF), DEC);
 
   Serial.print(F("TrimswL: "));
-  Serial.print(FY_Switches.getAnalogValue(SWITCH_TRIM_LEFT));
+  Serial.print(FY_Switches.getAnalogValue(Switches::Id::TRIM_LEFT));
   Serial.print(F("  "));
-  Serial.println(FY_Switches.GetDigitalValue(SWITCH_TRIM_LEFT), DEC);
+  Serial.println(FY_Switches.getDigitalValue(Switches::Id::TRIM_LEFT), DEC);
 
   Serial.print(F("TrimswR: "));
-  Serial.print(FY_Switches.getAnalogValue(SWITCH_TRIM_RIGHT));
+  Serial.print(FY_Switches.getAnalogValue(Switches::Id::TRIM_RIGHT));
   Serial.print(F("  "));
-  Serial.println(FY_Switches.GetDigitalValue(SWITCH_TRIM_RIGHT), DEC);
+  Serial.println(FY_Switches.getDigitalValue(Switches::Id::TRIM_RIGHT), DEC);
 #endif
 
   printFirmwareInfo();
