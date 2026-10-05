@@ -1,6 +1,7 @@
 Import("env")
 
 import csv
+import json
 import os
 import shutil
 import subprocess
@@ -69,8 +70,21 @@ if not os.path.isfile(project_compile_db):
     sys.exit(1)
 
 # Keep the generated database out of the project root and together with the
-# Cppcheck cache. The copy is regenerated on every MISRA run.
-shutil.copyfile(project_compile_db, cppcheck_compile_db)
+# Cppcheck cache. Only FY application sources are checked; PlatformIO core
+# and third-party libraries are intentionally excluded.
+with open(project_compile_db, encoding="utf-8") as source:
+    compile_commands = json.load(source)
+
+project_sources = []
+for entry in compile_commands:
+    file_path = os.path.abspath(entry.get("file", ""))
+    relative_path = os.path.relpath(file_path, project_dir)
+    if relative_path.startswith(("src\\", "src/", "lib\\", "lib/")):
+        project_sources.append(entry)
+
+with open(cppcheck_compile_db, "w", encoding="utf-8") as target:
+    json.dump(project_sources, target, indent=2)
+
 os.remove(project_compile_db)
 
 cmd = [
