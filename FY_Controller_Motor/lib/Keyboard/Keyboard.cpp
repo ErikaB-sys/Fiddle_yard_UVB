@@ -7,7 +7,6 @@ Keyboard::Button::Button(
     uint8_t pin)
     : _extender(extender),
       _pin(pin),
-      _lastState(false),
       _lastDebounceTime(0) {
 }
 
@@ -39,8 +38,7 @@ bool Keyboard::Button::pressed() {
 }
 
 Keyboard::Keyboard()
-    : _extender(PORT_EXPANDER_ADDRESS),
-      _left(&_extender, buttonToExtenderPin(BUTTON_LEFT)),
+    : _left(&_extender, buttonToExtenderPin(BUTTON_LEFT)),
       _right(&_extender, buttonToExtenderPin(BUTTON_RIGHT)),
       _ok(&_extender, buttonToExtenderPin(BUTTON_GO)),
       _stop(&_extender, buttonToExtenderPin(BUTTON_STOP)),
