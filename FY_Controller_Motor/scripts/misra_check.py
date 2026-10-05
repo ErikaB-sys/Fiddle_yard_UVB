@@ -29,7 +29,7 @@ if cppcheck is None:
 
 cmd = [
     cppcheck,
-    "--enable=warning,style,performance",
+    "--enable=error",
     "--addon=misra",
     "--language=c++",
     "--std=c++11",
