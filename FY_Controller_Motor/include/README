@@ -1,14 +1,10 @@
+This directory contains project-wide header files.
 
-This directory is intended for project header files.
-
-alle  global includes werden hier abgelegt 
-und  in der INI  ist 
-build_flags =
-    -I include
-    ergänzt 
+The headers are separated by responsibility:
 
 include/
-├── Config.h
-├── FY_System.h
-├── ...
-└── Protokoll.h
+├── HW_Config.h   - fixed hardware configuration
+├── FY_System.h   - FY-specific system data, states and structures
+├── Firmware.h    - firmware identity data
+├── Main.h        - intentionally empty
+└── Protokoll.h   - UART protocol definitions
