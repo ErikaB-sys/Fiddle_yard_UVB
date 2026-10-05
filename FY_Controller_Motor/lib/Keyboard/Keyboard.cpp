@@ -1,11 +1,6 @@
 #include "Keyboard.h"
 #include <Wire.h>
 
-// Arduino Nano hardware: I2C pins are fixed.
-// Keep Arduino pin macros outside initializer lists for MISRA 12.3.
-constexpr uint8_t KEYBOARD_SDA_PIN = A4;
-constexpr uint8_t KEYBOARD_SCL_PIN = A5;
-
 // Button inputs are idle HIGH on the tested FY hardware.
 // Keep the Arduino macro outside initializer lists for MISRA 12.3.
 constexpr bool BUTTON_INITIAL_STATE = HIGH;
@@ -55,8 +50,8 @@ Keyboard::Keyboard()
       _display(U8G2_R0, U8X8_PIN_NONE),
       _displayAddress(DISPLAY_ADDRESS),
       _extenderAddress(PORT_EXPANDER_ADDRESS),
-      _sdaPin(KEYBOARD_SDA_PIN),
-      _sclPin(KEYBOARD_SCL_PIN) {
+      _sdaPin(I2C_SDA_PIN),
+      _sclPin(I2C_SCL_PIN) {
     // U8g2 expects the I2C address multiplied by two.
     _display.setI2CAddress(_displayAddress * 2);
 }
