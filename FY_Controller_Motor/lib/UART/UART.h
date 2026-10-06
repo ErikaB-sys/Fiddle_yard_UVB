@@ -1,4 +1,6 @@
 #pragma once
+
+#include <avr/pgmspace.h>
 #include "Protokoll.h"
 #include "BabelFish.h"
 
