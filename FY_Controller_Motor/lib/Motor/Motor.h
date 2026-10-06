@@ -2,7 +2,7 @@
 // Motor.h
 //default declarations 
 
-
+#include "Protokoll.h"
 
 // -----------------------------------------------------------------------------
 // Mechanik
