@@ -275,16 +275,34 @@ void UART::sendResponse()
 
     Serial.write(ResponseBuffer.id);
 
-    for (uint8_t i = 0; i < ResponseBuffer.length; ++i)
-        Serial.write(ResponseBuffer.data[i]);
+    if (ResponseBuffer.length == RESPONSE_LENGTH_STRING)
+    {
+        const uint8_t length = static_cast<uint8_t>(strlen_P(ResponseBuffer.string));
 
-    const uint8_t crc = Calc_CRC(
-        ResponseBuffer.id,
-        ResponseBuffer.data,
-        ResponseBuffer.length
-    );
+        for (uint8_t i = 0; i < length; ++i)
+            Serial.write(pgm_read_byte(&ResponseBuffer.string[i]));
 
-    Serial.write(crc);
+        const uint8_t crc = Calc_CRC(
+            ResponseBuffer.id,
+            reinterpret_cast<const uint8_t*>(ResponseBuffer.string),
+            length
+        );
+
+        Serial.write(crc);
+    }
+    else
+    {
+        for (uint8_t i = 0; i < ResponseBuffer.length; ++i)
+            Serial.write(ResponseBuffer.data[i]);
+
+        const uint8_t crc = Calc_CRC(
+            ResponseBuffer.id,
+            ResponseBuffer.data,
+            ResponseBuffer.length
+        );
+
+        Serial.write(crc);
+    }
 
     ResponseBuffer.responsePending = false;
 }
@@ -308,10 +326,19 @@ void UART::setResponse(uint8_t id, const uint8_t* data, uint8_t length)
 
     ResponseBuffer.id = id;
     ResponseBuffer.length = length;
+    ResponseBuffer.string = nullptr;
 
     for (uint8_t i = 0; i < length; ++i)
         ResponseBuffer.data[i] = data[i];
 
+    ResponseBuffer.responsePending = true;
+}
+
+void UART::setResponse(uint8_t id, PGM_P data)
+{
+    ResponseBuffer.id = id;
+    ResponseBuffer.length = RESPONSE_LENGTH_STRING;
+    ResponseBuffer.string = data;
     ResponseBuffer.responsePending = true;
 }
 
@@ -417,21 +444,15 @@ void UART::handleGetTrack()
 
 void UART::handleHelp()
 {
-    // Special response still to be defined.
+    static const char HELP_RESPONSE[] PROGMEM =
+        "GET_STATUS GET_ERROR GET_POSITION GET_TRACK HELP GET_FIRMWARE";
+
+    setResponse(STATUS_Help, HELP_RESPONSE);
 }
 
 void UART::handleGetFirmware()
 {
-    Serial.print(F("FW: "));
-    Serial.println(FW_NAME);
-    Serial.print(F("VER: "));
-    Serial.println(FW_VERSION);
-    Serial.print(F("BUILD: "));
-    Serial.print(FW_BUILD);
-    Serial.print(F(" "));
-    Serial.println(FW_TIME);
-    Serial.print(F("GIT: "));
-    Serial.println(FW_GIT_COMMIT);
+    setResponse(STATUS_Help, FW_RESPONSE);
 }
 
 void UART::handle_Busy()
