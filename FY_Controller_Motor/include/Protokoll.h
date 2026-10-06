@@ -45,8 +45,12 @@ constexpr uint8_t CMD_SET_REMOTE   =   0x2A   ;    // Command to set the control
 /** Maximum length of a binary response sent to UART, in bytes. */
 #define MAX_RESPONSE_LENGTH        4
 
-/** Descriptor value indicating that the response payload is a zero-terminated string. */
-#define RESPONSE_LENGTH_STRING      (MAX_RESPONSE_LENGTH + 1)
+/** Container type of a response payload. */
+enum class ResponseContainer : uint8_t
+{
+    Data,
+    String
+};
 
 // General response codes.
 /** Periodic status indicating that the controller is alive. */
@@ -106,8 +110,9 @@ struct CommandDefinition
 
 struct ResponseDefinition
 {
-    uint8_t id;       ///< Response status identifier byte.
-    uint8_t length;   ///< Response length in bytes, or RESPONSE_LENGTH_STRING for strings.
+    uint8_t id;                     ///< Response status identifier byte.
+    uint8_t length;                 ///< Response length in bytes for binary data.
+    ResponseContainer container;    ///< Response payload container type.
 };
 // ---------------------------------------------------------
 // Command IDs
@@ -143,16 +148,16 @@ constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefi
 /** Definitions of all response statuses supported by the UART protocol. */
 const ResponseDefinition ResponseDefinitions[] =
 {
-{ STATUS_Alive  , 0   },
-{ STATUS_Error ,  4  },
-{ STATUS_System ,  2  },
-{ STATUS_CMD ,   1 },
-{ STATUS_Position ,   4 },
-{ STATUS_Reference , 1   },
-{ STATUS_Track,   3 },
-{ STATUS_Motor, 3   },
-{ STATUS_ACK,  1  },
-{ STATUS_Help, RESPONSE_LENGTH_STRING }  // Help and firmware use a string response
+{ STATUS_Alive,     0, ResponseContainer::Data },
+{ STATUS_Error,     4, ResponseContainer::Data },
+{ STATUS_System,    2, ResponseContainer::Data },
+{ STATUS_CMD,       1, ResponseContainer::Data },
+{ STATUS_Position,  4, ResponseContainer::Data },
+{ STATUS_Reference, 1, ResponseContainer::Data },
+{ STATUS_Track,     3, ResponseContainer::Data },
+{ STATUS_Motor,     3, ResponseContainer::Data },
+{ STATUS_ACK,       1, ResponseContainer::Data },
+{ STATUS_Help,      0, ResponseContainer::String }
 };
 
 
