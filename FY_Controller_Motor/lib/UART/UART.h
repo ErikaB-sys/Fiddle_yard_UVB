@@ -75,6 +75,7 @@ private:
     {
         uint8_t id;
         uint8_t data[MAX_RESPONSE_LENGTH];
+        const char* string;
         uint8_t length;
         bool responsePending;
     };
@@ -97,6 +98,7 @@ private:
 
     /** @brief Queues a response for transmission. */
     void setResponse(uint8_t id, const uint8_t* data, uint8_t length);
+    void setResponse(uint8_t id, const char* data);
 
     /** @brief Sends a temporary NACK carrying the receive status. */
     void sendNack(UART_CommandStatus_t status);
