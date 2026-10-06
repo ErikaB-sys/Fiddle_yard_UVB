@@ -38,7 +38,8 @@ bool Keyboard::Button::pressed() {
 }
 
 Keyboard::Keyboard()
-    : _left(&_extender, buttonToExtenderPin(BUTTON_LEFT)),
+    : _extender(PORT_EXPANDER_ADDRESS),
+      _left(&_extender, buttonToExtenderPin(BUTTON_LEFT)),
       _right(&_extender, buttonToExtenderPin(BUTTON_RIGHT)),
       _ok(&_extender, buttonToExtenderPin(BUTTON_GO)),
       _stop(&_extender, buttonToExtenderPin(BUTTON_STOP)), // cppcheck-suppress misra-c2012-12.3
