@@ -42,8 +42,11 @@ constexpr uint8_t CMD_SET_LOCAL    =   0x26   ;    // Command to set the control
 constexpr uint8_t CMD_SET_REMOTE   =   0x2A   ;    // Command to set the controller to remote mode
 
 
-/** Maximum length of a response sent to UART, in bytes. */
+/** Maximum length of a binary response sent to UART, in bytes. */
 #define MAX_RESPONSE_LENGTH        4
+
+/** Descriptor value indicating that the response payload is a zero-terminated string. */
+#define RESPONSE_LENGTH_STRING      (MAX_RESPONSE_LENGTH + 1)
 
 // General response codes.
 /** Periodic status indicating that the controller is alive. */
@@ -104,7 +107,7 @@ struct CommandDefinition
 struct ResponseDefinition
 {
     uint8_t id;       ///< Response status identifier byte.
-    uint8_t length;   ///< Response length in bytes.
+    uint8_t length;   ///< Response length in bytes, or RESPONSE_LENGTH_STRING for strings.
 };
 // ---------------------------------------------------------
 // Command IDs
@@ -149,7 +152,7 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Track,   3 },
 { STATUS_Motor, 3   },
 { STATUS_ACK,  1  },
-{ STATUS_Help, 1  }  // ! help send a long String
+{ STATUS_Help, RESPONSE_LENGTH_STRING }  // Help and firmware use a string response
 };
 
 
