@@ -59,7 +59,7 @@ include_dirs = [
 
 cmd = [
     cppcheck,
-    "--enable=warning,style",
+    "--enable=warning,style,performance",
     "--addon=misra",
     "--language=c++",
     "--std=c++11",
