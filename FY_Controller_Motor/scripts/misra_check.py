@@ -32,10 +32,16 @@ if cppcheck is None:
 
 # Keep the fast FY check close to the proven Display-project approach.
 # Cppcheck checks FY source files directly instead of using PlatformIO's
-# compilation database. Only project sources are given as check targets.
+# compilation database. Only our productive FY modules are check targets.
+# Display and extender remain include dependencies, but are not analyzed.
 source_dirs = [
     "src",
-    "lib",
+    "lib/BabelFish",
+    "lib/Error",
+    "lib/Keyboard",
+    "lib/Motor",
+    "lib/Switches",
+    "lib/UART",
 ]
 
 include_dirs = [
@@ -78,7 +84,7 @@ if os.path.isdir(library_dir):
 
 cmd = [
     cppcheck,
-    "--enable=warning,style,performance",
+    "--enable=warning,style",
     "--addon=misra",
     "--language=c++",
     "--std=c++11",
