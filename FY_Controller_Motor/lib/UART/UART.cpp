@@ -282,9 +282,9 @@ void UART::sendResponse()
         for (uint8_t i = 0; i < length; ++i)
             Serial.write(pgm_read_byte(&ResponseBuffer.string[i]));
 
-        const uint8_t crc = Calc_CRC(
+        const uint8_t crc = Calc_CRC_PGM(
             ResponseBuffer.id,
-            reinterpret_cast<const uint8_t*>(ResponseBuffer.string),
+            ResponseBuffer.string,
             length
         );
 
@@ -374,6 +374,26 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
     for (uint8_t i = 0; i < length; ++i)
     {
         crc ^= data[i];
+
+        for (uint8_t bit = 0; bit < 8; ++bit)
+        {
+            if (crc & 0x80)
+                crc = static_cast<uint8_t>((crc << 1) ^ 0x07);
+            else
+                crc <<= 1;
+        }
+    }
+
+    return crc;
+}
+
+uint8_t UART::Calc_CRC_PGM(uint8_t id, PGM_P data, uint8_t length)
+{
+    uint8_t crc = id;
+
+    for (uint8_t i = 0; i < length; ++i)
+    {
+        crc ^= pgm_read_byte(&data[i]);
 
         for (uint8_t bit = 0; bit < 8; ++bit)
         {
