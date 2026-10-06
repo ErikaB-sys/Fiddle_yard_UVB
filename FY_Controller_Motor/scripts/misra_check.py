@@ -10,6 +10,7 @@ if env.IsIntegrationDump():
     Return()
 
 project_dir = env.subst("$PROJECT_DIR")
+project_dir_abs = os.path.normcase(os.path.abspath(project_dir))
 
 print("\n🔍 Running MISRA / Cppcheck before build...\n")
 
@@ -93,6 +94,28 @@ with open(full_report_file, newline="", encoding="utf-8") as source:
 
         for row in csv.reader(source):
             if len(row) < 5:
+                continue
+
+            file_name = row[0].strip()
+            file_path = os.path.normcase(
+                os.path.abspath(
+                    file_name
+                    if os.path.isabs(file_name)
+                    else os.path.join(project_dir, file_name)
+                )
+            )
+
+            # The MISRA check may inspect external framework headers while
+            # resolving our source. Their findings are not FY findings.
+            try:
+                is_project_file = (
+                    os.path.commonpath([project_dir_abs, file_path])
+                    == project_dir_abs
+                )
+            except ValueError:
+                is_project_file = False
+
+            if not is_project_file:
                 continue
 
             severity = row[2].strip().lower()
