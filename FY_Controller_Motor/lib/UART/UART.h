@@ -110,6 +110,7 @@ private:
     bool SetCommand();
 
     uint8_t Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length);
+    uint8_t Calc_CRC_PGM(uint8_t id, PGM_P data, uint8_t length);
 
     void sendHello();
 
