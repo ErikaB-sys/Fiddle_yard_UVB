@@ -79,6 +79,7 @@ private:
         uint8_t data[MAX_RESPONSE_LENGTH];
         PGM_P string;
         uint8_t length;
+        ResponseContainer container;
         bool responsePending;
     };
 
