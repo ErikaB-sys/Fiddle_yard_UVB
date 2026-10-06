@@ -92,8 +92,8 @@ static volatile bool stepRun = false;
 static volatile bool stepLevel = false;
 
 volatile HWMeasurement measurement;
-static uint8_t profileAccel2Interval = 1;
-static uint8_t profileBrake1Interval = 1;
+static uint8_t profileAccel2Interval = 2;
+static uint8_t profileBrake1Interval = 2;
 static uint8_t profileBrake2Interval = 1;
 
 static volatile uint8_t profileRampCounter = 0;
@@ -1555,10 +1555,10 @@ void loop()
 
                         if (localTrackActive)
                         {
-                            if (selectedTrack >= TRACK_COUNT)
-                                selectedTrack = 1;
+                            if (selectedTrack <= 1)
+                                selectedTrack = TRACK_COUNT;
                             else
-                                ++selectedTrack;
+                                --selectedTrack;
 
                             trackMode = true;
                             serialDisplayDirty = true;
@@ -1589,10 +1589,10 @@ void loop()
 
                         if (localTrackActive)
                         {
-                            if (selectedTrack <= 1)
-                                selectedTrack = TRACK_COUNT;
+                            if (selectedTrack >= TRACK_COUNT)
+                                selectedTrack = 1;
                             else
-                                --selectedTrack;
+                                ++selectedTrack;
 
                             trackMode = true;
                             serialDisplayDirty = true;
