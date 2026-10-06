@@ -33,7 +33,8 @@ if cppcheck is None:
 # Keep the fast FY check close to the proven Display-project approach.
 # Cppcheck checks FY source files directly instead of using PlatformIO's
 # compilation database. Only our productive FY modules are check targets.
-# Display and extender remain include dependencies, but are not analyzed.
+# External PlatformIO libraries are not check targets and are not added
+# explicitly as include trees.
 source_dirs = [
     "src",
     "lib/BabelFish",
@@ -47,7 +48,6 @@ source_dirs = [
 include_dirs = [
     "src",
     "include",
-    "lib",
     "lib/Error",
     "lib/Keyboard",
     "lib/Motor",
@@ -55,32 +55,6 @@ include_dirs = [
     "lib/BabelFish",
     "lib/UART",
 ]
-
-# PlatformIO libraries are needed as include sources but are not check targets.
-# Resolve their actual paths from the active PlatformIO environment.
-library_dir = os.path.join(
-    project_dir,
-    ".pio",
-    "libdeps",
-    env.subst("$PIOENV"),
-)
-
-framework_dir = None
-try:
-    framework_dir = env.PioPlatform().get_package_dir("framework-arduino-avr")
-except AttributeError:
-    pass
-
-if framework_dir:
-    include_dirs.append(framework_dir)
-    include_dirs.append(os.path.join(framework_dir, "cores", "arduino"))
-    include_dirs.append(os.path.join(framework_dir, "variants", "eightanaloginputs"))
-
-if os.path.isdir(library_dir):
-    for library_name in ("U8g2", "PCF8574_library"):
-        library_path = os.path.join(library_dir, library_name)
-        if os.path.isdir(library_path):
-            include_dirs.append(os.path.join(library_path, "src"))
 
 cmd = [
     cppcheck,
