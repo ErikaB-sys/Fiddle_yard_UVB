@@ -275,7 +275,7 @@ void UART::sendResponse()
 
     Serial.write(ResponseBuffer.id);
 
-    if (ResponseBuffer.length == RESPONSE_LENGTH_STRING)
+    if (ResponseBuffer.container == ResponseContainer::String)
     {
         const uint8_t length = static_cast<uint8_t>(strlen_P(ResponseBuffer.string));
 
@@ -326,6 +326,7 @@ void UART::setResponse(uint8_t id, const uint8_t* data, uint8_t length)
 
     ResponseBuffer.id = id;
     ResponseBuffer.length = length;
+    ResponseBuffer.container = ResponseContainer::Data;
     ResponseBuffer.string = nullptr;
 
     for (uint8_t i = 0; i < length; ++i)
@@ -337,7 +338,8 @@ void UART::setResponse(uint8_t id, const uint8_t* data, uint8_t length)
 void UART::setResponse(uint8_t id, PGM_P data)
 {
     ResponseBuffer.id = id;
-    ResponseBuffer.length = RESPONSE_LENGTH_STRING;
+    ResponseBuffer.length = 0;
+    ResponseBuffer.container = ResponseContainer::String;
     ResponseBuffer.string = data;
     ResponseBuffer.responsePending = true;
 }
