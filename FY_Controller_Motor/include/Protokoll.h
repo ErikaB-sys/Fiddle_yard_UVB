@@ -12,6 +12,22 @@
  */
 
 
+/**
+ * @brief UART payload byte order.
+ *
+ * Multi-byte values are transmitted least-significant byte first.
+ * Byte 0 is always the first transmitted byte and contains the least
+ * significant 8 bits of a multi-byte value. Higher-order bytes follow
+ * at increasing byte indices.
+ *
+ * Example:
+ * uint16_t 0x1234 -> byte 0 = 0x34, byte 1 = 0x12
+ *
+ * The TransportContainer carries raw bytes. The individual command handler
+ * is responsible for interpreting those bytes according to the command
+ * definition.
+ */
+
 // Protocol options
 //#define UART_USE_CRC_TX
 //#define UART_USE_CRC_RX
@@ -60,11 +76,11 @@ constexpr uint8_t STATUS_Error                  =  0xF0  ;     // Sending system
 /** Response containing the controller's system status. */
 constexpr uint8_t  STATUS_System                =  0x10;
 /** Response to local/remote mode commands. */
-constexpr uint8_t  STATUS_CMD                   =  0x15;
+constexpr uint8_t  STATUS_CMD                   = 0x15;
 
 
 /** Response containing the current motor position. */
-constexpr uint8_t STATUS_Position               =  0x20    ;   // Status ID Position Information
+constexpr uint8_t STATUS_Position               = 0x20    ;   // Status ID Position Information
 /** Response containing reference-operation information. */
 constexpr uint8_t STATUS_Reference              = 0x30   ;    // Status ID  Reference Information
 /** Response containing track information. */
