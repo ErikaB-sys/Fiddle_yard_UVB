@@ -123,7 +123,7 @@ bool UART::validateCommand()
         if (commandDefinitions[i].id != CommandBuffer.command.cmd)
             continue;
 
-        if (commandDefinitions[i].telegramLength != CommandBuffer.command.length)
+        if (commandDefinitions[i].dataLength != static_cast<uint8_t>(CommandBuffer.command.length - 1))
         {
             CommandBuffer.status = UART_CommandStatus_t::DATA_INVALID;
             return false;
