@@ -58,7 +58,17 @@ constexpr uint8_t CMD_SET_LOCAL    =   0x26   ;    // Command to set the control
 constexpr uint8_t CMD_SET_REMOTE   =   0x2A   ;    // Command to set the controller to remote mode
 
 
-/** Maximum length of a binary response sent to UART, in bytes. */
+/**
+ * @brief Maximum length of a binary response payload.
+ *
+ * The payload length describes the DATA container only. A complete UART
+ * telegram consists of three parts:
+ *
+ *   ID | DATA | CRC
+ *
+ * Therefore, the total telegram length is calculated from the DATA length
+ * plus the ID and CRC fields.
+ */
 #define MAX_RESPONSE_LENGTH        4
 
 /** Container type of a response payload. */
@@ -74,7 +84,7 @@ constexpr uint8_t STATUS_Alive                  =  0x03  ;     // Status indicat
 /** Error response containing the system status and three error bytes. */
 constexpr uint8_t STATUS_Error                  =  0xF0  ;     // Sending system Status byte and 3 Byte indicating that an error has occurred. The 3 Byte following up  will tell the Modul error Byte
 /** Response containing the controller's system status. */
-constexpr uint8_t  STATUS_System                =  0x10;
+constexpr uint8_t  STATUS_System                = 0x10;
 /** Response to local/remote mode commands. */
 constexpr uint8_t  STATUS_CMD                   = 0x15;
 
@@ -145,7 +155,7 @@ const CommandDefinition commandDefinitions[] =
     { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1, STATUS_System,       false },
     { CMD_GET_ERROR,     CommandType::IMMEDIATE, 1, STATUS_Error,        false },
     { CMD_GET_POSITION,  CommandType::IMMEDIATE, 1, STATUS_Position,     false },
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1, STATUS_Track,        false },
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1, STATUS_Track,         false },
     { CMD_HELP,          CommandType::IMMEDIATE, 1, STATUS_Help,         false },
     { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 1, STATUS_Help,         false },
     { CMD_REFERENCE,     CommandType::EXECUTE,   1, STATUS_Reference,    false },
