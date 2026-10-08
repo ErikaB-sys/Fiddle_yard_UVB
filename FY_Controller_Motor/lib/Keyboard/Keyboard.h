@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include "Error.h"
 #include <U8g2lib.h>
 #include <PCF8574.h>
 
@@ -17,6 +18,13 @@
  * The implementation uses a page-buffered U8g2 display to keep RAM usage
  * suitable for the ATmega328P.
  */
+// Keyboard error definitions belong to the Keyboard module.
+// Error stores and manages the current error state centrally.
+constexpr uint8_t KEYBOARD_ERROR_DISPLAY_NOT_AVAILABLE =
+    FY_ERROR_LOCATION_KEYBOARD | 0x01U;
+constexpr uint8_t KEYBOARD_ERROR_EXTENDER_NOT_AVAILABLE =
+    FY_ERROR_LOCATION_KEYBOARD | 0x02U;
+
 class Keyboard {
 public:
     enum class Mode : uint8_t {
