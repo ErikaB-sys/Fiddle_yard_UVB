@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Arduino.h>
+
 
 #include <Arduino.h>
 /*
@@ -32,6 +34,15 @@
 
 constexpr uint8_t FY_ERROR_NONE = 0x00;
 
+constexpr uint8_t FY_ERROR_LOCATION_MASK = 0xF0;
+constexpr uint8_t FY_ERROR_TYPE_MASK     = 0x0F;
+
+constexpr uint8_t FY_ERROR_LOCATION_UART      = 0x10;
+constexpr uint8_t FY_ERROR_LOCATION_MOTOR     = 0x20;
+constexpr uint8_t FY_ERROR_LOCATION_REFERENCE = 0x30;
+constexpr uint8_t FY_ERROR_LOCATION_SWITCHES  = 0x40;
+constexpr uint8_t FY_ERROR_LOCATION_KEYBOARD  = 0x50;
+
 /*
  * Zentrale Fehlerverwaltung.
  *
@@ -46,48 +57,28 @@ class Error
 public:
     void begin();
     void update();
+
+    void setError(uint8_t errorCode);
+    void clearError(uint8_t errorLocation);
+    uint8_t getError(uint8_t index) const;
+    uint8_t getSystemByte() const;
+
+private:
+    static constexpr uint8_t MAX_ERRORS = 3;
+    uint8_t _errors[MAX_ERRORS]{};
 };
 
 // -----------------------------------------------------------------------------
 // Alte freie Fehler-API
 // -----------------------------------------------------------------------------
 //
-// Vorläufig auskommentiert.
-// Die bisherige globale Fehlerverwaltung bleibt damit sichtbar und kann
-// später gezielt abgelöst werden, ohne sie jetzt stillschweigend zu löschen.
+// Vorläufig auskommentiert. Die zentrale Fehlerverwaltung ist jetzt Bestandteil
+// der Error-Klasse. Die alte API bleibt sichtbar, bis alle Aufrufer umgestellt sind.
 //
 // void setError(uint8_t errorCode);
 // uint8_t getError();
 // bool hasError();
 // void clearError();
-
-// -----------------------------------------------------------------------------
-// Fehler 0x01 – UART (Modul: UART/Protokoll)
-// -----------------------------------------------------------------------------
-//
-// Fehlerart 0x01 .. 0x07
-//
-constexpr uint8_t FY_ERROR_UART_NOT_AVAILABLE    = 0x11;
-constexpr uint8_t FY_ERROR_UART_INVALID_COMMAND  = 0x12;
-constexpr uint8_t FY_ERROR_UART_INVALID_LENGTH   = 0x13;
-constexpr uint8_t FY_ERROR_UART_INVALID_DATA     = 0x14;
-constexpr uint8_t FY_ERROR_UART_INVALID_TELEGRAM = 0x15;
-constexpr uint8_t FY_ERROR_UART_TIMEOUT          = 0x16;
-constexpr uint8_t FY_ERROR_UART_CRC              = 0x17; // falls CRC verwendet wird
-
-// -----------------------------------------------------------------------------
-// Fehler 0x02 – Motor (Modul: motor.cpp)
-// -----------------------------------------------------------------------------
-//
-// Fehlerart 0x01 .. 0x07
-//
-constexpr uint8_t FY_ERROR_MOTOR_NOT_ACTIVE      = 0x21;
-constexpr uint8_t FY_ERROR_MOTOR_TARGET_RANGE    = 0x22;
-constexpr uint8_t FY_ERROR_MOTOR_INVALID_TRACK   = 0x23;
-constexpr uint8_t FY_ERROR_MOTOR_INVALID_JOB     = 0x24;
-constexpr uint8_t FY_ERROR_MOTOR_INVALID_PARAM   = 0x25;
-constexpr uint8_t FY_ERROR_MOTOR_INVALID_PROFILE = 0x26;
-constexpr uint8_t FY_ERROR_MOTOR_PROFILE_FAILED  = 0x27;
 
 // -----------------------------------------------------------------------------
 // Fehler 0x03 – Referenzierung (Modul: Referenzierungslogik)
