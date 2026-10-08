@@ -41,7 +41,7 @@ void printFirmwareInfo()
 void setup()
 {
   Main_Context.systemStatus = &systemStatus;
-  Main_Context.uartError = nullptr;
+  Main_Context.error = &FY_Error;
   Main_Context.motorPosition = nullptr;
   Main_Context.Track_INFO = nullptr;
   Main_Context.motorSpeed = nullptr;
