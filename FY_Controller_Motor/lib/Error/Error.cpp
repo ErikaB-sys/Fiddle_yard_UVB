@@ -4,9 +4,9 @@
 // Error
 // -----------------------------------------------------------------------------
 //
-// Der Rahmen steht.
-// Die eigentliche Fehlerverwaltung wird erst im nächsten Schritt definiert.
-//
+// Die zentrale Fehlerverwaltung speichert bis zu drei aktuell aktive Fehler.
+// Die Module erkennen und melden ihre Fehler selbst.
+
 // -----------------------------------------------------------------------------
 
 void Error::begin()
