@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include <Arduino.h>
 /*
  * FY Controller – system-wide error code definition
  *

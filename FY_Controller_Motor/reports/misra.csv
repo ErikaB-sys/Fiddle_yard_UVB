@@ -1,4 +1,3 @@
-lib\Motor\Motor.h,59,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Unknown constant MAX_COMMAND_LENGTH, please review configuration
 lib\BabelFish\BabelFish.cpp,38,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'Serial' is unknown
 lib\BabelFish\BabelFish.cpp,164,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,211,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown

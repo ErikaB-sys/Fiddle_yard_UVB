@@ -1,4 +1,3 @@
-lib\Motor\Motor.h,59,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Unknown constant MAX_COMMAND_LENGTH, please review configuration
 C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Stream.h,63,warning,uninitMemberVar,Member variable 'Stream::_startMillis' is not initialized in the constructor.
 lib\BabelFish\BabelFish.cpp,307,style,functionStatic,The member function 'BabelFish::reportInvalid' can be static.
 C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,59,style,noExplicitConstructor,Class 'String' has a constructor with 1 argument that is not explicit.
@@ -36,11 +35,13 @@ lib\BabelFish\BabelFish.cpp,211,error,misra-config,Because of missing configurat
 lib\BabelFish\BabelFish.cpp,232,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,255,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,395,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\Error\Error.cpp,12,style,functionStatic,The member function 'Error::begin' can be static.
+lib\Error\Error.cpp,17,style,functionStatic,The member function 'Error::update' can be static.
 lib\Keyboard\Keyboard.cpp,5,warning,uninitMemberVar,Member variable 'Button::_lastState' is not initialized in the constructor.
-lib\Keyboard\Keyboard.cpp,249,style,unusedPrivateFunction,Unused private function: 'Keyboard::drawDiagnostic'
-lib\Keyboard\Keyboard.cpp,275,style,functionStatic,The member function 'Keyboard::Write_to_display' can be static.
-lib\Keyboard\Keyboard.cpp,249,style,functionStatic,The member function 'Keyboard::drawDiagnostic' can be static.
-lib\Keyboard\Keyboard.cpp,139,style,shadowFunction,Argument 'mode' shadows outer function
+lib\Keyboard\Keyboard.cpp,250,style,unusedPrivateFunction,Unused private function: 'Keyboard::drawDiagnostic'
+lib\Keyboard\Keyboard.cpp,276,style,functionStatic,The member function 'Keyboard::Write_to_display' can be static.
+lib\Keyboard\Keyboard.cpp,250,style,functionStatic,The member function 'Keyboard::drawDiagnostic' can be static.
+lib\Keyboard\Keyboard.cpp,140,style,shadowFunction,Argument 'mode' shadows outer function
 lib\Keyboard\Keyboard.cpp,28,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'HIGH' is unknown
 lib\Keyboard\Keyboard.cpp,28,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'LOW' is unknown
 lib\Motor\motor.cpp,63,warning,uninitMemberVar,Member variable 'Motor::_Dir_pin' is not initialized in the constructor.
@@ -69,8 +70,6 @@ lib\Motor\motor.cpp,164,style,knownConditionTrueFalse,Condition 'true==prepareSe
 lib\Motor\motor.cpp,171,style,knownConditionTrueFalse,Condition 'true==prepareSetTrack()' is always true
 lib\Motor\motor.cpp,178,style,knownConditionTrueFalse,Condition 'true==prepareParameter()' is always true
 lib\Motor\motor.cpp,191,style,knownConditionTrueFalse,Condition 'prepareParameter()' is always true
-lib\Motor\motor.cpp,86,style,cstyleCast,C-style pointer casting
-lib\Motor\motor.cpp,87,style,cstyleCast,C-style pointer casting
 lib\Motor\motor.cpp,248,style,useStlAlgorithm,Consider using std::find_if algorithm instead of a raw loop.
 lib\Motor\motor.cpp,91,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\Motor\motor.cpp,240,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'MotorState_t' is unknown
