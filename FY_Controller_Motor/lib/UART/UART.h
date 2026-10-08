@@ -1,6 +1,7 @@
 #pragma once
 #include "Protokoll.h"
 #include "BabelFish.h"
+#include "Error.h"
 
 /**
  * @brief References to controller data exchanged through the UART interface.
@@ -8,7 +9,7 @@
 struct UART_Context_t
 {
     FY_SystemStatus_t* systemStatus;
-    uint8_t*    uartError;
+    Error*      error;
     int32_t*    motorPosition;
     FY_Track_t* Track_INFO;
     uint16_t*   motorSpeed;
@@ -22,14 +23,20 @@ enum class UART_CommandStatus_t : uint8_t
     CRC_INVALID
 };
 
+// UART error definitions stay with the UART module.
+// The Error class only stores and manages the current error state.
 /// @brief No command data is available.
-constexpr uint8_t UART_ERROR_NO_CONTENT      = 0x01;
+constexpr uint8_t UART_ERROR_NO_CONTENT      =
+    FY_ERROR_LOCATION_UART | 0x01U;
 /// @brief No UART connection has been detected.
-constexpr uint8_t UART_ERROR_NO_CONNECTION   = 0x02;
+constexpr uint8_t UART_ERROR_NO_CONNECTION   =
+    FY_ERROR_LOCATION_UART | 0x02U;
 /// @brief The received command is unknown.
-constexpr uint8_t UART_ERROR_UNKNOWN_COMMAND = 0x04;
+constexpr uint8_t UART_ERROR_UNKNOWN_COMMAND =
+    FY_ERROR_LOCATION_UART | 0x03U;
 /// @brief The command is invalid for the current state.
-constexpr uint8_t UART_ERROR_INVALID_STATE   = 0x08;
+constexpr uint8_t UART_ERROR_INVALID_STATE   =
+    FY_ERROR_LOCATION_UART | 0x04U;
 
 // UART communication speed: 115200 baud, 8 data bits, no parity, 1 stop bit (8N1).
 #define UART_BAUD_RATE 115200
@@ -56,7 +63,6 @@ public:
 
 private:
     bool commandReady = false;
-    uint8_t UART_Error;
 
     UART_Context_t* UART_context;
     FY_ModuleContext_t* FY_ModuleContext;
@@ -108,6 +114,9 @@ private:
     uint8_t Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length);
 
     void sendHello();
+
+    void setError(uint8_t errorCode);
+    void clearError();
 
     void decodeImmediate();
     void decodeExecute();
