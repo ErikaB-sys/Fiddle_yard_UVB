@@ -1,9 +1,6 @@
 #pragma once
 
 #include <Arduino.h>
-
-
-#include <Arduino.h>
 /*
  * FY Controller – system-wide error code definition
  *
@@ -47,10 +44,9 @@ constexpr uint8_t FY_ERROR_LOCATION_KEYBOARD  = 0x50;
  * Zentrale Fehlerverwaltung.
  *
  * Aktueller Stand:
- * - Die Klasse bildet zunächst nur den Architekturrahmen.
- * - Die eigentliche Fehlerverwaltung wird Schritt für Schritt ergänzt.
- * - Die genaue Signatur und Semantik von update() wird erst festgelegt,
- *   wenn die Fehlerquellen der einzelnen Module betrachtet werden.
+ * - Die Module definieren ihre eigenen Fehlercodes.
+ * - Error verwaltet zentral die aktuell aktiven Fehler.
+ * - Pro Fehlerort wird ein aktueller Fehler gespeichert.
  */
 class Error
 {
