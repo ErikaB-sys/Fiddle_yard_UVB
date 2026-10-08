@@ -3,6 +3,7 @@
 //default declarations 
 
 #include "Protokoll.h"
+#include "Error.h"
 
 // -----------------------------------------------------------------------------
 // Mechanik
@@ -59,6 +60,23 @@ struct MotorJob_t
             uint8_t      data[MAX_COMMAND_LENGTH - 1];
         
         };
+// Motor error definitions belong to the Motor module.
+// Error stores and manages the current error state centrally.
+constexpr uint8_t MOTOR_ERROR_NOT_ACTIVE      =
+    FY_ERROR_LOCATION_MOTOR | 0x01U;
+constexpr uint8_t MOTOR_ERROR_TARGET_RANGE     =
+    FY_ERROR_LOCATION_MOTOR | 0x02U;
+constexpr uint8_t MOTOR_ERROR_INVALID_TRACK   =
+    FY_ERROR_LOCATION_MOTOR | 0x03U;
+constexpr uint8_t MOTOR_ERROR_INVALID_JOB     =
+    FY_ERROR_LOCATION_MOTOR | 0x04U;
+constexpr uint8_t MOTOR_ERROR_INVALID_PARAM   =
+    FY_ERROR_LOCATION_MOTOR | 0x05U;
+constexpr uint8_t MOTOR_ERROR_INVALID_PROFILE =
+    FY_ERROR_LOCATION_MOTOR | 0x06U;
+constexpr uint8_t MOTOR_ERROR_PROFILE_FAILED  =
+    FY_ERROR_LOCATION_MOTOR | 0x07U;
+
 // Declarations for motor control used by the project.
 
 enum class MotorState_t
