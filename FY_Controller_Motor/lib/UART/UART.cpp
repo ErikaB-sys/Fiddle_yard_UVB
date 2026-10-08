@@ -11,7 +11,6 @@ UART::UART()
 {
     UART_context = nullptr;
     FY_ModuleContext = nullptr;
-    UART_Error = 0;
 
     CommandBuffer = {};
     CommandBuffer.status = UART_CommandStatus_t::VALID;
@@ -26,6 +25,7 @@ void UART::begin(UART_Context_t& context, FY_ModuleContext_t& modules)
     UART_context = &context;
     FY_ModuleContext = &modules;
 
+    clearError();
     _babelFish.begin();
 
     sendHello();
@@ -35,7 +35,7 @@ void UART::update()
 {
     if (UART_context == nullptr)
     {
-        UART_Error |= UART_ERROR_NO_CONTENT;
+        setError(UART_ERROR_NO_CONTENT);
         Serial.println(F("No content. The UART is feeling lonely."));
         return;
     }
@@ -301,6 +301,19 @@ void UART::sendHello()
     Serial.println(F("Hello my friend"));
 }
 
+void UART::setError(uint8_t errorCode)
+{
+    if ((UART_context != nullptr) && (UART_context->error != nullptr))
+        UART_context->error->setError(errorCode);
+}
+
+void UART::clearError()
+{
+    if ((UART_context != nullptr) && (UART_context->error != nullptr))
+        UART_context->error->clearError(FY_ERROR_LOCATION_UART);
+}
+
+
 void UART::setResponse(uint8_t id, const uint8_t* data, uint8_t length)
 {
     if (length > MAX_RESPONSE_LENGTH)
@@ -390,11 +403,17 @@ void UART::handleGetStatus()
 
 void UART::handleGetError()
 {
-    setResponse(
-        STATUS_Error,
-        reinterpret_cast<const uint8_t*>(&UART_context->systemStatus->error),
-        sizeof(FY_System_Error_t)
-    );
+    uint8_t data[4] = {0, 0, 0, 0};
+
+    if ((UART_context != nullptr) && (UART_context->error != nullptr))
+    {
+        data[0] = UART_context->error->getSystemByte();
+        data[1] = UART_context->error->getError(0);
+        data[2] = UART_context->error->getError(1);
+        data[3] = UART_context->error->getError(2);
+    }
+
+    setResponse(STATUS_Error, data, 4);
 }
 
 void UART::handleGetPosition()
