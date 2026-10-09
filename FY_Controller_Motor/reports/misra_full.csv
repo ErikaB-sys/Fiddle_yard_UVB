@@ -1,34 +1,5 @@
-lib\Motor\Motor.h,59,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Unknown constant MAX_COMMAND_LENGTH, please review configuration
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Stream.h,63,warning,uninitMemberVar,Member variable 'Stream::_startMillis' is not initialized in the constructor.
+include\Firmware.h,27,error,unknownMacro,There is an unknown macro here somewhere. Configuration is required. If PROGMEM is a macro then please configure it.
 lib\BabelFish\BabelFish.cpp,307,style,functionStatic,The member function 'BabelFish::reportInvalid' can be static.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,59,style,noExplicitConstructor,Class 'String' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,61,style,noExplicitConstructor,Class 'String' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,64,style,noExplicitConstructor,Class 'String' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,216,style,noExplicitConstructor,Class 'StringSumHelper' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,217,style,noExplicitConstructor,Class 'StringSumHelper' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,218,style,noExplicitConstructor,Class 'StringSumHelper' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,219,style,noExplicitConstructor,Class 'StringSumHelper' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,220,style,noExplicitConstructor,Class 'StringSumHelper' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,221,style,noExplicitConstructor,Class 'StringSumHelper' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,222,style,noExplicitConstructor,Class 'StringSumHelper' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,223,style,noExplicitConstructor,Class 'StringSumHelper' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,224,style,noExplicitConstructor,Class 'StringSumHelper' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,225,style,noExplicitConstructor,Class 'StringSumHelper' has a constructor with 1 argument that is not explicit.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\HardwareSerial.h,124,style,missingOverride,The function 'available' overrides a function in a base class but is not marked with a 'override' specifier.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\HardwareSerial.h,125,style,missingOverride,The function 'peek' overrides a function in a base class but is not marked with a 'override' specifier.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\HardwareSerial.h,126,style,missingOverride,The function 'read' overrides a function in a base class but is not marked with a 'override' specifier.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\HardwareSerial.h,127,style,missingOverride,The function 'availableForWrite' overrides a function in a base class but is not marked with a 'override' specifier.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\HardwareSerial.h,128,style,missingOverride,The function 'flush' overrides a function in a base class but is not marked with a 'override' specifier.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\HardwareSerial.h,129,style,missingOverride,The function 'write' overrides a function in a base class but is not marked with a 'override' specifier.
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\WString.h,162,style,cstyleCast,C-style pointer casting
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Print.h,54,style,cstyleCast,C-style pointer casting
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Print.h,58,style,cstyleCast,C-style pointer casting
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Stream.h,71,style,cstyleCast,C-style pointer casting
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Stream.h,75,style,cstyleCast,C-style pointer casting
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Stream.h,81,style,cstyleCast,C-style pointer casting
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Stream.h,84,style,cstyleCast,C-style pointer casting
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Stream.h,97,style,cstyleCast,C-style pointer casting
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Stream.h,102,style,cstyleCast,C-style pointer casting
 lib\BabelFish\BabelFish.cpp,332,style,constVariablePointer,Variable 'start' can be declared as pointer to const
 lib\BabelFish\BabelFish.cpp,38,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'Serial' is unknown
 lib\BabelFish\BabelFish.cpp,164,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
@@ -36,11 +7,12 @@ lib\BabelFish\BabelFish.cpp,211,error,misra-config,Because of missing configurat
 lib\BabelFish\BabelFish.cpp,232,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,255,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,395,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\Error\Error.cpp,18,style,functionStatic,The member function 'Error::update' can be static.
 lib\Keyboard\Keyboard.cpp,5,warning,uninitMemberVar,Member variable 'Button::_lastState' is not initialized in the constructor.
-lib\Keyboard\Keyboard.cpp,249,style,unusedPrivateFunction,Unused private function: 'Keyboard::drawDiagnostic'
-lib\Keyboard\Keyboard.cpp,275,style,functionStatic,The member function 'Keyboard::Write_to_display' can be static.
-lib\Keyboard\Keyboard.cpp,249,style,functionStatic,The member function 'Keyboard::drawDiagnostic' can be static.
-lib\Keyboard\Keyboard.cpp,139,style,shadowFunction,Argument 'mode' shadows outer function
+lib\Keyboard\Keyboard.cpp,250,style,unusedPrivateFunction,Unused private function: 'Keyboard::drawDiagnostic'
+lib\Keyboard\Keyboard.cpp,276,style,functionStatic,The member function 'Keyboard::Write_to_display' can be static.
+lib\Keyboard\Keyboard.cpp,250,style,functionStatic,The member function 'Keyboard::drawDiagnostic' can be static.
+lib\Keyboard\Keyboard.cpp,140,style,shadowFunction,Argument 'mode' shadows outer function
 lib\Keyboard\Keyboard.cpp,28,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'HIGH' is unknown
 lib\Keyboard\Keyboard.cpp,28,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'LOW' is unknown
 lib\Motor\motor.cpp,63,warning,uninitMemberVar,Member variable 'Motor::_Dir_pin' is not initialized in the constructor.
@@ -69,8 +41,6 @@ lib\Motor\motor.cpp,164,style,knownConditionTrueFalse,Condition 'true==prepareSe
 lib\Motor\motor.cpp,171,style,knownConditionTrueFalse,Condition 'true==prepareSetTrack()' is always true
 lib\Motor\motor.cpp,178,style,knownConditionTrueFalse,Condition 'true==prepareParameter()' is always true
 lib\Motor\motor.cpp,191,style,knownConditionTrueFalse,Condition 'prepareParameter()' is always true
-lib\Motor\motor.cpp,86,style,cstyleCast,C-style pointer casting
-lib\Motor\motor.cpp,87,style,cstyleCast,C-style pointer casting
 lib\Motor\motor.cpp,248,style,useStlAlgorithm,Consider using std::find_if algorithm instead of a raw loop.
 lib\Motor\motor.cpp,91,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\Motor\motor.cpp,240,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'MotorState_t' is unknown
@@ -87,31 +57,3 @@ lib\Motor\motor.cpp,813,error,misra-config,Because of missing configuration, mis
 lib\Switches\Switches.cpp,3,style,functionStatic,The member function 'Switches::begin' can be static.
 lib\Switches\Switches.cpp,11,style,functionStatic,The member function 'Switches::getAnalogValue' can be static.
 lib\Switches\Switches.cpp,22,style,functionStatic,The member function 'Switches::getDigitalValue' can be static.
-lib\UART\UART.cpp,292,style,unusedPrivateFunction,Unused private function: 'UART::sendNack'
-lib\UART\UART.cpp,323,style,unusedPrivateFunction,Unused private function: 'UART::CheckError'
-lib\UART\UART.cpp,318,style,unusedPrivateFunction,Unused private function: 'UART::CheckBusy'
-lib\UART\UART.cpp,442,style,unusedPrivateFunction,Unused private function: 'UART::handle_ACK'
-lib\UART\UART.cpp,16,performance,useInitializationList,Variable 'CommandBuffer' is assigned in constructor body. Consider performing initialization in initialization list.
-lib\UART\UART.cpp,19,performance,useInitializationList,Variable 'ResponseBuffer' is assigned in constructor body. Consider performing initialization in initialization list.
-lib\UART\UART.cpp,323,style,functionStatic,The member function 'UART::CheckError' can be static.
-lib\UART\UART.cpp,318,style,functionStatic,The member function 'UART::CheckBusy' can be static.
-lib\UART\UART.cpp,343,style,functionStatic,The member function 'UART::Calc_CRC' can be static.
-lib\UART\UART.cpp,299,style,functionStatic,The member function 'UART::sendHello' can be static.
-lib\UART\UART.cpp,418,style,functionStatic,The member function 'UART::handleHelp' can be static.
-lib\UART\UART.cpp,423,style,functionStatic,The member function 'UART::handleGetFirmware' can be static.
-lib\UART\UART.cpp,486,style,functionStatic,The member function 'UART::handleSetRemote' can be static.
-lib\UART\UART.cpp,490,style,functionStatic,The member function 'UART::handleSetLocal' can be static.
-lib\UART\UART.cpp,437,style,functionStatic,The member function 'UART::handle_Busy' can be static.
-lib\UART\UART.cpp,442,style,functionStatic,The member function 'UART::handle_ACK' can be static.
-lib\UART\UART.cpp,36,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,70,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'Serial' is unknown
-lib\UART\UART.cpp,77,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'BabelFishResult' is unknown
-lib\UART\UART.cpp,95,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'BabelFishResult' is unknown
-lib\UART\UART.cpp,207,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'FY_SystemState_t' is unknown
-lib\UART\UART.cpp,332,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,479,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
-lib\UART\UART.cpp,480,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\USBAPI.h,30,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\USBAPI.h,31,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\USBAPI.h,29,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
-C:\Users\ERI\.platformio\packages\framework-arduino-avr\cores\arduino\Arduino.h,122,style,misra-c2012-2.3,misra violation (use --rule-texts=<file> to get proper output)
