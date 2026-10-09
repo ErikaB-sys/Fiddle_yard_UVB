@@ -123,7 +123,7 @@ enum class CommandType : uint8_t
 };
 
 // ---------------------------------------------------------
-/** Metadata describing a supported command and its response. */
+/** Metadata describing a supported command. */
 // ---------------------------------------------------------
 
 struct CommandDefinition
@@ -131,7 +131,6 @@ struct CommandDefinition
     uint8_t id;                 ///< Command identifier byte.
     CommandType type;           ///< Command scheduling type.
     uint8_t dataLength;          ///< DATA length only; ID and CRC are not included
-    uint8_t response;           ///< Response status identifier.
      bool requiresReference;      /// need reference run
 
 };
@@ -157,23 +156,23 @@ struct ResponseDefinition
 
 const CommandDefinition commandDefinitions[] =
 {
-    // Command,          CommandType,          DATA length, Response,         Requires reference
-    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1, STATUS_System,       false },
-    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0, STATUS_Error,        false },
-    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0, STATUS_Position,     false },
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 0, STATUS_Track,         false },
-    { CMD_HELP,          CommandType::IMMEDIATE, 0, STATUS_Help,         false },
-    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0, STATUS_Help,         false },
-    { CMD_REFERENCE,     CommandType::EXECUTE,   1, STATUS_Reference,    false },
-    { CMD_SET_SPEED,     CommandType::EXECUTE,   2, STATUS_Motor,        false },
-    { CMD_GO,            CommandType::EXECUTE,   2, STATUS_ACK,           true },
-    { CMD_LEFT,          CommandType::EXECUTE,   3, STATUS_ACK,           true },
-    { CMD_RIGHT,         CommandType::EXECUTE,   3, STATUS_ACK,           true },
-    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, STATUS_ACK,           true },
-    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, STATUS_ACK,           true },
-    { CMD_SET_REMOTE,    CommandType::EXECUTE,   0, STATUS_CMD,          false },
-    { CMD_SET_LOCAL,     CommandType::EXECUTE,   0, STATUS_CMD,          false },
-    { CMD_STOPP,         CommandType::PRIORITY,  0, STATUS_System,       false }
+    // Command,          CommandType,          DATA length, Requires reference
+    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,       false },
+    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,        false },
+    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,     false },
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 0,         false },
+    { CMD_HELP,          CommandType::IMMEDIATE, 0,         false },
+    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,         false },
+    { CMD_REFERENCE,     CommandType::EXECUTE,   1,    false },
+    { CMD_SET_SPEED,     CommandType::EXECUTE,   2,        false },
+    { CMD_GO,            CommandType::EXECUTE,   2,           true },
+    { CMD_LEFT,          CommandType::EXECUTE,   3,           true },
+    { CMD_RIGHT,         CommandType::EXECUTE,   3,           true },
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   3,           true },
+    { CMD_SET_TRACK,     CommandType::EXECUTE,   1,           true },
+    { CMD_SET_REMOTE,    CommandType::EXECUTE,   0,          false },
+    { CMD_SET_LOCAL,     CommandType::EXECUTE,   0,          false },
+    { CMD_STOPP,         CommandType::PRIORITY,  0,       false }
 };
 constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefinitions[0]);
 
