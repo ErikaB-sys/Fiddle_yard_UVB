@@ -162,7 +162,6 @@ bool UART::validateCommand()
         }
 
         CommandBuffer.type = commandDefinitions[i].type;
-        CommandBuffer.response = commandDefinitions[i].response;
         return true;
     }
 
