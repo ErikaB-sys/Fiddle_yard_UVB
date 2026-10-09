@@ -11,7 +11,6 @@ UART::UART()
 {
     UART_context = nullptr;
     FY_ModuleContext = nullptr;
-    UART_Error = 0;
 
     CommandBuffer = {};
     CommandBuffer.status = UART_CommandStatus_t::VALID;
@@ -26,6 +25,7 @@ void UART::begin(UART_Context_t& context, FY_ModuleContext_t& modules)
     UART_context = &context;
     FY_ModuleContext = &modules;
 
+    clearError();
     _babelFish.begin();
 
     sendHello();
@@ -35,7 +35,7 @@ void UART::update()
 {
     if (UART_context == nullptr)
     {
-        UART_Error |= UART_ERROR_NO_CONTENT;
+        setError(UART_ERROR_NO_CONTENT);
         Serial.println(F("No content. The UART is feeling lonely."));
         return;
     }
@@ -82,6 +82,23 @@ void UART::receive()
 
             if (!validateCommand())
             {
+                switch (CommandBuffer.status)
+                {
+                case UART_CommandStatus_t::CMD_INVALID:
+                    setError(UART_ERROR_UNKNOWN_COMMAND);
+                    break;
+                case UART_CommandStatus_t::DATA_INVALID:
+                    setError(UART_ERROR_INVALID_LENGTH);
+                    break;
+                case UART_CommandStatus_t::CRC_INVALID:
+                    setError(UART_ERROR_CRC);
+                    break;
+                case UART_CommandStatus_t::VALID:
+                default:
+                    setError(UART_ERROR_INVALID_TELEGRAM);
+                    break;
+                }
+
                 const uint8_t reason =
                     static_cast<uint8_t>(CommandBuffer.status);
 
@@ -95,6 +112,7 @@ void UART::receive()
         else if (result == BabelFishResult::INVALID)
         {
             CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
+            setError(UART_ERROR_INVALID_TELEGRAM);
 
             const uint8_t reason =
                 static_cast<uint8_t>(CommandBuffer.status);
@@ -319,6 +337,18 @@ void UART::sendHello()
     Serial.println(F("Hello my friend"));
 }
 
+void UART::setError(uint8_t errorCode)
+{
+    if ((UART_context != nullptr) && (UART_context->error != nullptr))
+        UART_context->error->setError(errorCode);
+}
+
+void UART::clearError()
+{
+    if ((UART_context != nullptr) && (UART_context->error != nullptr))
+        UART_context->error->clearError(FY_ERROR_LOCATION_UART);
+}
+
 void UART::setResponse(uint8_t id, const uint8_t* data, uint8_t length)
 {
     if (length > MAX_RESPONSE_LENGTH)
@@ -439,11 +469,17 @@ void UART::handleGetStatus()
 
 void UART::handleGetError()
 {
-    setResponse(
-        STATUS_Error,
-        reinterpret_cast<const uint8_t*>(&UART_context->systemStatus->error),
-        sizeof(FY_System_Error_t)
-    );
+    uint8_t data[4] = {0U, 0U, 0U, 0U};
+
+    if ((UART_context != nullptr) && (UART_context->error != nullptr))
+    {
+        data[0] = UART_context->error->getSystemByte();
+        data[1] = UART_context->error->getError(0U);
+        data[2] = UART_context->error->getError(1U);
+        data[3] = UART_context->error->getError(2U);
+    }
+
+    setResponse(STATUS_Error, data, sizeof(data));
 }
 
 void UART::handleGetPosition()
