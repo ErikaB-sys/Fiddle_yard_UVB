@@ -371,6 +371,11 @@ bool Motor::isMoving()
     return (MotorState_t::MOVING == _State);
 }
 
+bool Motor::isDriverActive() const
+{
+    return digitalRead(_ENA_pin) == LOW;
+}
+
 uint16_t Motor::getPosition()
 {
     // ggf. den Zaehler aus dem Interrupt mit kurzer Interrupt-Sperre holen
