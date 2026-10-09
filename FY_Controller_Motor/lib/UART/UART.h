@@ -3,6 +3,7 @@
 #include <avr/pgmspace.h>
 #include "Protokoll.h"
 #include "BabelFish.h"
+#include "Error.h"
 
 /**
  * @brief References to controller data exchanged through the UART interface.
@@ -10,7 +11,7 @@
 struct UART_Context_t
 {
     FY_SystemStatus_t* systemStatus;
-    uint8_t*    uartError;
+    Error*      error;
     int32_t*    motorPosition;
     FY_Track_t* Track_INFO;
     uint16_t*   motorSpeed;
@@ -24,14 +25,24 @@ enum class UART_CommandStatus_t : uint8_t
     CRC_INVALID
 };
 
-/// @brief No command data is available.
-constexpr uint8_t UART_ERROR_NO_CONTENT      = 0x01;
-/// @brief No UART connection has been detected.
-constexpr uint8_t UART_ERROR_NO_CONNECTION   = 0x02;
-/// @brief The received command is unknown.
-constexpr uint8_t UART_ERROR_UNKNOWN_COMMAND = 0x04;
-/// @brief The command is invalid for the current state.
-constexpr uint8_t UART_ERROR_INVALID_STATE   = 0x08;
+// UART error definitions belong to the UART module. The central Error class
+// stores these module-local codes and manages the active error list.
+constexpr uint8_t UART_ERROR_NO_CONTENT =
+    FY_ERROR_LOCATION_UART | 0x01U;
+constexpr uint8_t UART_ERROR_NO_CONNECTION =
+    FY_ERROR_LOCATION_UART | 0x02U;
+constexpr uint8_t UART_ERROR_UNKNOWN_COMMAND =
+    FY_ERROR_LOCATION_UART | 0x03U;
+constexpr uint8_t UART_ERROR_INVALID_LENGTH =
+    FY_ERROR_LOCATION_UART | 0x04U;
+constexpr uint8_t UART_ERROR_INVALID_DATA =
+    FY_ERROR_LOCATION_UART | 0x05U;
+constexpr uint8_t UART_ERROR_INVALID_TELEGRAM =
+    FY_ERROR_LOCATION_UART | 0x06U;
+constexpr uint8_t UART_ERROR_CRC =
+    FY_ERROR_LOCATION_UART | 0x07U;
+constexpr uint8_t UART_ERROR_INVALID_STATE =
+    FY_ERROR_LOCATION_UART | 0x08U;
 
 // UART communication speed: 115200 baud, 8 data bits, no parity, 1 stop bit (8N1).
 #define UART_BAUD_RATE 115200
@@ -58,7 +69,6 @@ public:
 
 private:
     bool commandReady = false;
-    uint8_t UART_Error;
 
     UART_Context_t* UART_context;
     FY_ModuleContext_t* FY_ModuleContext;
@@ -114,6 +124,9 @@ private:
     uint8_t Calc_CRC_PGM(uint8_t id, PGM_P data, uint8_t length);
 
     void sendHello();
+
+    void setError(uint8_t errorCode);
+    void clearError();
 
     void decodeImmediate();
     void decodeExecute();
