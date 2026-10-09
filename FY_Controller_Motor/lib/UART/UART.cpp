@@ -6,6 +6,8 @@
 #include "Error.h"
 #include "Firmware.h"
 #include "Motor.h"
+#include "Switches.h"
+#include "Keyboard.h"
 
 UART::UART()
 {
@@ -460,11 +462,74 @@ void UART::handleStop()
 
 void UART::handleGetStatus()
 {
-    setResponse(
-        STATUS_System,
-        reinterpret_cast<const uint8_t*>(UART_context->systemStatus),
-        sizeof(FY_SystemStatus_t)
-    );
+    const uint8_t selector = CommandBuffer.command.data[0];
+    if ((UART_context == nullptr) || (UART_context->systemStatus == nullptr))
+    {
+        const uint8_t reason = static_cast<uint8_t>(UART_CommandStatus_t::DATA_INVALID);
+        setResponse(STATUS_NACK, &reason, 1U);
+        return;
+    }
+    switch (selector)
+    {
+    case STATUS_SELECTOR_SYSTEM:
+    {
+        const FY_SystemInitStatus_t& init = UART_context->systemStatus->init;
+        uint8_t data[2] = {0U, 0U};
+        data[0] = static_cast<uint8_t>(
+            (init.displayConnected ? 0x01U : 0U) |
+            (init.portExpanderConnected ? 0x02U : 0U) |
+            (init.uartConnected ? 0x04U : 0U) |
+            (init.motorInitialized ? 0x08U : 0U) |
+            (init.buttonsInitialized ? 0x10U : 0U) |
+            (init.switchesInitialized ? 0x20U : 0U) |
+            (init.systemError ? 0x40U : 0U));
+        data[1] = static_cast<uint8_t>(UART_context->systemStatus->state);
+        setResponse(STATUS_System, data, 2U);
+        break;
+    }
+    case STATUS_SELECTOR_MOTOR:
+    {
+        uint8_t data[3] = {0U, 0U, 0U};
+        if ((FY_ModuleContext != nullptr) && (FY_ModuleContext->motor != nullptr))
+        {
+            data[0] = static_cast<uint8_t>(
+                (FY_ModuleContext->motor->isDriverActive() ? 0x01U : 0U) |
+                (FY_ModuleContext->motor->isMoving() ? 0x02U : 0U));
+        }
+        setResponse(STATUS_Motor, data, 3U);
+        break;
+    }
+    case STATUS_SELECTOR_SWITCHES:
+    {
+        uint8_t data = 0U;
+        if ((FY_ModuleContext != nullptr) && (FY_ModuleContext->switches != nullptr))
+        {
+            data = static_cast<uint8_t>(
+                (FY_ModuleContext->switches->getDigitalValue(Switches::Id::REF) ? 0x01U : 0U) |
+                (FY_ModuleContext->switches->getDigitalValue(Switches::Id::TRIM_LEFT) ? 0x02U : 0U) |
+                (FY_ModuleContext->switches->getDigitalValue(Switches::Id::TRIM_RIGHT) ? 0x04U : 0U) |
+                (FY_ModuleContext->switches->getDigitalValue(Switches::Id::TIMING_BELT) ? 0x08U : 0U));
+        }
+        setResponse(STATUS_Switches, &data, 1U);
+        break;
+    }
+    case STATUS_SELECTOR_KEYBOARD:
+    {
+        const uint8_t data = static_cast<uint8_t>(
+            ((FY_ModuleContext != nullptr) &&
+             (FY_ModuleContext->keyboard != nullptr) &&
+             FY_ModuleContext->keyboard->is_connected()) ? 0x01U : 0U);
+        setResponse(STATUS_Keyboard, &data, 1U);
+        break;
+    }
+    default:
+    {
+        const uint8_t reason = static_cast<uint8_t>(UART_CommandStatus_t::DATA_INVALID);
+        setError(UART_ERROR_INVALID_DATA);
+        setResponse(STATUS_NACK, &reason, 1U);
+        break;
+    }
+    }
 }
 
 void UART::handleGetError()
