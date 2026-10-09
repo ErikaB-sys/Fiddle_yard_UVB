@@ -479,7 +479,7 @@ void UART::handleGetError()
         data[3] = UART_context->error->getError(2U);
     }
 
-    setResponse(STATUS_Error, data, sizeof(data));
+    setResponse(STATUS_Error, data, 4U);
 }
 
 void UART::handleGetPosition()
