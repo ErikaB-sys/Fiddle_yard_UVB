@@ -97,6 +97,12 @@ constexpr uint8_t STATUS_Reference              = 0x30   ;    // Status ID  Refe
 constexpr uint8_t STATUS_Track                  = 0x40    ;   // Status ID  Track informatiom
 /** Response containing motor information. */
 constexpr uint8_t STATUS_Motor                  = 0x50;    //Status ID Motor information
+constexpr uint8_t STATUS_Switches               = 0x41;
+constexpr uint8_t STATUS_Keyboard               = 0x51;
+constexpr uint8_t STATUS_SELECTOR_SYSTEM        = 0x10;
+constexpr uint8_t STATUS_SELECTOR_MOTOR         = 0x20;
+constexpr uint8_t STATUS_SELECTOR_SWITCHES      = 0x40;
+constexpr uint8_t STATUS_SELECTOR_KEYBOARD      = 0x50;
 /** Acknowledgement response for movement commands. */
 constexpr uint8_t STATUS_ACK                    = 0x60;      // Answer on moving Commands  if accepted
 constexpr uint8_t STATUS_NACK                    = 0x70;     // Answer on moving Commands if Busy
@@ -152,7 +158,7 @@ struct ResponseDefinition
 const CommandDefinition commandDefinitions[] =
 {
     // Command,          CommandType,          DATA length, Response,         Requires reference
-    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 0, STATUS_System,       false },
+    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1, STATUS_System,       false },
     { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0, STATUS_Error,        false },
     { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0, STATUS_Position,     false },
     { CMD_GET_TRACK,     CommandType::IMMEDIATE, 0, STATUS_Track,         false },
@@ -182,6 +188,8 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Reference, 1, ResponseContainer::Data },
 { STATUS_Track,     3, ResponseContainer::Data },
 { STATUS_Motor,     3, ResponseContainer::Data },
+{ STATUS_Switches,  1, ResponseContainer::Data },
+{ STATUS_Keyboard,  1, ResponseContainer::Data },
 { STATUS_ACK,       1, ResponseContainer::Data },
 { STATUS_Help,      0, ResponseContainer::String }
 };
