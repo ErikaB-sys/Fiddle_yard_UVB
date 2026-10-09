@@ -15,6 +15,7 @@ Switches       FY_Switches;
 UART           FY_uart;
 Motor          FY_motor;
 Keyboard       FY_Keyboard;
+Error          FY_Error;
 UART_Context_t Main_Context;
 
 FY_SystemStatus_t systemStatus;
@@ -40,7 +41,7 @@ void printFirmwareInfo()
 void setup()
 {
   Main_Context.systemStatus = &systemStatus;
-  Main_Context.uartError = nullptr;
+  Main_Context.error = &FY_Error;
   Main_Context.motorPosition = nullptr;
   Main_Context.Track_INFO = nullptr;
   Main_Context.motorSpeed = nullptr;
@@ -51,6 +52,8 @@ void setup()
       &FY_Keyboard,
       &FY_Switches
   };
+
+  FY_Error.begin();
 
   FY_uart.begin(Main_Context, FY_Modules);
 
