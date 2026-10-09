@@ -77,7 +77,6 @@ private:
     {
         BabelFishCommand_t command;
         CommandType type;
-        uint8_t response;
         UART_CommandStatus_t status;
     };
 
