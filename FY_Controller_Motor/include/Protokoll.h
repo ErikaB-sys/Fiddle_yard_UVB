@@ -162,11 +162,11 @@ const CommandDefinition commandDefinitions[] =
     { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false }, // Issue: #114 | Status: Coded constructed
     { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false }, // Issue: #115 | Status: Coded constructed
     { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Coded constructed
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 0,false }, // Issue: #117 | Status: Coded constructed
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Coded constructed
     { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Coded constructed
     { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Coded constructed
     { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Coded constructed
-    { CMD_SET_SPEED,     CommandType::EXECUTE,   2,false }, // Issue: #121 -> #145 (replacement) | Status: Coded constructed
+    { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Coded constructed
     { CMD_GO,            CommandType::EXECUTE,   2, true }, // Issue: #122 | Status: Coded constructed
     { CMD_LEFT,          CommandType::EXECUTE,   3, true }, // Issue: #123 | Status: Coded constructed
     { CMD_RIGHT,         CommandType::EXECUTE,   3, true }, // Issue: #124 | Status: Coded constructed
