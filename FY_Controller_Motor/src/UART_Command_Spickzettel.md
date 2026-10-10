@@ -9,7 +9,7 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | GET_STATUS | `0x19` | 1 Byte Selektor (Hex) | `STATUS 10`, `STATUS 20`, `STATUS 40`, `STATUS 50` |
 | GET_ERROR | `0x1A` | – | `ERROR` |
 | REFERENCE | `0x16` | – | `REFERENCE` |
-| SET_SPEED | `0x2B` | uint16 | `SET_SPEED 800` |
+| SET_PARAM | `0x2B` | Parameter-ID + 24-Bit-Rohwert (4 DATA-Byte) | `SET_PARAM <ID> <Rohwert>` |
 | STOPP | `0x01` | – | `STOP` |
 | LEFT | `0x0B` | – | `LEFT` |
 | RIGHT | `0x0D` | – | `RIGHT` |
@@ -40,7 +40,7 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 - `uint16`: 2 Byte, **Little Endian**
 - Beispiel: `SET_POSITION 3200` → `0x13 0x80 0x0C`
 - Beispiel: `SET_TRACK 3` → `0x1C 0x03`
-- Beispiel: `SET_SPEED 800` → `0x2B 0x20 0x03`
+- Beispiel: `SET_PARAM 1 80` → `0x2B 0x01 0x50 0x00 0x00` (Beispiel-ID; Rohwert 80, Semantik gemäß Issue #145)
 
 ## Responses
 
@@ -67,7 +67,7 @@ STATUS
 GET_POSITION
 SET_TRACK 3
 SET_POSITION 3200
-SET_SPEED 800
+SET_PARAM 1 80
 SET_MODE LOCAL
 SET_MODE REMOTE
 STOP
