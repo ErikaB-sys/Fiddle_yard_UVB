@@ -544,11 +544,31 @@ void UART::handleGetError()
 
 void UART::handleGetPosition()
 {
-    setResponse(
-        STATUS_Position,
-        reinterpret_cast<const uint8_t*>(UART_context->motorPosition),
-        sizeof(int32_t)
-    );
+    if ((UART_context == nullptr) ||
+        (UART_context->motorPosition == nullptr))
+    {
+        const uint8_t errorData[2] =
+        {
+            DEV_MODULE_UART,
+            DEV_ERROR_NULL_POINTER
+        };
+        setResponse(DEV_RESPONSE, errorData, sizeof(errorData));
+        return;
+    }
+
+    // UART reads the Main-level snapshot, never the ISR-owned motor counter.
+    const uint32_t position =
+        static_cast<uint32_t>(*UART_context->motorPosition);
+
+    const uint8_t data[4] =
+    {
+        static_cast<uint8_t>(position & 0xFFU),
+        static_cast<uint8_t>((position >> 8U) & 0xFFU),
+        static_cast<uint8_t>((position >> 16U) & 0xFFU),
+        static_cast<uint8_t>((position >> 24U) & 0xFFU)
+    };
+
+    setResponse(STATUS_Position, data, sizeof(data));
 }
 
 void UART::handleGetTrack()
@@ -563,39 +583,41 @@ void UART::handleGetTrack()
         return;
     }
 
-    uint8_t data[3] = {0U, 0U, TRACK_STATUS_ERROR};
-
-    if ((UART_context != nullptr) &&
-        (UART_context->Track_INFO != nullptr) &&
-        (UART_context->systemStatus != nullptr))
+    // All sources below are required to form a truthful track response.
+    if ((UART_context == nullptr) ||
+        (UART_context->Track_INFO == nullptr) ||
+        (UART_context->systemStatus == nullptr) ||
+        (FY_ModuleContext == nullptr) ||
+        (FY_ModuleContext->motor == nullptr))
     {
-        data[0] = static_cast<uint8_t>(
-            UART_context->Track_INFO->target_track);
-        data[1] = static_cast<uint8_t>(
-            UART_context->Track_INFO->akt_track);
-
-        if ((UART_context->systemStatus->state == FY_SystemState_t::Error) ||
-            UART_context->systemStatus->init.systemError ||
-            UART_context->systemStatus->error.motor)
+        const uint8_t errorData[2] =
         {
-            data[2] = TRACK_STATUS_ERROR;
-        }
-        else if ((FY_ModuleContext == nullptr) ||
-                 (FY_ModuleContext->motor == nullptr))
-        {
-            data[2] = TRACK_STATUS_ERROR;
-        }
-        else if (FY_ModuleContext->motor->isMoving())
-        {
-            data[2] = TRACK_STATUS_MOVING;
-        }
-        else
-        {
-            data[2] = TRACK_STATUS_REACHED;
-        }
+            DEV_MODULE_UART,
+            DEV_ERROR_NULL_POINTER
+        };
+        setResponse(DEV_RESPONSE, errorData, sizeof(errorData));
+        return;
     }
 
-    setResponse(STATUS_Track, data, 3U);
+    uint8_t data[3] =
+    {
+        static_cast<uint8_t>(UART_context->Track_INFO->target_track),
+        static_cast<uint8_t>(UART_context->Track_INFO->akt_track),
+        TRACK_STATUS_REACHED
+    };
+
+    if ((UART_context->systemStatus->state == FY_SystemState_t::Error) ||
+        UART_context->systemStatus->init.systemError ||
+        UART_context->systemStatus->error.motor)
+    {
+        data[2] = TRACK_STATUS_ERROR;
+    }
+    else if (FY_ModuleContext->motor->isMoving())
+    {
+        data[2] = TRACK_STATUS_MOVING;
+    }
+
+    setResponse(STATUS_Track, data, sizeof(data));
 }
 
 void UART::handleHelp()
