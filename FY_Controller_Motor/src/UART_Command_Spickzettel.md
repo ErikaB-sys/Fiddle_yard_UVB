@@ -16,7 +16,7 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | SET_POSITION | `0x13` | uint16 | `SET_POSITION 3200` |
 | GET_POSITION | `0x15` | – | `GET_POSITION` |
 | SET_TRACK | `0x1C` | uint8 | `SET_TRACK 3` |
-| GET_TRACK | `0x23` | – | `GET_TRACK` |
+| GET_TRACK | `0x23` | 1 Byte Option (`00` = Standardabfrage) | `GET_TRACK` |
 | HELP | `0x25` | – | `HELP` |
 | GET_FIRMWARE | `0x27` | – | `FIRMWARE` |
 | SET_MODE | `0x26` | 2 Byte: `55 AA` = LOCAL, `AA 55` = REMOTE | `SET_MODE LOCAL` / `SET_MODE REMOTE` |
@@ -52,11 +52,23 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 | CMD | `0x15` | 1 Byte |
 | Position | `0x20` | 4 Byte |
 | Reference | `0x30` | 1 Byte |
-| Track | `0x40` | 3 Byte |
+| Track | `0x40` | 3 Byte: Zielgleis, zuletzt bestätigtes Gleis, Bewegungsstatus |
 | Motor | `0x50` | 3 Byte |
 | ACK | `0x60` | 1 Byte: bestätigte Command-ID |
 | NACK | `0x70` | 1 Byte: abgelehnte Command-ID |
 | Help | `0x18` | variabel |
+
+## GET_TRACK – Antwortformat (Issue #58)
+
+Request DATA:
+- `DATA[0] = 0x00`: Standardabfrage (einzige aktuell gültige Option)
+
+Response `STATUS_Track (0x40)`:
+- `DATA[0]`: Zielgleis BG1–BG5
+- `DATA[1]`: zuletzt bestätigtes aktuelles Gleis BG1–BG5
+- `DATA[2]`: Bewegungsstatus: `0x00` = REACHED, `0x01` = MOVING, `0x02` = ERROR
+
+Während der Bewegung bleibt das aktuelle Gleis das zuletzt bestätigte Gleis. Die Gleiszustandsführung selbst muss vom Motor-/Sensorpfad aktualisiert werden; GET_TRACK liest diesen Zustand nur aus.
 
 ## Terminal-Test
 
