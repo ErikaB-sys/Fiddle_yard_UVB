@@ -105,7 +105,7 @@ constexpr uint8_t STATUS_SELECTOR_SWITCHES      = 0x40;
 constexpr uint8_t STATUS_SELECTOR_KEYBOARD      = 0x50;
 /** Acknowledgement response for movement commands. */
 constexpr uint8_t STATUS_ACK                    = 0x60;      // Answer on moving Commands  if accepted
-constexpr uint8_t STATUS_NACK                    = 0x70;     // Answer on moving Commands if Busy | Issue: #143 | Status: Coded constructed (descriptor missing from ResponseDefinitions[])
+constexpr uint8_t STATUS_NACK                    = 0x70;     // Issue: #143 | Negative acknowledgement with one-byte reason code
 /** Response indicating that the help text has been sent. */
 constexpr uint8_t STATUS_Help                   = 0x18   ;    // Status indicating that the list of available commands has been sent to Uart
 
@@ -190,6 +190,7 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
 { STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
 { STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Defined
+{ STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Coded constructed
 { STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Status: Coded constructed
 };
 
