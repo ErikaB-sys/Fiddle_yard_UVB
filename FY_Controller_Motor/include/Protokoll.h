@@ -39,7 +39,7 @@ constexpr uint8_t CMD_GET_STATUS   =   0x19   ;    // Command to get the status 
 constexpr uint8_t CMD_GET_ERROR    =   0x1A   ;    // Command to get the current error of the FY-Controller
 
 constexpr uint8_t CMD_REFERENCE    =   0x16   ;    // Command to reference the motor position
-constexpr uint8_t CMD_SET_SPEED    =   0x2B   ;    // Command to set the speed of the motor
+constexpr uint8_t CMD_SET_PARAM    =   0x2B   ;    // Generic parameter command; replaces CMD_SET_SPEED (Issues #145, #58)
 
 constexpr uint8_t CMD_STOPP        =   0x01   ;    // Command to stop the motor
 constexpr uint8_t CMD_GO           =   0x07   ;    // Command to start the motor
@@ -163,7 +163,7 @@ const CommandDefinition commandDefinitions[] =
     { CMD_HELP,          CommandType::IMMEDIATE, 0,false },
     { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false },
     { CMD_REFERENCE,     CommandType::EXECUTE,   1,false },
-    { CMD_SET_SPEED,     CommandType::EXECUTE,   2,false },
+    { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false },
     { CMD_GO,            CommandType::EXECUTE,   2, true },
     { CMD_LEFT,          CommandType::EXECUTE,   3, true },
     { CMD_RIGHT,         CommandType::EXECUTE,   3, true },
