@@ -19,6 +19,8 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | GET_TRACK | `0x23` | 1 Byte Option (`00` = Standardabfrage) | `GET_TRACK` |
 | HELP | `0x25` | – | `HELP` |
 | GET_FIRMWARE | `0x27` | – | `FIRMWARE` |
+
+
 | SET_MODE | `0x26` | 2 Byte: `55 AA` = LOCAL, `AA 55` = REMOTE | `SET_MODE LOCAL` / `SET_MODE REMOTE` |
 
 > `CMD_GO` ist bewusst nicht aufgeführt. Bewegungsbefehle sollen direkt ausgeführt werden.
@@ -57,7 +59,13 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 | ACK | `0x60` | 1 Byte: bestätigte Command-ID |
 | NACK | `0x70` | 1 Byte: abgelehnte Command-ID |
 | DEV_RESPONSE | `0xFF` | 2 Byte: Modulkennung, Entwicklungsfehlercode (unerwarteter Implementierungszustand) |
-| Help | `0x18` | variabel |
+| Help | `0x18` | Hilfetext auf Norwegisch + GitHub-Spickzettel-Link (variabel) |
+| Firmware | `0x28` | Automatisch generierte Firmware-Identität: Name, Version, Build-Zeit, Git-Commit |
+
+## HELP und GET_FIRMWARE
+
+- `HELP` liefert `STATUS_Help (0x18)` mit einem kurzen norwegischen Gimmick und dem Link zu diesem Spickzettel.
+- `FIRMWARE` liefert `STATUS_Firmware (0x28)` mit denselben automatisch erzeugten Angaben wie die Firmware-Ausgabe beim Start: Name, Version, Build-Datum/-Zeit und Git-Commit.
 
 ## GET_TRACK – Antwortformat (Issue #58)
 
