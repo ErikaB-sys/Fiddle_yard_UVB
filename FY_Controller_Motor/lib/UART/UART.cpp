@@ -580,9 +580,12 @@ void UART::handleGetTrack()
         {
             data[2] = TRACK_STATUS_ERROR;
         }
-        else if ((FY_ModuleContext != nullptr) &&
-                 (FY_ModuleContext->motor != nullptr) &&
-                 FY_ModuleContext->motor->isMoving())
+        else if ((FY_ModuleContext == nullptr) ||
+                 (FY_ModuleContext->motor == nullptr))
+        {
+            data[2] = TRACK_STATUS_ERROR;
+        }
+        else if (FY_ModuleContext->motor->isMoving())
         {
             data[2] = TRACK_STATUS_MOVING;
         }
@@ -592,7 +595,7 @@ void UART::handleGetTrack()
         }
     }
 
-    setResponse(STATUS_Track, data, sizeof(data));
+    setResponse(STATUS_Track, data, 3U);
 }
 
 void UART::handleHelp()
