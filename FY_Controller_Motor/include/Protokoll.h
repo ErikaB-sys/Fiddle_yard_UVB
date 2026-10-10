@@ -106,6 +106,8 @@ constexpr uint8_t STATUS_Track                  = 0x40    ;   // Status ID  Trac
 constexpr uint8_t STATUS_Motor                  = 0x50;    //Status ID Motor information
 constexpr uint8_t STATUS_Switches               = 0x41;
 constexpr uint8_t STATUS_Keyboard               = 0x51;
+/** Response containing automatically generated firmware identity information. */
+constexpr uint8_t STATUS_Firmware               = 0x28;
 constexpr uint8_t STATUS_SELECTOR_SYSTEM        = 0x10;
 constexpr uint8_t STATUS_SELECTOR_MOTOR         = 0x20;
 constexpr uint8_t STATUS_SELECTOR_SWITCHES      = 0x40;
@@ -178,7 +180,7 @@ const CommandDefinition commandDefinitions[] =
     { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Code constructed (snapshot wired; runtime refresh depends on motor loop)
     { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Code constructed (track snapshot connection pending)
     { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Code working
-    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Code constructed (response ID to review)
+    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Code constructed (STATUS_Firmware)
     { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Code constructed
     { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Code constructed
     { CMD_GO,            CommandType::EXECUTE,   2, true }, // Issue: #122 | Status: Code constructed
@@ -204,10 +206,11 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Code working
 { STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
 { STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
+{ STATUS_Firmware,  0, ResponseContainer::String }, // Automatically generated firmware identity
 { STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Code working
 { STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Code working
 { DEV_RESPONSE,     2, ResponseContainer::Data }, // Reserved development response: module code + error code
-{ STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Status: Code working
+{ STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Norwegian help text + GitHub Spickzettel
 };
 
 
