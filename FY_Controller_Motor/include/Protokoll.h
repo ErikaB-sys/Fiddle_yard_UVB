@@ -39,7 +39,7 @@ constexpr uint8_t CMD_GET_STATUS   =   0x19   ;    // Command to get the status 
 constexpr uint8_t CMD_GET_ERROR    =   0x1A   ;    // Command to get the current error of the FY-Controller
 
 constexpr uint8_t CMD_REFERENCE    =   0x16   ;    // Command to reference the motor position
-constexpr uint8_t CMD_SET_PARAM    =   0x2B   ;    // Generic parameter command; replaces CMD_SET_SPEED (Issues #145, #58)
+constexpr uint8_t CMD_SET_PARAM    =   0x2B   ;    // Issue: #145 | Set a motor/controller parameter
 
 constexpr uint8_t CMD_STOPP        =   0x01   ;    // Command to stop the motor
 constexpr uint8_t CMD_GO           =   0x07   ;    // Command to start the motor
@@ -112,7 +112,7 @@ constexpr uint8_t STATUS_SELECTOR_SWITCHES      = 0x40;
 constexpr uint8_t STATUS_SELECTOR_KEYBOARD      = 0x50;
 /** Acknowledgement response for movement commands. */
 constexpr uint8_t STATUS_ACK                    = 0x60;      // Answer on moving Commands  if accepted
-constexpr uint8_t STATUS_NACK                    = 0x70;     // Answer on moving Commands if Busy
+constexpr uint8_t STATUS_NACK                    = 0x70;     // Issue: #143 | Negative acknowledgement with one-byte reason code
 /** Response indicating that the help text has been sent. */
 constexpr uint8_t STATUS_Help                   = 0x18   ;    // Status indicating that the list of available commands has been sent to Uart
 
@@ -164,40 +164,40 @@ struct ResponseDefinition
 const CommandDefinition commandDefinitions[] =
 {
     // Command,          CommandType,          DATA length, Requires reference
-    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false },
-    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false },
-    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false },
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false },
-    { CMD_HELP,          CommandType::IMMEDIATE, 0,false },
-    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false },
-    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false },
-    { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false },
-    { CMD_GO,            CommandType::EXECUTE,   2, true },
-    { CMD_LEFT,          CommandType::EXECUTE,   3, true },
-    { CMD_RIGHT,         CommandType::EXECUTE,   3, true },
-    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true },
-    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true },
-    { CMD_SET_MODE,      CommandType::EXECUTE,   2,false },
-    { CMD_STOPP,         CommandType::PRIORITY,  0,false }
+    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false }, // Issue: #114 | Status: Coded constructed
+    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false }, // Issue: #115 | Status: Coded constructed
+    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Coded constructed
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Coded constructed
+    { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Coded constructed
+    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Coded constructed
+    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Coded constructed
+    { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Coded constructed
+    { CMD_GO,            CommandType::EXECUTE,   2, true }, // Issue: #122 | Status: Coded constructed
+    { CMD_LEFT,          CommandType::EXECUTE,   3, true }, // Issue: #123 | Status: Coded constructed
+    { CMD_RIGHT,         CommandType::EXECUTE,   3, true }, // Issue: #124 | Status: Coded constructed
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true }, // Issue: #125 | Status: Coded constructed
+    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true }, // Issue: #126 | Status: Coded constructed
+    { CMD_SET_MODE,      CommandType::EXECUTE,   2,false }, // Issue: #58 | Status: Coded constructed
+    { CMD_STOPP,         CommandType::PRIORITY,  0,false } // Issue: #129 | Status: Coded constructed
 };
 constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefinitions[0]);
 
 /** Definitions of all response statuses supported by the UART protocol. */
 const ResponseDefinition ResponseDefinitions[] =
 {
-{ STATUS_Alive,     0, ResponseContainer::Data },
-{ STATUS_Error,     4, ResponseContainer::Data },
-{ STATUS_System,    2, ResponseContainer::Data },
-{ STATUS_CMD,       1, ResponseContainer::Data },
-{ STATUS_Position,  4, ResponseContainer::Data },
-{ STATUS_Reference, 1, ResponseContainer::Data },
-{ STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status
-{ STATUS_Motor,     3, ResponseContainer::Data },
-{ STATUS_Switches,  1, ResponseContainer::Data },
-{ STATUS_Keyboard,  1, ResponseContainer::Data },
-{ STATUS_ACK,       1, ResponseContainer::Data },
-{ STATUS_NACK,      1, ResponseContainer::Data },
-{ STATUS_Help,      0, ResponseContainer::String }
+{ STATUS_Alive,     0, ResponseContainer::Data }, // Issue: #134 | Status: Defined
+{ STATUS_Error,     4, ResponseContainer::Data }, // Issue: #135 | Status: Coded constructed
+{ STATUS_System,    2, ResponseContainer::Data }, // Issue: #136 | Status: Coded constructed
+{ STATUS_CMD,       1, ResponseContainer::Data }, // Issue: #137 | Status: Defined
+{ STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Coded constructed
+{ STATUS_Reference, 1, ResponseContainer::Data }, // Issue: #139 | Status: Defined
+{ STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Coded constructed
+{ STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Coded constructed
+{ STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
+{ STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
+{ STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Defined
+{ STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Coded constructed
+{ STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Status: Coded constructed
 };
 
 
