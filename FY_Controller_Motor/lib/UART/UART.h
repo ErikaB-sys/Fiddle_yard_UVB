@@ -139,7 +139,7 @@ private:
     void handleGetFirmware();
 
     void handleReference();
-    void handleSetSpeed();
+    void handleSetParam();
     void handleGo();
     void handleLeft();
     void handleRight();
