@@ -175,8 +175,8 @@ const CommandDefinition commandDefinitions[] =
     // Command,          CommandType,          DATA length, Requires reference
     { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false }, // Issue: #114 | Status: Code working
     { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false }, // Issue: #115 | Status: Code working
-    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Code constructed (snapshot integration pending)
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Code working
+    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Code constructed (snapshot wired; runtime refresh depends on motor loop)
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Code constructed (track snapshot connection pending)
     { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Code working
     { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Code constructed (response ID to review)
     { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Code constructed
@@ -198,9 +198,9 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Error,     4, ResponseContainer::Data }, // Issue: #135 | Status: Code working
 { STATUS_System,    2, ResponseContainer::Data }, // Issue: #136 | Status: Code working
 { STATUS_CMD,       1, ResponseContainer::Data }, // Issue: #137 | Status: Code working
-{ STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Code constructed (snapshot integration pending)
+{ STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Code constructed (snapshot wired; runtime refresh depends on motor loop)
 { STATUS_Reference, 1, ResponseContainer::Data }, // Issue: #139 | Status: Defined
-{ STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Code working
+{ STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Code constructed (track snapshot connection pending)
 { STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Code working
 { STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
 { STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
