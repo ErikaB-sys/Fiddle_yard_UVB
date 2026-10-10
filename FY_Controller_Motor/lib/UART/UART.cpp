@@ -623,14 +623,16 @@ void UART::handleGetTrack()
 void UART::handleHelp()
 {
     static const char HELP_RESPONSE[] PROGMEM =
-        "GET_STATUS GET_ERROR GET_POSITION GET_TRACK HELP GET_FIRMWARE SET_MODE";
+        "Ta det med ro, hjelpen er paa vei! Spickzettel: "
+        "https://github.com/ErikaB-sys/Fiddle_yard_UVB/blob/FY_Command_and_Responses/"
+        "FY_Controller_Motor/src/UART_Command_Spickzettel.md";
 
     setResponse(STATUS_Help, HELP_RESPONSE);
 }
 
 void UART::handleGetFirmware()
 {
-    setResponse(STATUS_Help, FW_RESPONSE);
+    setResponse(STATUS_Firmware, FW_RESPONSE);
 }
 
 void UART::handle_Busy()
