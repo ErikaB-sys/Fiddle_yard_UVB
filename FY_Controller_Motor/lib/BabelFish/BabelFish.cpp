@@ -504,11 +504,12 @@ bool BabelFish::parseUInt24(const char* text, uint32_t& value)
         if (*text < '0' || *text > '9')
             return false;
 
-        parsed = (parsed * 10UL) + static_cast<uint8_t>(*text - '0');
+        const uint8_t digit = static_cast<uint8_t>(*text - '0');
 
-        if (parsed > 0xFFFFFFUL)
+        if (parsed > ((0xFFFFFFUL - digit) / 10UL))
             return false;
 
+        parsed = (parsed * 10UL) + digit;
         ++text;
     }
 
