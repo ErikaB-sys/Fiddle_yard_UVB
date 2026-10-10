@@ -650,14 +650,16 @@ void UART::handleSetMode()
 
     if (first == 0x55U && second == 0xAAU)
     {
-        FY_ModuleContext->keyboard->setMode(Keyboard::Mode::LOCAL);
+        UART_context->systemStatus->mode = FY_OperatingMode_t::LOCAL;
+        FY_ModuleContext->keyboard->setMode(UART_context->systemStatus->mode);
         setResponse(STATUS_ACK, &commandId, 1U);
         return;
     }
 
     if (first == 0xAAU && second == 0x55U)
     {
-        FY_ModuleContext->keyboard->setMode(Keyboard::Mode::REMOTE);
+        UART_context->systemStatus->mode = FY_OperatingMode_t::REMOTE;
+        FY_ModuleContext->keyboard->setMode(UART_context->systemStatus->mode);
         setResponse(STATUS_ACK, &commandId, 1U);
         return;
     }
