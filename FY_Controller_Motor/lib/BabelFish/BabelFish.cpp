@@ -494,12 +494,12 @@ bool BabelFish::parseUInt16(const char* text, uint16_t& value)
 
 bool BabelFish::parseUInt24(const char* text, uint32_t& value)
 {
-    if ((text == nullptr) || (*text == '\\0'))
+    if ((text == nullptr) || (*text == '\0'))
         return false;
 
     uint32_t parsed = 0;
 
-    while (*text != '\\0')
+    while (*text != '\0')
     {
         if (*text < '0' || *text > '9')
             return false;
