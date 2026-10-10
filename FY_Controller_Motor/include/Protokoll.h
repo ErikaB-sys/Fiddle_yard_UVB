@@ -173,10 +173,10 @@ const CommandDefinition commandDefinitions[] =
     { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Code constructed
     { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Code constructed
     { CMD_GO,            CommandType::EXECUTE,   2, true }, // Issue: #122 | Status: Code constructed
-    { CMD_LEFT,          CommandType::EXECUTE,   3, true }, // Issue: #123 | Status: Coded constructed
-    { CMD_RIGHT,         CommandType::EXECUTE,   3, true }, // Issue: #124 | Status: Coded constructed
-    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true }, // Issue: #125 | Status: Coded constructed
-    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true }, // Issue: #126 | Status: Coded constructed
+    { CMD_LEFT,          CommandType::EXECUTE,   3, true }, // Issue: #123 | Status: Code constructed
+    { CMD_RIGHT,         CommandType::EXECUTE,   3, true }, // Issue: #124 | Status: Code constructed
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true }, // Issue: #125 | Status: Code constructed
+    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true }, // Issue: #126 | Status: Code constructed
     { CMD_SET_MODE,      CommandType::EXECUTE,   2,false }, // Issue: #58 | Status: Code working
     { CMD_STOPP,         CommandType::PRIORITY,  2,false } // Issue: #129 | Status: Code constructed (safety behavior pending)
 };
@@ -191,10 +191,10 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_CMD,       1, ResponseContainer::Data }, // Issue: #137 | Status: Code working
 { STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Code constructed (snapshot integration pending)
 { STATUS_Reference, 1, ResponseContainer::Data }, // Issue: #139 | Status: Defined
-{ STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Coded constructed
+{ STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Code working
 { STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Code working
 { STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
-{ STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
+{ STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
 { STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Code working
 { STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Code working
 { STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Status: Code working
