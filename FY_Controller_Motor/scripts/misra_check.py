@@ -69,6 +69,9 @@ cmd = [
     "--cppcheck-build-dir=.cppcheck",
     "-DARDUINO",
     "-DARDUINO_AVR_NANO",
+    # Cppcheck-only compatibility: AVR PROGMEM affects storage placement,
+    # but is not needed to parse the source during this direct analysis.
+    "-DPROGMEM=",
 ]
 
 for include_dir in include_dirs:
