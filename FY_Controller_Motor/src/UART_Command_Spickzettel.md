@@ -56,6 +56,7 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 | Motor | `0x50` | 3 Byte |
 | ACK | `0x60` | 1 Byte: bestätigte Command-ID |
 | NACK | `0x70` | 1 Byte: abgelehnte Command-ID |
+| DEV_RESPONSE | `0xFF` | 2 Byte: Modulkennung, Entwicklungsfehlercode (unerwarteter Implementierungszustand) |
 | Help | `0x18` | variabel |
 
 ## GET_TRACK – Antwortformat (Issue #58)
@@ -100,5 +101,19 @@ BabelFish wandelt diese Eingaben in die binären Commands um.
 - Antwort: ACK (`0x60`) mit Command-ID oder NACK (`0x70`) mit Command-ID
 - Bei ungültigem Datenmuster, fehlendem erforderlichem Modul oder laufender Bewegung erfolgt NACK; die Betriebsart bleibt unverändert.
 - Der Befehl schaltet den Motor nicht ein und startet keine Bewegung.
+
+Siehe [Issue #58](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/58).
+
+
+## DEV_RESPONSE – Entwicklungsfehler
+
+`DEV_RESPONSE` (`0xFF`) ist für Zustände reserviert, die im normalen Betrieb nicht auftreten dürfen, aber erst später durch einen bislang nicht durchlaufenen Codepfad entdeckt werden könnten.
+
+- DATA[0]: Modulkennung; aktuell `0x01` = UART
+- DATA[1]: Fehlercode; aktuell `0x01` = NULL_POINTER
+- Beispiel: `FF 01 01` = UART meldet einen unerwarteten Nullpointer-Zustand (CRC folgt gemäß Telegrammformat).
+- Die Antwortdefinition bleibt regulär in `Protokoll.h` enthalten. Sie ist keine normale Betriebsantwort.
+- Bei einem solchen Fehler wird der betroffene Handler kontrolliert abgebrochen; es dürfen keine erfundenen oder ungültigen Nutzdaten gesendet werden.
+- Weitere Modul- und Fehlercodes werden bei Bedarf ergänzt.
 
 Siehe [Issue #58](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/58).
