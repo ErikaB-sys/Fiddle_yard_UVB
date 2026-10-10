@@ -1,5 +1,9 @@
 # FY Produktivsoftware – technische Roadmap
 
+**Aktiver Entwicklungsbranch:** `FY_Command_and_Responses`  
+**Basis:** aktueller, kompilierbarer Stand von `main`  
+**Phasenziel:** UART-Befehle und Antworten vervollständigen, Protokoll und Handler konsistent machen und die Implementierung gezielt testen. Nach erfolgreicher Abschlussprüfung wird die Phase nach `main` gemergt.
+
 > Arbeitsdiagramm für die schrittweise Überführung der Erkenntnisse aus dem FY_HW_TEST in die Produktivsoftware.
 
 ```mermaid
@@ -83,16 +87,22 @@ Für `FY_Common/MotorProfile.h` ist damit zunächst **keine automatische gemeins
 
 ## Branch- und Merge-Regel
 
-Die laufende Produktiventwicklung erfolgt ausschließlich auf dem Branch `FY_Controller_Motor`. `main` ist die gemeinsame stabile Basis und wird während der laufenden Entwicklung nicht parallel bearbeitet.
+`main` ist die maßgebliche Referenz für den aktuellen Produktivstand. Die jeweils laufende Implementierungsphase erhält einen eigenen, klar benannten Branch, der aus dem aktuellen `main` erstellt wird. Es wird nicht parallel auf mehreren Produktiv-Branches gearbeitet.
 
-Die nächste Merge-Schwelle ist erreicht, sobald folgende Punkte abgeschlossen und geprüft sind:
+**Aktuelle Phase:** `FY_Command_and_Responses`  
+**Ausgangsbasis:** der aktuelle, kompilierbare Stand von `main` mit den bewusst akzeptierten `unused`- und MISRA-Warnings.
 
-1. Die zentrale Fehlerverwaltung funktioniert einschließlich Setzen, Ersetzen, Löschen und Begrenzung auf drei gespeicherte Fehler.
-2. UART `GET_ERROR` liefert Statusbyte und Fehlerplätze korrekt; Telegrammlänge und CRC sind geprüft.
-3. Reproduzierbare native PC-Tests für Fehlerverwaltung und Kommunikation bestehen.
-4. Der Firmware-Build ist erfolgreich; es bestehen keine bekannten Blocker für diesen abgeschlossenen Zwischenstand.
+Ziele der Phase:
 
-Dann wird `FY_Controller_Motor` nach `main` gemergt. Die automatische Erkennung unterschiedlicher Platinenvarianten ist dafür keine Voraussetzung; sie bleibt bis zur späteren Umsetzung ein dokumentierter Vorschlag in `HW_Config.h`.
+1. Command- und Response-Definitionen mit der tatsächlichen Implementierung abgleichen und vervollständigen.
+2. Telegrammlängen, Parameter, Handler und Fehlerantworten konsistent machen.
+3. Verfügbare native Tests und gezielte Protokolltests ausführen; nicht ausgeführte Prüfungen ausdrücklich offenhalten.
+4. Relevante Issues und Implementierungsstatus aktualisieren.
+5. Einen kompilierbaren, überprüften Zwischenstand ohne bekannte Blocker für die abgeschlossene Phase erreichen.
 
-Nach dem Merge werden beide Branches auf eine gemeinsame Basis gebracht. Vor jedem neuen Arbeitsabschnitt werden der aktive Branch und der aktuelle Commit geprüft und als Ausgangspunkt benannt. Es wird nicht stillschweigend zwischen unterschiedlichen Branch-Ständen gewechselt.
+Nach Abschlussprüfung wird `FY_Command_and_Responses` gezielt nach `main` gemergt. Danach wird die nächste Implementierungsphase – voraussichtlich `FY_Motor` – aus dem dann aktuellen `main` erstellt. Der bisherige Branch `FY_Controller_Motor` bleibt als historischer Entwicklungsstand erhalten und wird nicht gelöscht.
+
+Vor jeder Übernahme werden Commit-Historie, relevante Issues und bewusste Architekturentscheidungen geprüft. Eine Abweichung zwischen Branches gilt nicht automatisch als Fehler. Bereits bewusst in `main` vorgenommene Änderungen werden respektiert; es werden nur tatsächlich relevante Unterschiede als offene Punkte gemeldet.
+
+Vor jedem neuen Arbeitsabschnitt werden aktiver Branch und Ausgangscommit geprüft und benannt. Es wird nicht stillschweigend zwischen unterschiedlichen Branch-Ständen gewechselt.
 
