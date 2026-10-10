@@ -54,8 +54,7 @@ constexpr uint8_t CMD_GET_TRACK    =   0x23   ;    // Command to get the current
 constexpr uint8_t CMD_HELP         =   0x25   ;    // Command to get the list of available commands
 constexpr uint8_t CMD_GET_FIRMWARE =   0x27   ;    // Command to get firmware identity information
 
-constexpr uint8_t CMD_SET_LOCAL    =   0x26   ;    // Command to set the controller to local mode
-constexpr uint8_t CMD_SET_REMOTE   =   0x2A   ;    // Command to set the controller to remote mode
+constexpr uint8_t CMD_SET_MODE     =   0x26   ;    // Command to select LOCAL/REMOTE mode (see Issue #58)
 
 
 /**
@@ -170,8 +169,7 @@ const CommandDefinition commandDefinitions[] =
     { CMD_RIGHT,         CommandType::EXECUTE,   3, true },
     { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true },
     { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true },
-    { CMD_SET_REMOTE,    CommandType::EXECUTE,   0,false },
-    { CMD_SET_LOCAL,     CommandType::EXECUTE,   0,false },
+    { CMD_SET_MODE,      CommandType::EXECUTE,   2,false },
     { CMD_STOPP,         CommandType::PRIORITY,  0,false }
 };
 constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefinitions[0]);
@@ -190,6 +188,7 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Switches,  1, ResponseContainer::Data },
 { STATUS_Keyboard,  1, ResponseContainer::Data },
 { STATUS_ACK,       1, ResponseContainer::Data },
+{ STATUS_NACK,      1, ResponseContainer::Data },
 { STATUS_Help,      0, ResponseContainer::String }
 };
 
