@@ -50,7 +50,15 @@ constexpr uint8_t CMD_SET_POSITION =   0x13   ;    // Command to set the target 
 constexpr uint8_t CMD_GET_POSITION =   0x15   ;    // Command to get the current position of the motor
 
 constexpr uint8_t CMD_SET_TRACK    =   0x1C   ;    // Command to set the track number of the motor
-constexpr uint8_t CMD_GET_TRACK    =   0x23   ;    // Command to get the current track number of the motor
+constexpr uint8_t CMD_GET_TRACK    =   0x23   ;    // Query track and movement state (Issue #58)
+
+// GET_TRACK request: one option byte, 0 = default query.
+constexpr uint8_t GET_TRACK_OPTION_DEFAULT = 0x00;
+
+// STATUS_Track DATA[2] values.
+constexpr uint8_t TRACK_STATUS_REACHED = 0x00;
+constexpr uint8_t TRACK_STATUS_MOVING  = 0x01;
+constexpr uint8_t TRACK_STATUS_ERROR   = 0x02;
 constexpr uint8_t CMD_HELP         =   0x25   ;    // Command to get the list of available commands
 constexpr uint8_t CMD_GET_FIRMWARE =   0x27   ;    // Command to get firmware identity information
 
@@ -159,7 +167,7 @@ const CommandDefinition commandDefinitions[] =
     { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false },
     { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false },
     { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false },
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 0,false },
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false },
     { CMD_HELP,          CommandType::IMMEDIATE, 0,false },
     { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false },
     { CMD_REFERENCE,     CommandType::EXECUTE,   1,false },
@@ -183,7 +191,7 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_CMD,       1, ResponseContainer::Data },
 { STATUS_Position,  4, ResponseContainer::Data },
 { STATUS_Reference, 1, ResponseContainer::Data },
-{ STATUS_Track,     3, ResponseContainer::Data },
+{ STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status
 { STATUS_Motor,     3, ResponseContainer::Data },
 { STATUS_Switches,  1, ResponseContainer::Data },
 { STATUS_Keyboard,  1, ResponseContainer::Data },
