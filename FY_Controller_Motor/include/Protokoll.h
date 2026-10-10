@@ -164,21 +164,21 @@ struct ResponseDefinition
 const CommandDefinition commandDefinitions[] =
 {
     // Command,          CommandType,          DATA length, Requires reference
-    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false }, // Issue: #114 | Status: Coded constructed
-    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false }, // Issue: #115 | Status: Coded constructed
-    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Coded constructed
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Coded constructed
-    { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Coded constructed
-    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Coded constructed
-    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Coded constructed
-    { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Coded constructed
-    { CMD_GO,            CommandType::EXECUTE,   2, true }, // Issue: #122 | Status: Coded constructed
+    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false }, // Issue: #114 | Status: Code working
+    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false }, // Issue: #115 | Status: Code working
+    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Code constructed (snapshot integration pending)
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Code working
+    { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Code working
+    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Code constructed (response ID to review)
+    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Code constructed
+    { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Code constructed
+    { CMD_GO,            CommandType::EXECUTE,   2, true }, // Issue: #122 | Status: Code constructed
     { CMD_LEFT,          CommandType::EXECUTE,   3, true }, // Issue: #123 | Status: Coded constructed
     { CMD_RIGHT,         CommandType::EXECUTE,   3, true }, // Issue: #124 | Status: Coded constructed
     { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true }, // Issue: #125 | Status: Coded constructed
     { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true }, // Issue: #126 | Status: Coded constructed
-    { CMD_SET_MODE,      CommandType::EXECUTE,   2,false }, // Issue: #58 | Status: Coded constructed
-    { CMD_STOPP,         CommandType::PRIORITY,  0,false } // Issue: #129 | Status: Coded constructed
+    { CMD_SET_MODE,      CommandType::EXECUTE,   2,false }, // Issue: #58 | Status: Code working
+    { CMD_STOPP,         CommandType::PRIORITY,  2,false } // Issue: #129 | Status: Code constructed (safety behavior pending)
 };
 constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefinitions[0]);
 
@@ -186,18 +186,18 @@ constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefi
 const ResponseDefinition ResponseDefinitions[] =
 {
 { STATUS_Alive,     0, ResponseContainer::Data }, // Issue: #134 | Status: Defined
-{ STATUS_Error,     4, ResponseContainer::Data }, // Issue: #135 | Status: Coded constructed
-{ STATUS_System,    2, ResponseContainer::Data }, // Issue: #136 | Status: Coded constructed
-{ STATUS_CMD,       1, ResponseContainer::Data }, // Issue: #137 | Status: Defined
-{ STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Coded constructed
+{ STATUS_Error,     4, ResponseContainer::Data }, // Issue: #135 | Status: Code working
+{ STATUS_System,    2, ResponseContainer::Data }, // Issue: #136 | Status: Code working
+{ STATUS_CMD,       1, ResponseContainer::Data }, // Issue: #137 | Status: Code working
+{ STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Code constructed (snapshot integration pending)
 { STATUS_Reference, 1, ResponseContainer::Data }, // Issue: #139 | Status: Defined
 { STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Coded constructed
-{ STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Coded constructed
-{ STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
+{ STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Code working
+{ STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
 { STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
-{ STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Defined
-{ STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Coded constructed
-{ STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Status: Coded constructed
+{ STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Code working
+{ STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Code working
+{ STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Status: Code working
 };
 
 
