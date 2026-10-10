@@ -157,40 +157,40 @@ struct ResponseDefinition
 const CommandDefinition commandDefinitions[] =
 {
     // Command,          CommandType,          DATA length, Requires reference
-    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false },
-    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false },
-    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false },
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 0,false },
-    { CMD_HELP,          CommandType::IMMEDIATE, 0,false },
-    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false },
-    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false },
-    { CMD_SET_SPEED,     CommandType::EXECUTE,   2,false },
-    { CMD_GO,            CommandType::EXECUTE,   2, true },
-    { CMD_LEFT,          CommandType::EXECUTE,   3, true },
-    { CMD_RIGHT,         CommandType::EXECUTE,   3, true },
-    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true },
-    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true },
-    { CMD_SET_REMOTE,    CommandType::EXECUTE,   0,false },
-    { CMD_SET_LOCAL,     CommandType::EXECUTE,   0,false },
-    { CMD_STOPP,         CommandType::PRIORITY,  0,false }
+    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false }, // Issue: #114 | Status: Coded constructed
+    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false }, // Issue: #115 | Status: Coded constructed
+    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Coded constructed
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 0,false }, // Issue: #117 | Status: Coded constructed
+    { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Coded constructed
+    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Coded constructed
+    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Coded constructed
+    { CMD_SET_SPEED,     CommandType::EXECUTE,   2,false }, // Issue: #121 -> #145 (replacement) | Status: Coded constructed
+    { CMD_GO,            CommandType::EXECUTE,   2, true }, // Issue: #122 | Status: Coded constructed
+    { CMD_LEFT,          CommandType::EXECUTE,   3, true }, // Issue: #123 | Status: Coded constructed
+    { CMD_RIGHT,         CommandType::EXECUTE,   3, true }, // Issue: #124 | Status: Coded constructed
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true }, // Issue: #125 | Status: Coded constructed
+    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true }, // Issue: #126 | Status: Coded constructed
+    { CMD_SET_REMOTE,    CommandType::EXECUTE,   0,false }, // Issue: #127 | Status: Coded constructed
+    { CMD_SET_LOCAL,     CommandType::EXECUTE,   0,false }, // Issue: #128 | Status: Coded constructed
+    { CMD_STOPP,         CommandType::PRIORITY,  0,false } // Issue: #129 | Status: Coded constructed
 };
 constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefinitions[0]);
 
 /** Definitions of all response statuses supported by the UART protocol. */
 const ResponseDefinition ResponseDefinitions[] =
 {
-{ STATUS_Alive,     0, ResponseContainer::Data },
-{ STATUS_Error,     4, ResponseContainer::Data },
-{ STATUS_System,    2, ResponseContainer::Data },
-{ STATUS_CMD,       1, ResponseContainer::Data },
-{ STATUS_Position,  4, ResponseContainer::Data },
-{ STATUS_Reference, 1, ResponseContainer::Data },
-{ STATUS_Track,     3, ResponseContainer::Data },
-{ STATUS_Motor,     3, ResponseContainer::Data },
-{ STATUS_Switches,  1, ResponseContainer::Data },
-{ STATUS_Keyboard,  1, ResponseContainer::Data },
-{ STATUS_ACK,       1, ResponseContainer::Data },
-{ STATUS_Help,      0, ResponseContainer::String }
+{ STATUS_Alive,     0, ResponseContainer::Data }, // Issue: #134 | Status: Defined
+{ STATUS_Error,     4, ResponseContainer::Data }, // Issue: #135 | Status: Coded constructed
+{ STATUS_System,    2, ResponseContainer::Data }, // Issue: #136 | Status: Coded constructed
+{ STATUS_CMD,       1, ResponseContainer::Data }, // Issue: #137 | Status: Defined
+{ STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Coded constructed
+{ STATUS_Reference, 1, ResponseContainer::Data }, // Issue: #139 | Status: Defined
+{ STATUS_Track,     3, ResponseContainer::Data }, // Issue: #140 | Status: Coded constructed
+{ STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Coded constructed
+{ STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
+{ STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
+{ STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Defined
+{ STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Status: Coded constructed
 };
 
 
