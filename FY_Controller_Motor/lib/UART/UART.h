@@ -145,8 +145,7 @@ private:
     void handleRight();
     void handleSetPosition();
     void handleSetTrack();
-    void handleSetRemote();
-    void handleSetLocal();
+    void handleSetMode();
 
     void handleStop();
     void handle_Busy();
