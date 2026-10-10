@@ -192,7 +192,14 @@ bool BabelFish::decodeLine()
 
     if (equalsIgnoreCase(command, "GET_TRACK") ||
         equalsIgnoreCase(command, "TRACK"))
-        return makeSimpleCommand(CMD_GET_TRACK);
+    {
+        _command.cmd = CMD_GET_TRACK;
+        _command.data[0] = GET_TRACK_OPTION_DEFAULT;
+        _command.length = 2;
+        _command.valid = true;
+        _command.crc = calcCRC(_command.cmd, _command.data, 1);
+        return true;
+    }
 
     if (equalsIgnoreCase(command, "HELP"))
         return makeSimpleCommand(CMD_HELP);
