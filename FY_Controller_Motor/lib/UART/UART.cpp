@@ -623,7 +623,7 @@ void UART::handleGetTrack()
 void UART::handleHelp()
 {
     static const char HELP_RESPONSE[] PROGMEM =
-        "Ta det med ro, hjelpen er paa vei! Spickzettel: "
+        "Ta det med ro, hjelpen er på vei! Spickzettel: "
         "https://github.com/ErikaB-sys/Fiddle_yard_UVB/blob/FY_Command_and_Responses/"
         "FY_Controller_Motor/src/UART_Command_Spickzettel.md";
 
