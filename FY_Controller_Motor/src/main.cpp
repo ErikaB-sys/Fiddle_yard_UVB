@@ -60,6 +60,7 @@ void setup()
   FY_motor.begin();
 
   FY_Keyboard.begin();
+  FY_Keyboard.setMode(systemStatus.mode);
 
   FY_Switches.begin();
 
