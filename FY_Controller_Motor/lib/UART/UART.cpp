@@ -553,11 +553,46 @@ void UART::handleGetPosition()
 
 void UART::handleGetTrack()
 {
-    setResponse(
-        STATUS_Track,
-        reinterpret_cast<const uint8_t*>(UART_context->Track_INFO),
-        1
-    );
+    const uint8_t commandId = CommandBuffer.command.cmd;
+    const uint8_t option = CommandBuffer.command.data[0];
+
+    if (option != GET_TRACK_OPTION_DEFAULT)
+    {
+        setError(UART_ERROR_INVALID_DATA);
+        setResponse(STATUS_NACK, &commandId, 1U);
+        return;
+    }
+
+    uint8_t data[3] = {0U, 0U, TRACK_STATUS_ERROR};
+
+    if ((UART_context != nullptr) &&
+        (UART_context->Track_INFO != nullptr) &&
+        (UART_context->systemStatus != nullptr))
+    {
+        data[0] = static_cast<uint8_t>(
+            UART_context->Track_INFO->target_track);
+        data[1] = static_cast<uint8_t>(
+            UART_context->Track_INFO->akt_track);
+
+        if ((UART_context->systemStatus->state == FY_SystemState_t::Error) ||
+            UART_context->systemStatus->init.systemError ||
+            UART_context->systemStatus->error.motor)
+        {
+            data[2] = TRACK_STATUS_ERROR;
+        }
+        else if ((FY_ModuleContext != nullptr) &&
+                 (FY_ModuleContext->motor != nullptr) &&
+                 FY_ModuleContext->motor->isMoving())
+        {
+            data[2] = TRACK_STATUS_MOVING;
+        }
+        else
+        {
+            data[2] = TRACK_STATUS_REACHED;
+        }
+    }
+
+    setResponse(STATUS_Track, data, sizeof(data));
 }
 
 void UART::handleHelp()
