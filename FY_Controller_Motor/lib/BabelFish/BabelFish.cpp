@@ -201,6 +201,39 @@ bool BabelFish::decodeLine()
         equalsIgnoreCase(command, "FIRMWARE"))
         return makeSimpleCommand(CMD_GET_FIRMWARE);
 
+    // Operating mode: SET_MODE LOCAL | SET_MODE REMOTE (Issue #58).
+    if (equalsIgnoreCase(command, "SET_MODE"))
+    {
+        const char* value = nextToken(cursor);
+        if (value == nullptr)
+            return false;
+
+        uint8_t first = 0;
+        uint8_t second = 0;
+        if (equalsIgnoreCase(value, "LOCAL"))
+        {
+            first = 0x55;
+            second = 0xAA;
+        }
+        else if (equalsIgnoreCase(value, "REMOTE"))
+        {
+            first = 0xAA;
+            second = 0x55;
+        }
+        else
+        {
+            return false;
+        }
+
+        _command.cmd = CMD_SET_MODE;
+        _command.data[0] = first;
+        _command.data[1] = second;
+        _command.length = 3;
+        _command.valid = true;
+        _command.crc = calcCRC(_command.cmd, _command.data, 2);
+        return true;
+    }
+
     // Execute / priority commands.
     if (equalsIgnoreCase(command, "REFERENCE"))
         return makeSimpleCommand(CMD_REFERENCE);
