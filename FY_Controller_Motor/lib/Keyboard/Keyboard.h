@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include "Error.h"
+#include "FY_System.h"
 #include <U8g2lib.h>
 #include <PCF8574.h>
 
@@ -27,11 +28,6 @@ constexpr uint8_t KEYBOARD_ERROR_EXTENDER_NOT_AVAILABLE =
 
 class Keyboard {
 public:
-    enum class Mode : uint8_t {
-        LOCAL,
-        REMOTE
-    };
-
     enum class Event : uint8_t {
         NONE,
         TRACK_PREVIOUS,
@@ -46,7 +42,7 @@ public:
 
     Event update();
 
-    void setMode(Mode mode);
+    void setMode(FY_OperatingMode_t mode);
     void setTrack(uint8_t track);
     void setMoving(bool moving);
     void setError(uint8_t errorCode);
@@ -55,7 +51,7 @@ public:
     void Write_to_display(const int8_t* string, uint8_t pos_x, uint8_t pos_y);
     bool hasError() const;
     bool is_connected() const;
-    Mode mode() const;
+    FY_OperatingMode_t mode() const;
 
 private:
     class Button {
@@ -82,7 +78,7 @@ private:
 
     U8G2_SSD1306_128X64_NONAME_1_HW_I2C _display;
 
-    Mode _mode = Mode::LOCAL;
+    FY_OperatingMode_t _mode = FY_OperatingMode_t::LOCAL;
     uint8_t _track = 0;
     uint8_t _errorCode = 0;
     uint8_t _lastCommand = 0;
@@ -101,5 +97,5 @@ private:
 
     static bool i2cDevicePresent(uint8_t address);
     static uint8_t buttonToExtenderPin(uint8_t virtualPin);
-    static const char* modeText(Mode mode);
+    static const char* modeText(FY_OperatingMode_t mode);
 };
