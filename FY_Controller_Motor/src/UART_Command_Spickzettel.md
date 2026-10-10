@@ -19,8 +19,7 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | GET_TRACK | `0x23` | – | `GET_TRACK` |
 | HELP | `0x25` | – | `HELP` |
 | GET_FIRMWARE | `0x27` | – | `FIRMWARE` |
-| SET_LOCAL | `0x26` | – | – |
-| SET_REMOTE | `0x2A` | – | – |
+| SET_MODE | `0x26` | 2 Byte: `55 AA` = LOCAL, `AA 55` = REMOTE | `SET_MODE LOCAL` / `SET_MODE REMOTE` |
 
 > `CMD_GO` ist bewusst nicht aufgeführt. Bewegungsbefehle sollen direkt ausgeführt werden.
 
@@ -55,8 +54,8 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 | Reference | `0x30` | 1 Byte |
 | Track | `0x40` | 3 Byte |
 | Motor | `0x50` | 3 Byte |
-| ACK | `0x60` | 1 Byte |
-| NACK | `0x70` | 1 Byte |
+| ACK | `0x60` | 1 Byte: bestätigte Command-ID |
+| NACK | `0x70` | 1 Byte: abgelehnte Command-ID |
 | Help | `0x18` | variabel |
 
 ## Terminal-Test
@@ -69,8 +68,25 @@ GET_POSITION
 SET_TRACK 3
 SET_POSITION 3200
 SET_SPEED 800
+SET_MODE LOCAL
+SET_MODE REMOTE
 STOP
 FIRMWARE
 \`\`\`
 
 BabelFish wandelt diese Eingaben in die binären Commands um.
+
+
+## SET_MODE – Verweis auf Issue #58
+
+`CMD_SET_MODE` ist ein Execute-Command. Die bisher getrennten `CMD_SET_LOCAL` und `CMD_SET_REMOTE` entfallen. Da Issue #58 die gemeinsame Command-ID nicht separat nennt, wird `0x26` (die bisherige SET_LOCAL-ID) als gemeinsame `CMD_SET_MODE`-ID weiterverwendet; `0x2A` entfällt.
+
+- DATA-Länge: 2 Byte
+- `55 AA`: LOCAL
+- `AA 55`: REMOTE
+- Betriebsartenwechsel nur im Stillstand
+- Antwort: ACK (`0x60`) mit Command-ID oder NACK (`0x70`) mit Command-ID
+- Bei ungültigem Datenmuster, fehlendem erforderlichem Modul oder laufender Bewegung erfolgt NACK; die Betriebsart bleibt unverändert.
+- Der Befehl schaltet den Motor nicht ein und startet keine Bewegung.
+
+Siehe [Issue #58](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/58).
