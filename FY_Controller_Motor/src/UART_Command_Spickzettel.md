@@ -19,8 +19,6 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | GET_TRACK | `0x23` | 1 Byte Option (`00` = Standardabfrage) | `GET_TRACK` |
 | HELP | `0x25` | – | `HELP` |
 | GET_FIRMWARE | `0x27` | – | `FIRMWARE` |
-
-
 | SET_MODE | `0x26` | 2 Byte: `55 AA` = LOCAL, `AA 55` = REMOTE | `SET_MODE LOCAL` / `SET_MODE REMOTE` |
 
 > `CMD_GO` ist bewusst nicht aufgeführt. Bewegungsbefehle sollen direkt ausgeführt werden.
