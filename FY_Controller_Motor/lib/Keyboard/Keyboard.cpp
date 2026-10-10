@@ -117,25 +117,31 @@ void Keyboard::begin() {
 }
 
 Keyboard::Event Keyboard::update() {
+    // Read every button on each update so debounce state remains current.
     // STOP remains available in both operating modes.
-    if (_stop.pressed()) {
+    const bool stopPressed = _stop.pressed();
+    const bool leftPressed = _left.pressed();
+    const bool rightPressed = _right.pressed();
+    const bool okPressed = _ok.pressed();
+
+    if (stopPressed) {
         return Event::STOP;
     }
 
-    // In REMOTE mode local movement/confirmation inputs are locked out.
+    // In REMOTE mode local movement/confirmation inputs are ignored.
     if (_mode == FY_OperatingMode_t::REMOTE) {
         return Event::NONE;
     }
 
-    if (_left.pressed()) {
+    if (leftPressed) {
         return Event::TRACK_PREVIOUS;
     }
 
-    if (_right.pressed()) {
+    if (rightPressed) {
         return Event::TRACK_NEXT;
     }
 
-    if (_ok.pressed()) {
+    if (okPressed) {
         return Event::OK;
     }
 
