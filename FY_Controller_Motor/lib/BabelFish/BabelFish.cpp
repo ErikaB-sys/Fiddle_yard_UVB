@@ -291,18 +291,26 @@ bool BabelFish::decodeLine()
         return true;
     }
 
-    if (equalsIgnoreCase(command, "SET_SPEED"))
+    // Generic parameter command: SET_PARAM <parameter-id> <value>
+    // DATA[0] = parameter ID; DATA[1..3] = 24-bit value, little-endian.
+    // Parameter semantics and ranges are specified in Issues #145 and #58.
+    if (equalsIgnoreCase(command, "SET_PARAM"))
     {
-        const char* value = nextToken(cursor);
-        uint16_t speed = 0;
+        const char* idToken = nextToken(cursor);
+        const char* valueToken = nextToken(cursor);
+        uint8_t parameterId = 0;
+        uint32_t parameterValue = 0;
 
-        if ((value == nullptr) || !parseUInt16(value, speed))
+        if ((idToken == nullptr) || !parseUInt8(idToken, parameterId) ||
+            (valueToken == nullptr) || !parseUInt24(valueToken, parameterValue))
             return false;
 
-        _command.cmd = CMD_SET_SPEED;
-        _command.data[0] = static_cast<uint8_t>(speed & 0xFF);
-        _command.data[1] = static_cast<uint8_t>(speed >> 8);
-        _command.length = 3;
+        _command.cmd = CMD_SET_PARAM;
+        _command.data[0] = parameterId;
+        _command.data[1] = static_cast<uint8_t>(parameterValue & 0xFFUL);
+        _command.data[2] = static_cast<uint8_t>((parameterValue >> 8) & 0xFFUL);
+        _command.data[3] = static_cast<uint8_t>((parameterValue >> 16) & 0xFFUL);
+        _command.length = 5;
         _command.valid = true;
         _command.crc = calcCRC(
             _command.cmd,
@@ -481,5 +489,29 @@ bool BabelFish::parseUInt16(const char* text, uint16_t& value)
     }
 
     value = static_cast<uint16_t>(parsed);
+    return true;
+}
+
+bool BabelFish::parseUInt24(const char* text, uint32_t& value)
+{
+    if ((text == nullptr) || (*text == '\\0'))
+        return false;
+
+    uint32_t parsed = 0;
+
+    while (*text != '\\0')
+    {
+        if (*text < '0' || *text > '9')
+            return false;
+
+        parsed = (parsed * 10UL) + static_cast<uint8_t>(*text - '0');
+
+        if (parsed > 0xFFFFFFUL)
+            return false;
+
+        ++text;
+    }
+
+    value = parsed;
     return true;
 }
