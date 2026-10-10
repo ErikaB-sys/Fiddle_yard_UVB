@@ -80,3 +80,19 @@ Dabei gilt:
 - Vor einer Änderung an `FY_Common` wird daher geprüft, welche Projekte die Komponente tatsächlich verwenden und ob eine gemeinsame Weiterentwicklung noch sinnvoll ist.
 
 Für `FY_Common/MotorProfile.h` ist damit zunächst **keine automatische gemeinsame Weiterentwicklung festgelegt**. Vor der nächsten Änderung wird geklärt, ob die Profilberechnung weiterhin eine echte gemeinsame Komponente sein soll oder ob HW-Test und Produktivsoftware an diesem Punkt bewusst getrennte Wege gehen.
+
+## Branch- und Merge-Regel
+
+Die laufende Produktiventwicklung erfolgt ausschließlich auf dem Branch `FY_Controller_Motor`. `main` ist die gemeinsame stabile Basis und wird während der laufenden Entwicklung nicht parallel bearbeitet.
+
+Die nächste Merge-Schwelle ist erreicht, sobald folgende Punkte abgeschlossen und geprüft sind:
+
+1. Die zentrale Fehlerverwaltung funktioniert einschließlich Setzen, Ersetzen, Löschen und Begrenzung auf drei gespeicherte Fehler.
+2. UART `GET_ERROR` liefert Statusbyte und Fehlerplätze korrekt; Telegrammlänge und CRC sind geprüft.
+3. Reproduzierbare native PC-Tests für Fehlerverwaltung und Kommunikation bestehen.
+4. Der Firmware-Build ist erfolgreich; es bestehen keine bekannten Blocker für diesen abgeschlossenen Zwischenstand.
+
+Dann wird `FY_Controller_Motor` nach `main` gemergt. Die automatische Erkennung unterschiedlicher Platinenvarianten ist dafür keine Voraussetzung; sie bleibt bis zur späteren Umsetzung ein dokumentierter Vorschlag in `HW_Config.h`.
+
+Nach dem Merge werden beide Branches auf eine gemeinsame Basis gebracht. Vor jedem neuen Arbeitsabschnitt werden der aktive Branch und der aktuelle Commit geprüft und als Ausgangspunkt benannt. Es wird nicht stillschweigend zwischen unterschiedlichen Branch-Ständen gewechselt.
+

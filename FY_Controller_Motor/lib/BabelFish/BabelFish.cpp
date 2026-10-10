@@ -169,7 +169,18 @@ bool BabelFish::decodeLine()
     // Immediate commands.
     if (equalsIgnoreCase(command, "GET_STATUS") ||
         equalsIgnoreCase(command, "STATUS"))
-        return makeSimpleCommand(CMD_GET_STATUS);
+    {
+        const char* value = nextToken(cursor);
+        uint8_t selector = 0;
+        if ((value == nullptr) || !parseHexByte(value, selector))
+            return false;
+        _command.cmd = CMD_GET_STATUS;
+        _command.data[0] = selector;
+        _command.length = 2;
+        _command.valid = true;
+        _command.crc = calcCRC(_command.cmd, _command.data, 1);
+        return true;
+    }
 
     if (equalsIgnoreCase(command, "GET_ERROR") ||
         equalsIgnoreCase(command, "ERROR"))
@@ -377,6 +388,32 @@ bool BabelFish::equalsIgnoreCase(const char* left, const char* right)
     }
 
     return (*left == '\0') && (*right == '\0');
+}
+
+bool BabelFish::parseHexByte(const char* text, uint8_t& value)
+{
+    if ((text == nullptr) || (*text == '\0'))
+        return false;
+    uint16_t parsed = 0;
+    uint8_t digits = 0;
+    while (*text != '\0')
+    {
+        uint8_t nibble = 0;
+        if (*text >= '0' && *text <= '9')
+            nibble = static_cast<uint8_t>(*text - '0');
+        else if (*text >= 'A' && *text <= 'F')
+            nibble = static_cast<uint8_t>(*text - 'A' + 10);
+        else if (*text >= 'a' && *text <= 'f')
+            nibble = static_cast<uint8_t>(*text - 'a' + 10);
+        else
+            return false;
+        parsed = static_cast<uint16_t>((parsed << 4) | nibble);
+        if (++digits > 2)
+            return false;
+        ++text;
+    }
+    value = static_cast<uint8_t>(parsed);
+    return digits > 0;
 }
 
 bool BabelFish::parseUInt8(const char* text, uint8_t& value)

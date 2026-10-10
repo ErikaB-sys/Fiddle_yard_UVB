@@ -6,6 +6,8 @@
 #include "Error.h"
 #include "Firmware.h"
 #include "Motor.h"
+#include "Switches.h"
+#include "Keyboard.h"
 
 UART::UART()
 {
@@ -82,6 +84,23 @@ void UART::receive()
 
             if (!validateCommand())
             {
+                switch (CommandBuffer.status)
+                {
+                case UART_CommandStatus_t::CMD_INVALID:
+                    setError(UART_ERROR_UNKNOWN_COMMAND);
+                    break;
+                case UART_CommandStatus_t::DATA_INVALID:
+                    setError(UART_ERROR_INVALID_LENGTH);
+                    break;
+                case UART_CommandStatus_t::CRC_INVALID:
+                    setError(UART_ERROR_CRC);
+                    break;
+                case UART_CommandStatus_t::VALID:
+                default:
+                    setError(UART_ERROR_INVALID_TELEGRAM);
+                    break;
+                }
+
                 const uint8_t reason =
                     static_cast<uint8_t>(CommandBuffer.status);
 
@@ -95,6 +114,7 @@ void UART::receive()
         else if (result == BabelFishResult::INVALID)
         {
             CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
+            setError(UART_ERROR_INVALID_TELEGRAM);
 
             const uint8_t reason =
                 static_cast<uint8_t>(CommandBuffer.status);
@@ -123,7 +143,7 @@ bool UART::validateCommand()
         if (commandDefinitions[i].id != CommandBuffer.command.cmd)
             continue;
 
-        if (commandDefinitions[i].telegramLength != CommandBuffer.command.length)
+        if (commandDefinitions[i].dataLength != static_cast<uint8_t>(CommandBuffer.command.length - 1))
         {
             CommandBuffer.status = UART_CommandStatus_t::DATA_INVALID;
             return false;
@@ -142,7 +162,6 @@ bool UART::validateCommand()
         }
 
         CommandBuffer.type = commandDefinitions[i].type;
-        CommandBuffer.response = commandDefinitions[i].response;
         return true;
     }
 
@@ -275,16 +294,34 @@ void UART::sendResponse()
 
     Serial.write(ResponseBuffer.id);
 
-    for (uint8_t i = 0; i < ResponseBuffer.length; ++i)
-        Serial.write(ResponseBuffer.data[i]);
+    if (ResponseBuffer.container == ResponseContainer::String)
+    {
+        const uint8_t length = static_cast<uint8_t>(strlen_P(ResponseBuffer.string));
 
-    const uint8_t crc = Calc_CRC(
-        ResponseBuffer.id,
-        ResponseBuffer.data,
-        ResponseBuffer.length
-    );
+        for (uint8_t i = 0; i < length; ++i)
+            Serial.write(pgm_read_byte(&ResponseBuffer.string[i]));
 
-    Serial.write(crc);
+        const uint8_t crc = Calc_CRC_PGM(
+            ResponseBuffer.id,
+            ResponseBuffer.string,
+            length
+        );
+
+        Serial.write(crc);
+    }
+    else
+    {
+        for (uint8_t i = 0; i < ResponseBuffer.length; ++i)
+            Serial.write(ResponseBuffer.data[i]);
+
+        const uint8_t crc = Calc_CRC(
+            ResponseBuffer.id,
+            ResponseBuffer.data,
+            ResponseBuffer.length
+        );
+
+        Serial.write(crc);
+    }
 
     ResponseBuffer.responsePending = false;
 }
@@ -313,7 +350,6 @@ void UART::clearError()
         UART_context->error->clearError(FY_ERROR_LOCATION_UART);
 }
 
-
 void UART::setResponse(uint8_t id, const uint8_t* data, uint8_t length)
 {
     if (length > MAX_RESPONSE_LENGTH)
@@ -321,10 +357,21 @@ void UART::setResponse(uint8_t id, const uint8_t* data, uint8_t length)
 
     ResponseBuffer.id = id;
     ResponseBuffer.length = length;
+    ResponseBuffer.container = ResponseContainer::Data;
+    ResponseBuffer.string = nullptr;
 
     for (uint8_t i = 0; i < length; ++i)
         ResponseBuffer.data[i] = data[i];
 
+    ResponseBuffer.responsePending = true;
+}
+
+void UART::setResponse(uint8_t id, PGM_P data)
+{
+    ResponseBuffer.id = id;
+    ResponseBuffer.length = 0;
+    ResponseBuffer.container = ResponseContainer::String;
+    ResponseBuffer.string = data;
     ResponseBuffer.responsePending = true;
 }
 
@@ -373,6 +420,26 @@ uint8_t UART::Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length)
     return crc;
 }
 
+uint8_t UART::Calc_CRC_PGM(uint8_t id, PGM_P data, uint8_t length)
+{
+    uint8_t crc = id;
+
+    for (uint8_t i = 0; i < length; ++i)
+    {
+        crc ^= pgm_read_byte(&data[i]);
+
+        for (uint8_t bit = 0; bit < 8; ++bit)
+        {
+            if (crc & 0x80)
+                crc = static_cast<uint8_t>((crc << 1) ^ 0x07);
+            else
+                crc <<= 1;
+        }
+    }
+
+    return crc;
+}
+
 UART_CommandStatus_t UART::getCommandStatus()
 {
     return CommandBuffer.status;
@@ -394,26 +461,89 @@ void UART::handleStop()
 
 void UART::handleGetStatus()
 {
-    setResponse(
-        STATUS_System,
-        reinterpret_cast<const uint8_t*>(UART_context->systemStatus),
-        sizeof(FY_SystemStatus_t)
-    );
+    const uint8_t selector = CommandBuffer.command.data[0];
+    if ((UART_context == nullptr) || (UART_context->systemStatus == nullptr))
+    {
+        const uint8_t reason = static_cast<uint8_t>(UART_CommandStatus_t::DATA_INVALID);
+        setResponse(STATUS_NACK, &reason, 1U);
+        return;
+    }
+    switch (selector)
+    {
+    case STATUS_SELECTOR_SYSTEM:
+    {
+        const FY_SystemInitStatus_t& init = UART_context->systemStatus->init;
+        uint8_t data[2] = {0U, 0U};
+        data[0] = static_cast<uint8_t>(
+            (init.displayConnected ? 0x01U : 0U) |
+            (init.portExpanderConnected ? 0x02U : 0U) |
+            (init.uartConnected ? 0x04U : 0U) |
+            (init.motorInitialized ? 0x08U : 0U) |
+            (init.buttonsInitialized ? 0x10U : 0U) |
+            (init.switchesInitialized ? 0x20U : 0U) |
+            (init.systemError ? 0x40U : 0U));
+        data[1] = static_cast<uint8_t>(UART_context->systemStatus->state);
+        setResponse(STATUS_System, data, 2U);
+        break;
+    }
+    case STATUS_SELECTOR_MOTOR:
+    {
+        uint8_t data[3] = {0U, 0U, 0U};
+        if ((FY_ModuleContext != nullptr) && (FY_ModuleContext->motor != nullptr))
+        {
+            data[0] = static_cast<uint8_t>(
+                (FY_ModuleContext->motor->isDriverActive() ? 0x01U : 0U) |
+                (FY_ModuleContext->motor->isMoving() ? 0x02U : 0U));
+        }
+        setResponse(STATUS_Motor, data, 3U);
+        break;
+    }
+    case STATUS_SELECTOR_SWITCHES:
+    {
+        uint8_t data = 0U;
+        if ((FY_ModuleContext != nullptr) && (FY_ModuleContext->switches != nullptr))
+        {
+            data = static_cast<uint8_t>(
+                (FY_ModuleContext->switches->getDigitalValue(Switches::Id::REF) ? 0x01U : 0U) |
+                (FY_ModuleContext->switches->getDigitalValue(Switches::Id::TRIM_LEFT) ? 0x02U : 0U) |
+                (FY_ModuleContext->switches->getDigitalValue(Switches::Id::TRIM_RIGHT) ? 0x04U : 0U) |
+                (FY_ModuleContext->switches->getDigitalValue(Switches::Id::TIMING_BELT) ? 0x08U : 0U));
+        }
+        setResponse(STATUS_Switches, &data, 1U);
+        break;
+    }
+    case STATUS_SELECTOR_KEYBOARD:
+    {
+        const uint8_t data = static_cast<uint8_t>(
+            ((FY_ModuleContext != nullptr) &&
+             (FY_ModuleContext->keyboard != nullptr) &&
+             FY_ModuleContext->keyboard->is_connected()) ? 0x01U : 0U);
+        setResponse(STATUS_Keyboard, &data, 1U);
+        break;
+    }
+    default:
+    {
+        const uint8_t reason = static_cast<uint8_t>(UART_CommandStatus_t::DATA_INVALID);
+        setError(UART_ERROR_INVALID_DATA);
+        setResponse(STATUS_NACK, &reason, 1U);
+        break;
+    }
+    }
 }
 
 void UART::handleGetError()
 {
-    uint8_t data[4] = {0, 0, 0, 0};
+    uint8_t data[4] = {0U, 0U, 0U, 0U};
 
     if ((UART_context != nullptr) && (UART_context->error != nullptr))
     {
         data[0] = UART_context->error->getSystemByte();
-        data[1] = UART_context->error->getError(0);
-        data[2] = UART_context->error->getError(1);
-        data[3] = UART_context->error->getError(2);
+        data[1] = UART_context->error->getError(0U);
+        data[2] = UART_context->error->getError(1U);
+        data[3] = UART_context->error->getError(2U);
     }
 
-    setResponse(STATUS_Error, data, 4);
+    setResponse(STATUS_Error, data, 4U);
 }
 
 void UART::handleGetPosition()
@@ -436,21 +566,15 @@ void UART::handleGetTrack()
 
 void UART::handleHelp()
 {
-    // Special response still to be defined.
+    static const char HELP_RESPONSE[] PROGMEM =
+        "GET_STATUS GET_ERROR GET_POSITION GET_TRACK HELP GET_FIRMWARE";
+
+    setResponse(STATUS_Help, HELP_RESPONSE);
 }
 
 void UART::handleGetFirmware()
 {
-    Serial.print(F("FW: "));
-    Serial.println(FW_NAME);
-    Serial.print(F("VER: "));
-    Serial.println(FW_VERSION);
-    Serial.print(F("BUILD: "));
-    Serial.print(FW_BUILD);
-    Serial.print(F(" "));
-    Serial.println(FW_TIME);
-    Serial.print(F("GIT: "));
-    Serial.println(FW_GIT_COMMIT);
+    setResponse(STATUS_Help, FW_RESPONSE);
 }
 
 void UART::handle_Busy()

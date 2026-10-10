@@ -1,4 +1,6 @@
 #pragma once
+
+#include <avr/pgmspace.h>
 #include "Protokoll.h"
 #include "BabelFish.h"
 #include "Error.h"
@@ -23,20 +25,24 @@ enum class UART_CommandStatus_t : uint8_t
     CRC_INVALID
 };
 
-// UART error definitions stay with the UART module.
-// The Error class only stores and manages the current error state.
-/// @brief No command data is available.
-constexpr uint8_t UART_ERROR_NO_CONTENT      =
+// UART error definitions belong to the UART module. The central Error class
+// stores these module-local codes and manages the active error list.
+constexpr uint8_t UART_ERROR_NO_CONTENT =
     FY_ERROR_LOCATION_UART | 0x01U;
-/// @brief No UART connection has been detected.
-constexpr uint8_t UART_ERROR_NO_CONNECTION   =
+constexpr uint8_t UART_ERROR_NO_CONNECTION =
     FY_ERROR_LOCATION_UART | 0x02U;
-/// @brief The received command is unknown.
 constexpr uint8_t UART_ERROR_UNKNOWN_COMMAND =
     FY_ERROR_LOCATION_UART | 0x03U;
-/// @brief The command is invalid for the current state.
-constexpr uint8_t UART_ERROR_INVALID_STATE   =
+constexpr uint8_t UART_ERROR_INVALID_LENGTH =
     FY_ERROR_LOCATION_UART | 0x04U;
+constexpr uint8_t UART_ERROR_INVALID_DATA =
+    FY_ERROR_LOCATION_UART | 0x05U;
+constexpr uint8_t UART_ERROR_INVALID_TELEGRAM =
+    FY_ERROR_LOCATION_UART | 0x06U;
+constexpr uint8_t UART_ERROR_CRC =
+    FY_ERROR_LOCATION_UART | 0x07U;
+constexpr uint8_t UART_ERROR_INVALID_STATE =
+    FY_ERROR_LOCATION_UART | 0x08U;
 
 // UART communication speed: 115200 baud, 8 data bits, no parity, 1 stop bit (8N1).
 #define UART_BAUD_RATE 115200
@@ -71,7 +77,6 @@ private:
     {
         BabelFishCommand_t command;
         CommandType type;
-        uint8_t response;
         UART_CommandStatus_t status;
     };
 
@@ -81,7 +86,9 @@ private:
     {
         uint8_t id;
         uint8_t data[MAX_RESPONSE_LENGTH];
+        PGM_P string;
         uint8_t length;
+        ResponseContainer container;
         bool responsePending;
     };
 
@@ -103,6 +110,7 @@ private:
 
     /** @brief Queues a response for transmission. */
     void setResponse(uint8_t id, const uint8_t* data, uint8_t length);
+    void setResponse(uint8_t id, PGM_P data);
 
     /** @brief Sends a temporary NACK carrying the receive status. */
     void sendNack(UART_CommandStatus_t status);
@@ -112,6 +120,7 @@ private:
     bool SetCommand();
 
     uint8_t Calc_CRC(uint8_t id, const uint8_t* data, uint8_t length);
+    uint8_t Calc_CRC_PGM(uint8_t id, PGM_P data, uint8_t length);
 
     void sendHello();
 

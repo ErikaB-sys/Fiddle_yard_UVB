@@ -12,6 +12,22 @@
  */
 
 
+/**
+ * @brief UART payload byte order.
+ *
+ * Multi-byte values are transmitted least-significant byte first.
+ * Byte 0 is always the first transmitted byte and contains the least
+ * significant 8 bits of a multi-byte value. Higher-order bytes follow
+ * at increasing byte indices.
+ *
+ * Example:
+ * uint16_t 0x1234 -> byte 0 = 0x34, byte 1 = 0x12
+ *
+ * The TransportContainer carries raw bytes. The individual command handler
+ * is responsible for interpreting those bytes according to the command
+ * definition.
+ */
+
 // Protocol options
 //#define UART_USE_CRC_TX
 //#define UART_USE_CRC_RX
@@ -42,8 +58,25 @@ constexpr uint8_t CMD_SET_LOCAL    =   0x26   ;    // Command to set the control
 constexpr uint8_t CMD_SET_REMOTE   =   0x2A   ;    // Command to set the controller to remote mode
 
 
-/** Maximum length of a response sent to UART, in bytes. */
+/**
+ * @brief Maximum length of a binary response payload.
+ *
+ * The payload length describes the DATA container only. A complete UART
+ * telegram consists of three parts:
+ *
+ *   ID | DATA | CRC
+ *
+ * Therefore, the total telegram length is calculated from the DATA length
+ * plus the ID and CRC fields.
+ */
 #define MAX_RESPONSE_LENGTH        4
+
+/** Container type of a response payload. */
+enum class ResponseContainer : uint8_t
+{
+    Data,
+    String
+};
 
 // General response codes.
 /** Periodic status indicating that the controller is alive. */
@@ -51,19 +84,25 @@ constexpr uint8_t STATUS_Alive                  =  0x03  ;     // Status indicat
 /** Error response containing the system status and three error bytes. */
 constexpr uint8_t STATUS_Error                  =  0xF0  ;     // Sending system Status byte and 3 Byte indicating that an error has occurred. The 3 Byte following up  will tell the Modul error Byte
 /** Response containing the controller's system status. */
-constexpr uint8_t  STATUS_System                =  0x10;
+constexpr uint8_t  STATUS_System                = 0x10;
 /** Response to local/remote mode commands. */
-constexpr uint8_t  STATUS_CMD                   =  0x15;
+constexpr uint8_t  STATUS_CMD                   = 0x15;
 
 
 /** Response containing the current motor position. */
-constexpr uint8_t STATUS_Position               =  0x20    ;   // Status ID Position Information
+constexpr uint8_t STATUS_Position               = 0x20    ;   // Status ID Position Information
 /** Response containing reference-operation information. */
 constexpr uint8_t STATUS_Reference              = 0x30   ;    // Status ID  Reference Information
 /** Response containing track information. */
 constexpr uint8_t STATUS_Track                  = 0x40    ;   // Status ID  Track informatiom
 /** Response containing motor information. */
 constexpr uint8_t STATUS_Motor                  = 0x50;    //Status ID Motor information
+constexpr uint8_t STATUS_Switches               = 0x41;
+constexpr uint8_t STATUS_Keyboard               = 0x51;
+constexpr uint8_t STATUS_SELECTOR_SYSTEM        = 0x10;
+constexpr uint8_t STATUS_SELECTOR_MOTOR         = 0x20;
+constexpr uint8_t STATUS_SELECTOR_SWITCHES      = 0x40;
+constexpr uint8_t STATUS_SELECTOR_KEYBOARD      = 0x50;
 /** Acknowledgement response for movement commands. */
 constexpr uint8_t STATUS_ACK                    = 0x60;      // Answer on moving Commands  if accepted
 constexpr uint8_t STATUS_NACK                    = 0x70;     // Answer on moving Commands if Busy
@@ -84,15 +123,14 @@ enum class CommandType : uint8_t
 };
 
 // ---------------------------------------------------------
-/** Metadata describing a supported command and its response. */
+/** Metadata describing a supported command. */
 // ---------------------------------------------------------
 
 struct CommandDefinition
 {
     uint8_t id;                 ///< Command identifier byte.
     CommandType type;           ///< Command scheduling type.
-    uint8_t telegramLength;     ///< Total telegram length including command byte
-    uint8_t response;           ///< Response status identifier.
+    uint8_t dataLength;          ///< DATA length only; ID and CRC are not included
      bool requiresReference;      /// need reference run
 
 };
@@ -103,8 +141,9 @@ struct CommandDefinition
 
 struct ResponseDefinition
 {
-    uint8_t id;       ///< Response status identifier byte.
-    uint8_t length;   ///< Response length in bytes.
+    uint8_t id;                     ///< Response status identifier byte.
+    uint8_t length;                 ///< Response length in bytes for binary data.
+    ResponseContainer container;    ///< Response payload container type.
 };
 // ---------------------------------------------------------
 // Command IDs
@@ -117,39 +156,41 @@ struct ResponseDefinition
 
 const CommandDefinition commandDefinitions[] =
 {
-    // Command,          CommandType,          Length, Response,         Requires reference
-    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1, STATUS_System,       false },
-    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 1, STATUS_Error,        false },
-    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 1, STATUS_Position,     false },
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1, STATUS_Track,        false },
-    { CMD_HELP,          CommandType::IMMEDIATE, 1, STATUS_Help,         false },
-    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 1, STATUS_Help,         false },
-    { CMD_REFERENCE,     CommandType::EXECUTE,   1, STATUS_Reference,    false },
-    { CMD_SET_SPEED,     CommandType::EXECUTE,   3, STATUS_Motor,        false },
-    { CMD_GO,            CommandType::EXECUTE,   1, STATUS_ACK,           true },
-    { CMD_LEFT,          CommandType::EXECUTE,   1, STATUS_ACK,           true },
-    { CMD_RIGHT,         CommandType::EXECUTE,   1, STATUS_ACK,           true },
-    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, STATUS_ACK,           true },
-    { CMD_SET_TRACK,     CommandType::EXECUTE,   2, STATUS_ACK,           true },
-    { CMD_SET_REMOTE,    CommandType::EXECUTE,   1, STATUS_CMD,          false },
-    { CMD_SET_LOCAL,     CommandType::EXECUTE,   1, STATUS_CMD,          false },
-    { CMD_STOPP,         CommandType::PRIORITY,  1, STATUS_System,       false }
+    // Command,          CommandType,          DATA length, Requires reference
+    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false },
+    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false },
+    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false },
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 0,false },
+    { CMD_HELP,          CommandType::IMMEDIATE, 0,false },
+    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false },
+    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false },
+    { CMD_SET_SPEED,     CommandType::EXECUTE,   2,false },
+    { CMD_GO,            CommandType::EXECUTE,   2, true },
+    { CMD_LEFT,          CommandType::EXECUTE,   3, true },
+    { CMD_RIGHT,         CommandType::EXECUTE,   3, true },
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true },
+    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true },
+    { CMD_SET_REMOTE,    CommandType::EXECUTE,   0,false },
+    { CMD_SET_LOCAL,     CommandType::EXECUTE,   0,false },
+    { CMD_STOPP,         CommandType::PRIORITY,  0,false }
 };
 constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefinitions[0]);
 
 /** Definitions of all response statuses supported by the UART protocol. */
 const ResponseDefinition ResponseDefinitions[] =
 {
-{ STATUS_Alive  , 0   },
-{ STATUS_Error ,  4  },
-{ STATUS_System ,  2  },
-{ STATUS_CMD ,   1 },
-{ STATUS_Position ,   4 },
-{ STATUS_Reference , 1   },
-{ STATUS_Track,   3 },
-{ STATUS_Motor, 3   },
-{ STATUS_ACK,  1  },
-{ STATUS_Help, 1  }  // ! help send a long String
+{ STATUS_Alive,     0, ResponseContainer::Data },
+{ STATUS_Error,     4, ResponseContainer::Data },
+{ STATUS_System,    2, ResponseContainer::Data },
+{ STATUS_CMD,       1, ResponseContainer::Data },
+{ STATUS_Position,  4, ResponseContainer::Data },
+{ STATUS_Reference, 1, ResponseContainer::Data },
+{ STATUS_Track,     3, ResponseContainer::Data },
+{ STATUS_Motor,     3, ResponseContainer::Data },
+{ STATUS_Switches,  1, ResponseContainer::Data },
+{ STATUS_Keyboard,  1, ResponseContainer::Data },
+{ STATUS_ACK,       1, ResponseContainer::Data },
+{ STATUS_Help,      0, ResponseContainer::String }
 };
 
 

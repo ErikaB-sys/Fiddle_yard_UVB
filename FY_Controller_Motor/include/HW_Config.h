@@ -9,7 +9,17 @@
 constexpr uint8_t DISPLAY_ADDRESS = 0x3C;
 constexpr uint8_t PORT_EXPANDER_ADDRESS = 0x20;
 
-
+// DESIGN PROPOSAL — PCB variant detection (not implemented yet):
+// Keep one firmware for both controller PCB variants by assigning the I2C
+// port expander a different hardware address on each variant.
+// - Existing PCB: keep the currently configured expander address (0x20).
+// - Stepper-driver PCB: use a distinct address (for example 0x21), set by
+//   the expander's address pins and verified against the actual wiring.
+// At startup, probe the known variant addresses and select the PCB profile.
+// Only the stepper-driver profile may configure/use the three Arduino pins
+// connected to the driver's step-resolution inputs; those pins remain unused
+// on the existing PCB. No address probing result must be treated as a valid
+// variant unless the expected expander is actually detected.
 
 // Arduino Nano hardware: I2C pins are fixed.
 constexpr uint8_t I2C_SDA_PIN = A4;

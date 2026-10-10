@@ -6,7 +6,7 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 
 | Command | ID | Daten | ASCII-Eingabe |
 |---|---:|---|---|
-| GET_STATUS | `0x19` | – | `STATUS` |
+| GET_STATUS | `0x19` | 1 Byte Selektor (Hex) | `STATUS 10`, `STATUS 20`, `STATUS 40`, `STATUS 50` |
 | GET_ERROR | `0x1A` | – | `ERROR` |
 | REFERENCE | `0x16` | – | `REFERENCE` |
 | SET_SPEED | `0x2B` | uint16 | `SET_SPEED 800` |
@@ -23,6 +23,17 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | SET_REMOTE | `0x2A` | – | – |
 
 > `CMD_GO` ist bewusst nicht aufgeführt. Bewegungsbefehle sollen direkt ausgeführt werden.
+
+## Status-Selektoren
+
+| Selektor | Abfrage | Antwort-ID |
+|---:|---|---:|
+| `10` | System / Initialisierung | `0x10` |
+| `20` | Motor (Bit 0 Treiber aktiv, Bit 1 Bewegung) | `0x50` |
+| `40` | Digitale Eingänge REF, TRIM_LEFT, TRIM_RIGHT, TIMING_BELT in Bit 0–3 | `0x41` |
+| `50` | Tastatur verbunden (Bit 0) | `0x51` |
+
+Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 
 ## Datenformat
 

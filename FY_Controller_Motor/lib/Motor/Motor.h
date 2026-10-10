@@ -176,6 +176,7 @@ public:
 
     // Return motor information.
     bool             isMoving();
+    bool             isDriverActive() const;
     uint16_t         getPosition();
     MotorJobResult_t getJobResult() const;
   

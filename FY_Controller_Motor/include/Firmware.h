@@ -1,3 +1,5 @@
+#include <avr/pgmspace.h>
+
 #pragma once
 
 /**
@@ -16,3 +18,14 @@ constexpr char FW_TIME[]    = __TIME__;
 #ifndef FW_GIT_COMMIT
 #define FW_GIT_COMMIT "unknown"
 #endif
+
+#define FW_NAME_TEXT    "FY_Controller_Motor"
+#define FW_VERSION_TEXT "1.0.0"
+#define FW_BUILD_TEXT   __DATE__
+#define FW_TIME_TEXT    __TIME__
+
+static const char FW_RESPONSE[] PROGMEM =
+    "FW: " FW_NAME_TEXT "\n"
+    "VER: " FW_VERSION_TEXT "\n"
+    "BUILD: " FW_BUILD_TEXT " " FW_TIME_TEXT "\n"
+    "GIT: " FW_GIT_COMMIT;
