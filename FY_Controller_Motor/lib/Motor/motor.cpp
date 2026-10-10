@@ -174,7 +174,7 @@ void Motor::Update()
                 _State = MotorState_t::ERROR;
             break;
 
-        case CMD_SET_SPEED:
+        case CMD_SET_PARAM:
             if (true == prepareParameter())
                 _State = MotorState_t::CONF;
             else
