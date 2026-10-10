@@ -9,6 +9,15 @@
 /**
  * @brief Represents the current operating state of the system controller.
  */
+enum class FY_OperatingMode_t : uint8_t
+{
+    LOCAL,
+    REMOTE
+};
+
+/**
+ * @brief Represents the active control source for the controller.
+ */
 enum class FY_SystemState_t : uint8_t
 {
     INIT,   ///< System has not completed initialization.
@@ -68,6 +77,7 @@ struct FY_SystemStatus_t
 {
     FY_SystemInitStatus_t init;                            ///< Initialization state of modules.
     FY_SystemState_t      state{FY_SystemState_t::INIT};   ///< Current controller state.
+    FY_OperatingMode_t    mode{FY_OperatingMode_t::LOCAL}; ///< Active local/remote control mode.
     FY_System_Error_t     error;                           ///< Current system error flags.
 };
 
