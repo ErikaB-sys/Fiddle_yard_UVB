@@ -56,6 +56,7 @@ private:
     static bool parseHexByte(const char* text, uint8_t& value);
     static bool parseUInt8(const char* text, uint8_t& value);
     static bool parseUInt16(const char* text, uint16_t& value);
+    static bool parseUInt24(const char* text, uint32_t& value);
     static uint8_t calcCRC(uint8_t cmd, const uint8_t* data, uint8_t length);
 
     bool makeSimpleCommand(uint8_t cmd);
