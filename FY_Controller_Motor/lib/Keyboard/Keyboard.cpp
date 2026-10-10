@@ -117,9 +117,14 @@ void Keyboard::begin() {
 }
 
 Keyboard::Event Keyboard::update() {
-    // STOP has highest local priority.
+    // STOP remains available in both operating modes.
     if (_stop.pressed()) {
         return Event::STOP;
+    }
+
+    // In REMOTE mode local movement/confirmation inputs are locked out.
+    if (_mode == FY_OperatingMode_t::REMOTE) {
+        return Event::NONE;
     }
 
     if (_left.pressed()) {
@@ -137,7 +142,7 @@ Keyboard::Event Keyboard::update() {
     return Event::NONE;
 }
 
-void Keyboard::setMode(Mode mode) {
+void Keyboard::setMode(FY_OperatingMode_t mode) {
     if (_mode != mode) {
         _mode = mode;
         draw();
@@ -185,12 +190,12 @@ bool Keyboard::is_connected() const {
     return _connected;
 }
 
-Keyboard::Mode Keyboard::mode() const {
+FY_OperatingMode_t Keyboard::mode() const {
     return _mode;
 }
 
-const char* Keyboard::modeText(Mode mode) {
-    return mode == Mode::LOCAL ? "LOCAL" : "REMOTE";
+const char* Keyboard::modeText(FY_OperatingMode_t mode) {
+    return mode == FY_OperatingMode_t::LOCAL ? "LOCAL" : "REMOTE";
 }
 
 void Keyboard::drawHeader() {
