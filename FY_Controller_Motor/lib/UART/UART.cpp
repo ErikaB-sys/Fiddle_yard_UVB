@@ -259,12 +259,8 @@ void UART::decodeExecute()
         handleSetTrack();
         break;
 
-    case CMD_SET_REMOTE:
-        handleSetRemote();
-        break;
-
-    case CMD_SET_LOCAL:
-        handleSetLocal();
+    case CMD_SET_MODE:
+        handleSetMode();
         break;
 
     default:
@@ -579,12 +575,15 @@ void UART::handleGetFirmware()
 
 void UART::handle_Busy()
 {
-    // Busy response still to be defined.
+    // Execute commands rejected while the controller is busy receive NACK.
+    const uint8_t commandId = CommandBuffer.command.cmd;
+    setResponse(STATUS_NACK, &commandId, 1U);
 }
 
 void UART::handle_ACK()
 {
-    // ACK response still to be defined.
+    const uint8_t commandId = CommandBuffer.command.cmd;
+    setResponse(STATUS_ACK, &commandId, 1U);
 }
 
 void UART::handleReference()
@@ -626,10 +625,42 @@ void UART::handleSetTrack()
     }
 }
 
-void UART::handleSetRemote()
+void UART::handleSetMode()
 {
-}
+    // Issue #58: DATA = 55 AA for LOCAL, AA 55 for REMOTE.
+    const uint8_t first = CommandBuffer.command.data[0];
+    const uint8_t second = CommandBuffer.command.data[1];
+    const uint8_t commandId = CommandBuffer.command.cmd;
 
-void UART::handleSetLocal()
-{
+    if (UART_context == nullptr || UART_context->systemStatus == nullptr ||
+        FY_ModuleContext == nullptr || FY_ModuleContext->keyboard == nullptr ||
+        FY_ModuleContext->motor == nullptr)
+    {
+        setResponse(STATUS_NACK, &commandId, 1U);
+        return;
+    }
+
+    // Do not change operating mode while the controller is busy or the motor moves.
+    if (UART_context->systemStatus->state == FY_SystemState_t::Busy ||
+        FY_ModuleContext->motor->isMoving())
+    {
+        setResponse(STATUS_NACK, &commandId, 1U);
+        return;
+    }
+
+    if (first == 0x55U && second == 0xAAU)
+    {
+        FY_ModuleContext->keyboard->setMode(Keyboard::Mode::LOCAL);
+        setResponse(STATUS_ACK, &commandId, 1U);
+        return;
+    }
+
+    if (first == 0xAAU && second == 0x55U)
+    {
+        FY_ModuleContext->keyboard->setMode(Keyboard::Mode::REMOTE);
+        setResponse(STATUS_ACK, &commandId, 1U);
+        return;
+    }
+
+    setResponse(STATUS_NACK, &commandId, 1U);
 }
