@@ -110,6 +110,15 @@ constexpr uint8_t STATUS_SELECTOR_SYSTEM        = 0x10;
 constexpr uint8_t STATUS_SELECTOR_MOTOR         = 0x20;
 constexpr uint8_t STATUS_SELECTOR_SWITCHES      = 0x40;
 constexpr uint8_t STATUS_SELECTOR_KEYBOARD      = 0x50;
+/**
+ * Reserved development response. This response reports an unexpected
+ * implementation state; it is not a normal operational response.
+ * DATA[0] = module code, DATA[1] = development error code.
+ */
+constexpr uint8_t DEV_RESPONSE = 0xFF;
+constexpr uint8_t DEV_MODULE_UART = 0x01;
+constexpr uint8_t DEV_ERROR_NULL_POINTER = 0x01;
+
 /** Acknowledgement response for movement commands. */
 constexpr uint8_t STATUS_ACK                    = 0x60;      // Answer on moving Commands  if accepted
 constexpr uint8_t STATUS_NACK                    = 0x70;     // Issue: #143 | Negative acknowledgement with one-byte reason code
@@ -197,6 +206,7 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
 { STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Defined
 { STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Coded constructed
+{ DEV_RESPONSE,     2, ResponseContainer::Data } // Reserved development response: module code + error code
 { STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Status: Coded constructed
 };
 
