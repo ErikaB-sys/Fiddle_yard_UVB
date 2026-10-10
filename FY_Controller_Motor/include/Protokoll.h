@@ -157,22 +157,22 @@ struct ResponseDefinition
 const CommandDefinition commandDefinitions[] =
 {
     // Command,          CommandType,          DATA length, Requires reference
-    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,       false },
-    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,        false },
-    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,     false },
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 0,         false },
-    { CMD_HELP,          CommandType::IMMEDIATE, 0,         false },
-    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,         false },
-    { CMD_REFERENCE,     CommandType::EXECUTE,   1,    false },
-    { CMD_SET_SPEED,     CommandType::EXECUTE,   2,        false },
-    { CMD_GO,            CommandType::EXECUTE,   2,           true },
-    { CMD_LEFT,          CommandType::EXECUTE,   3,           true },
-    { CMD_RIGHT,         CommandType::EXECUTE,   3,           true },
-    { CMD_SET_POSITION,  CommandType::EXECUTE,   3,           true },
-    { CMD_SET_TRACK,     CommandType::EXECUTE,   1,           true },
-    { CMD_SET_REMOTE,    CommandType::EXECUTE,   0,          false },
-    { CMD_SET_LOCAL,     CommandType::EXECUTE,   0,          false },
-    { CMD_STOPP,         CommandType::PRIORITY,  0,       false }
+    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false },
+    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false },
+    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false },
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 0,false },
+    { CMD_HELP,          CommandType::IMMEDIATE, 0,false },
+    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false },
+    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false },
+    { CMD_SET_SPEED,     CommandType::EXECUTE,   2,false },
+    { CMD_GO,            CommandType::EXECUTE,   2, true },
+    { CMD_LEFT,          CommandType::EXECUTE,   3, true },
+    { CMD_RIGHT,         CommandType::EXECUTE,   3, true },
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true },
+    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true },
+    { CMD_SET_REMOTE,    CommandType::EXECUTE,   0,false },
+    { CMD_SET_LOCAL,     CommandType::EXECUTE,   0,false },
+    { CMD_STOPP,         CommandType::PRIORITY,  0,false }
 };
 constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefinitions[0]);
 
