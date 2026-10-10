@@ -37,9 +37,9 @@ flowchart TD
     B -- Ja --> C{System Busy oder Motor bewegt sich?}
     C -- Ja --> N
     C -- Nein --> D{DATA = 55 AA?}
-    D -- Ja --> L[Keyboard Mode = LOCAL]
+    D -- Ja --> L[System Mode = LOCAL\nKeyboard mirrors system mode]
     D -- Nein --> E{DATA = AA 55?}
-    E -- Ja --> R[Keyboard Mode = REMOTE]
+    E -- Ja --> R[System Mode = REMOTE\nKeyboard mirrors system mode]
     E -- Nein --> N
     L --> ACK[ACK mit Command-ID]
     R --> ACK
@@ -52,14 +52,15 @@ flowchart TD
 | Erforderliches Modul fehlt | NACK | keine |
 | System meldet Busy | NACK | keine |
 | Motor bewegt sich | NACK | keine |
-| DATA `55 AA` | ACK | Mode = LOCAL |
-| DATA `AA 55` | ACK | Mode = REMOTE |
+| DATA `55 AA` | ACK | `FY_SystemStatus_t.mode = LOCAL`; keyboard mirrors mode |
+| DATA `AA 55` | ACK | `FY_SystemStatus_t.mode = REMOTE`; local movement/OK inputs locked, STOP remains available |
 | Anderes DATA-Muster | NACK | keine |
 
 - Command-ID: `CMD_SET_MODE = 0x26` (bisherige SET_LOCAL-ID weiterverwendet).
 - DATA-Länge: 2 Byte.
 - `CMD_SET_LOCAL` und `CMD_SET_REMOTE` entfallen; die alte ID `0x2A` wird nicht mehr verwendet.
 - ACK (`0x60`) und NACK (`0x70`) enthalten jeweils die Command-ID als ein DATA-Byte; die CRC folgt wie üblich.
+- Die maßgebliche Betriebsart liegt in `FY_SystemStatus_t.mode`; das Keyboard spiegelt sie für Anzeige und lokale Eingabesperre.
 - SET_MODE schaltet den Motor nicht ein und startet keine Bewegung.
 - Der Wechsel ist nur im Stillstand zulässig.
 
