@@ -2,6 +2,7 @@
 // Motor control implementation
 
 #include <Arduino.h>
+#include <util/atomic.h>
 #include "FY_System.h"
 #include "HW_Config.h"
 #include "Motor.h"
@@ -378,8 +379,15 @@ bool Motor::isDriverActive() const
 
 uint16_t Motor::getPosition()
 {
-    // ggf. den Zaehler aus dem Interrupt mit kurzer Interrupt-Sperre holen
-    return _Position;
+    uint16_t position = 0U;
+
+    // _Position is updated in the timer ISR; read both bytes atomically.
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    {
+        position = _Position;
+    }
+
+    return position;
 }
 
 uint16_t Motor::motor_getTargetPosition()
