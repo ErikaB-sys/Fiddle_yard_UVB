@@ -1,12 +1,13 @@
-include\Firmware.h,27,error,unknownMacro,There is an unknown macro here somewhere. Configuration is required. If PROGMEM is a macro then please configure it.
-lib\BabelFish\BabelFish.cpp,307,style,functionStatic,The member function 'BabelFish::reportInvalid' can be static.
-lib\BabelFish\BabelFish.cpp,332,style,constVariablePointer,Variable 'start' can be declared as pointer to const
+lib\BabelFish\BabelFish.cpp,318,style,functionStatic,The member function 'BabelFish::reportInvalid' can be static.
+lib\BabelFish\BabelFish.cpp,343,style,constVariablePointer,Variable 'start' can be declared as pointer to const
 lib\BabelFish\BabelFish.cpp,38,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'Serial' is unknown
 lib\BabelFish\BabelFish.cpp,164,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,211,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,232,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,255,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,175,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,222,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,243,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,266,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,395,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,432,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\Error\Error.cpp,18,style,functionStatic,The member function 'Error::update' can be static.
 lib\Keyboard\Keyboard.cpp,5,warning,uninitMemberVar,Member variable 'Button::_lastState' is not initialized in the constructor.
 lib\Keyboard\Keyboard.cpp,250,style,unusedPrivateFunction,Unused private function: 'Keyboard::drawDiagnostic'
@@ -23,8 +24,8 @@ lib\Motor\motor.cpp,63,warning,uninitMemberVar,Member variable 'Motor::_ProfileE
 lib\Motor\motor.cpp,63,warning,uninitMemberVar,Member variable 'Motor::_TargetPosition' is not initialized in the constructor.
 lib\Motor\motor.cpp,63,warning,uninitMemberVar,Member variable 'Motor::_Position' is not initialized in the constructor.
 lib\Motor\motor.cpp,352,style,unusedPrivateFunction,Unused private function: 'Motor::CheckBorder'
-lib\Motor\motor.cpp,403,style,unusedPrivateFunction,Unused private function: 'Motor::calcProfile'
-lib\Motor\motor.cpp,520,style,unusedPrivateFunction,Unused private function: 'Motor::Timer1_Start'
+lib\Motor\motor.cpp,408,style,unusedPrivateFunction,Unused private function: 'Motor::calcProfile'
+lib\Motor\motor.cpp,525,style,unusedPrivateFunction,Unused private function: 'Motor::Timer1_Start'
 lib\Motor\motor.cpp,218,style,functionStatic,The member function 'Motor::move2Pos' can be static.
 lib\Motor\motor.cpp,228,style,functionStatic,The member function 'Motor::moveSteps' can be static.
 lib\Motor\motor.cpp,305,style,functionStatic,The member function 'Motor::Reference' can be static.
@@ -34,7 +35,7 @@ lib\Motor\motor.cpp,335,style,functionStatic,The member function 'Motor::prepare
 lib\Motor\motor.cpp,343,style,functionStatic,The member function 'Motor::prepareSetTrack' can be static.
 lib\Motor\motor.cpp,352,style,functionStatic,The member function 'Motor::CheckBorder' can be static.
 lib\Motor\motor.cpp,357,style,functionStatic,The member function 'Motor::prepareParameter' can be static.
-lib\Motor\motor.cpp,580,style,functionStatic,The member function 'Motor::Timer1_Stop' can be static.
+lib\Motor\motor.cpp,585,style,functionStatic,The member function 'Motor::Timer1_Stop' can be static.
 lib\Motor\motor.cpp,150,style,knownConditionTrueFalse,Condition 'true==prepareLeft()' is always true
 lib\Motor\motor.cpp,157,style,knownConditionTrueFalse,Condition 'true==prepareRight()' is always true
 lib\Motor\motor.cpp,164,style,knownConditionTrueFalse,Condition 'true==prepareSetPosition()' is always true
@@ -48,12 +49,43 @@ lib\Motor\motor.cpp,254,error,misra-config,Because of missing configuration, mis
 lib\Motor\motor.cpp,258,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'REF_STATE' is unknown
 lib\Motor\motor.cpp,279,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\Motor\motor.cpp,292,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\Motor\motor.cpp,625,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\Motor\motor.cpp,634,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\Motor\motor.cpp,672,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\Motor\motor.cpp,679,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\Motor\motor.cpp,799,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'MotorProfile_t' is unknown
-lib\Motor\motor.cpp,813,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\Motor\motor.cpp,630,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\Motor\motor.cpp,639,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\Motor\motor.cpp,677,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\Motor\motor.cpp,684,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\Motor\motor.cpp,804,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'MotorProfile_t' is unknown
+lib\Motor\motor.cpp,818,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\Switches\Switches.cpp,3,style,functionStatic,The member function 'Switches::begin' can be static.
 lib\Switches\Switches.cpp,11,style,functionStatic,The member function 'Switches::getAnalogValue' can be static.
 lib\Switches\Switches.cpp,22,style,functionStatic,The member function 'Switches::getDigitalValue' can be static.
+lib\UART\UART.cpp,329,style,unusedPrivateFunction,Unused private function: 'UART::sendNack'
+lib\UART\UART.cpp,383,style,unusedPrivateFunction,Unused private function: 'UART::CheckError'
+lib\UART\UART.cpp,378,style,unusedPrivateFunction,Unused private function: 'UART::CheckBusy'
+lib\UART\UART.cpp,585,style,unusedPrivateFunction,Unused private function: 'UART::handle_ACK'
+lib\UART\UART.cpp,17,performance,useInitializationList,Variable 'CommandBuffer' is assigned in constructor body. Consider performing initialization in initialization list.
+lib\UART\UART.cpp,20,performance,useInitializationList,Variable 'ResponseBuffer' is assigned in constructor body. Consider performing initialization in initialization list.
+lib\UART\UART.cpp,383,style,functionStatic,The member function 'UART::CheckError' can be static.
+lib\UART\UART.cpp,378,style,functionStatic,The member function 'UART::CheckBusy' can be static.
+lib\UART\UART.cpp,403,style,functionStatic,The member function 'UART::Calc_CRC' can be static.
+lib\UART\UART.cpp,423,style,functionStatic,The member function 'UART::Calc_CRC_PGM' can be static.
+lib\UART\UART.cpp,336,style,functionStatic,The member function 'UART::sendHello' can be static.
+lib\UART\UART.cpp,629,style,functionStatic,The member function 'UART::handleSetRemote' can be static.
+lib\UART\UART.cpp,633,style,functionStatic,The member function 'UART::handleSetLocal' can be static.
+lib\UART\UART.cpp,580,style,functionStatic,The member function 'UART::handle_Busy' can be static.
+lib\UART\UART.cpp,585,style,functionStatic,The member function 'UART::handle_ACK' can be static.
+lib\UART\UART.cpp,38,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,72,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'Serial' is unknown
+lib\UART\UART.cpp,79,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'BabelFishResult' is unknown
+lib\UART\UART.cpp,114,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'BabelFishResult' is unknown
+lib\UART\UART.cpp,146,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
+lib\UART\UART.cpp,226,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'FY_SystemState_t' is unknown
+lib\UART\UART.cpp,297,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'ResponseContainer' is unknown
+lib\UART\UART.cpp,343,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,349,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,392,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,465,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,492,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,504,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,538,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,622,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
+lib\UART\UART.cpp,623,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
