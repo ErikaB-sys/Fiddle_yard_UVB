@@ -39,7 +39,9 @@ constexpr uint8_t CMD_GET_STATUS   =   0x19   ;    // Command to get the status 
 constexpr uint8_t CMD_GET_ERROR    =   0x1A   ;    // Command to get the current error of the FY-Controller
 
 constexpr uint8_t CMD_REFERENCE    =   0x16   ;    // Command to reference the motor position
-constexpr uint8_t CMD_SET_SPEED    =   0x2B   ;    // Command to set the speed of the motor
+constexpr uint8_t CMD_SET_PARAM    =   0x2B   ;    // Issue: #145 | Set a motor/controller parameter
+// Compatibility alias; new code should use CMD_SET_PARAM.
+constexpr uint8_t CMD_SET_SPEED    = CMD_SET_PARAM; // Deprecated: replaced by CMD_SET_PARAM (#145)
 
 constexpr uint8_t CMD_STOPP        =   0x01   ;    // Command to stop the motor
 constexpr uint8_t CMD_GO           =   0x07   ;    // Command to start the motor
