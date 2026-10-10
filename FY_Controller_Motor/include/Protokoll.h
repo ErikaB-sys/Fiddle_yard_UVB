@@ -206,7 +206,7 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
 { STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Code working
 { STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Code working
-{ DEV_RESPONSE,     2, ResponseContainer::Data } // Reserved development response: module code + error code
+{ DEV_RESPONSE,     2, ResponseContainer::Data }, // Reserved development response: module code + error code
 { STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Status: Code working
 };
 
