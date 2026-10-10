@@ -235,8 +235,8 @@ void UART::decodeExecute()
         handleReference();
         break;
 
-    case CMD_SET_SPEED:
-        handleSetSpeed();
+    case CMD_SET_PARAM:
+        handleSetParam();
         break;
 
     case CMD_GO:
@@ -591,8 +591,10 @@ void UART::handleReference()
     SetCommand();
 }
 
-void UART::handleSetSpeed()
+void UART::handleSetParam()
 {
+    // Parameter payload and validation are defined by Issues #145 and #58.
+    // The command only queues a parameter update; it does not start movement.
     SetCommand();
 }
 
