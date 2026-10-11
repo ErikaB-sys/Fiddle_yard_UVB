@@ -352,6 +352,98 @@ void Motor::Emergency_break()
     _State = MotorState_t::STOPPED;
 }
 
+/**
+ * @brief Disable the driver first, then stop STEP generation and invalidate
+ *        all state that can no longer be trusted after motor disable.
+ */
+void Motor::disableAndInvalidate(bool latchStop)
+{
+    // First action: the driver is disabled, so the motor stops immediately.
+    digitalWrite(_ENA_pin, HIGH);
+
+    _StepRun = false;
+    _StepLevel = false;
+    Timer1_Stop();
+
+    if (_StepPort != nullptr)
+        *_StepPort &= static_cast<uint8_t>(~_StepMask);
+
+    _TimerValid = false;
+    _ReferenceContinuous = false;
+    _StepsRemaining = 0U;
+    _Job.valid = false;
+    _JobResult = MotorJobResult_t::NONE;
+    FY_Refrun = REF_STATE::REF_REQ;
+    _Position = POSITION_UNKNOWN;
+    _TargetPosition = 0U;
+    _State = MotorState_t::STOPPED;
+
+    if (latchStop)
+        _StopActive = true;
+}
+
+MotorCommandResult_t Motor::prepareStop(const uint8_t* data)
+{
+    if (data == nullptr)
+        return MotorCommandResult_t::INVALID_DATA;
+
+    const uint8_t first = data[0];
+    const uint8_t second = data[1];
+
+    // Issue #129: 55 AA activates STOPP; AA 55 releases it.
+    if ((first == 0x55U) && (second == 0xAAU))
+    {
+        disableAndInvalidate(true);
+        return MotorCommandResult_t::ACCEPTED;
+    }
+
+    if ((first == 0xAAU) && (second == 0x55U))
+    {
+        // Releasing STOPP never enables the driver or restores a reference.
+        digitalWrite(_ENA_pin, HIGH);
+        _StopActive = false;
+        _State = MotorState_t::STOPPED;
+        return MotorCommandResult_t::ACCEPTED;
+    }
+
+    return MotorCommandResult_t::INVALID_DATA;
+}
+
+MotorCommandResult_t Motor::prepareGo(const uint8_t* data)
+{
+    if (data == nullptr)
+        return MotorCommandResult_t::INVALID_DATA;
+
+    const uint8_t first = data[0];
+    const uint8_t second = data[1];
+
+    // GO 55 AA switches the motor off; GO AA 55 switches it on.
+    if ((first == 0x55U) && (second == 0xAAU))
+    {
+        disableAndInvalidate(false);
+        return MotorCommandResult_t::ACCEPTED;
+    }
+
+    if ((first == 0xAAU) && (second == 0x55U))
+    {
+        if (_StopActive)
+            return MotorCommandResult_t::STOP_ACTIVE;
+
+        if ((_State == MotorState_t::MOVING) ||
+            (_State == MotorState_t::REFRUN))
+            return MotorCommandResult_t::BUSY;
+
+        digitalWrite(_ENA_pin, LOW);
+        _State = MotorState_t::IDLE;
+        _Job.valid = false;
+        _JobResult = MotorJobResult_t::NONE;
+        // Enabling the driver does not establish or restore a reference.
+        return MotorCommandResult_t::ACCEPTED;
+    }
+
+    return MotorCommandResult_t::INVALID_DATA;
+}
+
 
 // -----------------------------------------------------------------------------
 // Reference
