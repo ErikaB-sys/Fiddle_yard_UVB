@@ -41,17 +41,24 @@ static constexpr uint16_t POSITION_UNKNOWN = UINT16_MAX / 2;
 // -----------------------------------------------------------------------------
 
 #define TIMER_FREQUENCY 16000000UL
-#define TIMER_PRESCALER 256
-
-#define SPEED_TO_TIMER(v) \
-    (TIMER_FREQUENCY / (TIMER_PRESCALER * 2UL * \
-    (static_cast<uint32_t>(v) * STEPS_PER_UMD / MM_PER_UMD)) - 1UL)
+// Timer1 runs at F_CPU / 1024. V_MIN and V_MAX are STEP frequencies in Hz.
+#define TIMER_PRESCALER 1024UL
 
 constexpr uint16_t V_MIN = 120;
 constexpr uint16_t V_MAX = 800;
 
-constexpr uint16_t TIMER_V_MIN = static_cast<uint16_t>(SPEED_TO_TIMER(V_MIN));
-constexpr uint16_t TIMER_V_MAX = static_cast<uint16_t>(SPEED_TO_TIMER(V_MAX));
+// Convert STEP frequency (Hz) to the Timer1 CTC compare value.
+// Round to the nearest timer count, then subtract one for OCR1A.
+constexpr uint16_t speed_to_timer(uint16_t frequency)
+{
+    return static_cast<uint16_t>(
+        ((TIMER_FREQUENCY +
+          ((TIMER_PRESCALER * 2UL * frequency) / 2UL)) /
+         (TIMER_PRESCALER * 2UL * frequency)) - 1UL);
+}
+
+constexpr uint16_t TIMER_V_MIN = speed_to_timer(V_MIN);
+constexpr uint16_t TIMER_V_MAX = speed_to_timer(V_MAX);
 
 
 struct MotorJob_t
