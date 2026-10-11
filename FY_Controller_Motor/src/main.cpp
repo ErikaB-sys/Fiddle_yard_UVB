@@ -119,10 +119,12 @@ void loop()
 
   FY_uart.update();
 
-  /*
+  // Motor command execution is deliberately independent of local keyboard UI.
+  FY_motor.Update();
+
+  /* Local keyboard and switch polling remain disabled during UART motor bring-up.
   FY_Keyboard.Update();
   FY_Switches.update();
-  FY_motor.Update();
   FY_display.update();
   */
 }
