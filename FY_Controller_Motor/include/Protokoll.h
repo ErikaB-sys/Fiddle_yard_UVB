@@ -106,22 +106,44 @@ constexpr uint8_t STATUS_Track                  = 0x40    ;   // Status ID  Trac
 constexpr uint8_t STATUS_Motor                  = 0x50;    //Status ID Motor information
 constexpr uint8_t STATUS_Switches               = 0x41;
 constexpr uint8_t STATUS_Keyboard               = 0x51;
+/** Response containing automatically generated firmware identity information. */
+constexpr uint8_t STATUS_Firmware               = 0x28;
 constexpr uint8_t STATUS_SELECTOR_SYSTEM        = 0x10;
 constexpr uint8_t STATUS_SELECTOR_MOTOR         = 0x20;
 constexpr uint8_t STATUS_SELECTOR_SWITCHES      = 0x40;
 constexpr uint8_t STATUS_SELECTOR_KEYBOARD      = 0x50;
 /**
- * Reserved development response. This response reports an unexpected
- * implementation state; it is not a normal operational response.
- * DATA[0] = module code, DATA[1] = development error code.
+ * Reserved development response for unexpected implementation states.
+ * DATA[0]: upper nibble = module/location, lower nibble = development error.
+ * DATA[1]: reserved for temporary local debugging; release value is 0x00.
  */
 constexpr uint8_t DEV_RESPONSE = 0xFF;
-constexpr uint8_t DEV_MODULE_UART = 0x01;
-constexpr uint8_t DEV_ERROR_NULL_POINTER = 0x01;
+constexpr uint8_t DEV_MODULE_UART = 0x10;       // Error-location nibble: UART
+constexpr uint8_t DEV_ERROR_NULL_POINTER = 0x01; // Error-type nibble
+constexpr uint8_t DEV_DEBUG_DATA_NONE = 0x00;    // Mandatory release value for DATA[1]
 
 /** Acknowledgement response for movement commands. */
 constexpr uint8_t STATUS_ACK                    = 0x60;      // Answer on moving Commands  if accepted
 constexpr uint8_t STATUS_NACK                    = 0x70;     // Issue: #143 | Negative acknowledgement with one-byte reason code
+
+/**
+ * @brief Central NACK reason codes stored in DATA[0]'s low nibble.
+ *
+ * The high nibble identifies the responsible module/location using the
+ * FY_ERROR_LOCATION_* constants from Error.h. NACK payloads are queued via
+ * setResponse() and transmitted through the normal sendResponse() path.
+ * NONE is reserved and must not be used for an actual NACK.
+ */
+enum class NackReason : uint8_t
+{
+    NONE              = 0x00,
+    BUSY              = 0x01,
+    NOT_READY         = 0x02,
+    INVALID_COMMAND   = 0x03,
+    INVALID_PARAMETER = 0x04,
+    EXECUTION_ERROR   = 0x05,
+    INVALID_TELEGRAM  = 0x06
+};
 /** Response indicating that the help text has been sent. */
 constexpr uint8_t STATUS_Help                   = 0x18   ;    // Status indicating that the list of available commands has been sent to Uart
 
@@ -173,21 +195,21 @@ struct ResponseDefinition
 const CommandDefinition commandDefinitions[] =
 {
     // Command,          CommandType,          DATA length, Requires reference
-    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false }, // Issue: #114 | Status: Coded constructed
-    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false }, // Issue: #115 | Status: Coded constructed
-    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Coded constructed
-    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Coded constructed
-    { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Coded constructed
-    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Coded constructed
-    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Coded constructed
-    { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Coded constructed
-    { CMD_GO,            CommandType::EXECUTE,   2, true }, // Issue: #122 | Status: Coded constructed
-    { CMD_LEFT,          CommandType::EXECUTE,   3, true }, // Issue: #123 | Status: Coded constructed
-    { CMD_RIGHT,         CommandType::EXECUTE,   3, true }, // Issue: #124 | Status: Coded constructed
-    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true }, // Issue: #125 | Status: Coded constructed
-    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true }, // Issue: #126 | Status: Coded constructed
-    { CMD_SET_MODE,      CommandType::EXECUTE,   2,false }, // Issue: #58 | Status: Coded constructed
-    { CMD_STOPP,         CommandType::PRIORITY,  0,false } // Issue: #129 | Status: Coded constructed
+    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false }, // Issue: #114 | Status: Code working
+    { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false }, // Issue: #115 | Status: Code working
+    { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Code constructed (snapshot wired; runtime refresh depends on motor loop)
+    { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Code constructed (track snapshot connection pending)
+    { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Code working
+    { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Code constructed (STATUS_Firmware)
+    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Code constructed
+    { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Code constructed
+    { CMD_GO,            CommandType::EXECUTE,   2, true }, // Issue: #122 | Status: Code constructed
+    { CMD_LEFT,          CommandType::EXECUTE,   3, true }, // Issue: #123 | Status: Code constructed
+    { CMD_RIGHT,         CommandType::EXECUTE,   3, true }, // Issue: #124 | Status: Code constructed
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true }, // Issue: #125 | Status: Code constructed
+    { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true }, // Issue: #126 | Status: Code constructed
+    { CMD_SET_MODE,      CommandType::EXECUTE,   2,false }, // Issue: #58 | Status: Code working
+    { CMD_STOPP,         CommandType::PRIORITY,  2,false } // Issue: #129 | Status: Code constructed (safety behavior pending)
 };
 constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefinitions[0]);
 
@@ -195,19 +217,20 @@ constexpr size_t COMMAND_COUNT = sizeof(commandDefinitions) / sizeof(commandDefi
 const ResponseDefinition ResponseDefinitions[] =
 {
 { STATUS_Alive,     0, ResponseContainer::Data }, // Issue: #134 | Status: Defined
-{ STATUS_Error,     4, ResponseContainer::Data }, // Issue: #135 | Status: Coded constructed
-{ STATUS_System,    2, ResponseContainer::Data }, // Issue: #136 | Status: Coded constructed
-{ STATUS_CMD,       1, ResponseContainer::Data }, // Issue: #137 | Status: Defined
-{ STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Coded constructed
+{ STATUS_Error,     4, ResponseContainer::Data }, // Issue: #135 | Status: Code working
+{ STATUS_System,    2, ResponseContainer::Data }, // Issue: #136 | Status: Code working
+{ STATUS_CMD,       1, ResponseContainer::Data }, // Issue: #137 | Status: Code working
+{ STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Code constructed (snapshot wired; runtime refresh depends on motor loop)
 { STATUS_Reference, 1, ResponseContainer::Data }, // Issue: #139 | Status: Defined
-{ STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Coded constructed
-{ STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Coded constructed
-{ STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
-{ STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Coded constructed
-{ STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Defined
-{ STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Coded constructed
-{ DEV_RESPONSE,     2, ResponseContainer::Data } // Reserved development response: module code + error code
-{ STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Status: Coded constructed
+{ STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Code constructed (track snapshot connection pending)
+{ STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Code working
+{ STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
+{ STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
+{ STATUS_Firmware,  0, ResponseContainer::String }, // Automatically generated firmware identity
+{ STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Code working
+{ STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Code working
+{ DEV_RESPONSE,     2, ResponseContainer::Data }, // DATA[0]=location|error; DATA[1]=0x00 in release
+{ STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Norwegian help text + GitHub Spickzettel
 };
 
 
