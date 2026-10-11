@@ -465,6 +465,11 @@ void Motor::updateReference()
         if (_ReferenceRightEndHit)
         {
             stopReferenceMotion();
+            if (!_ReferenceCoarseCaptured)
+            {
+                finishReference(false);
+                break;
+            }
             _ReferenceApproachTarget = static_cast<uint16_t>(
                 _ReferenceCoarsePosition + REFERENCE_BACKOFF_STEPS);
             if (_ReferenceApproachTarget >= _ReferenceRightEndPosition)
@@ -526,10 +531,23 @@ void Motor::updateReference()
 
     case ReferenceState_t::REF_CALCULATE:
     {
+        _ReferencePlayLeft =
+            static_cast<int16_t>(_ReferencePreciseLeft2) -
+            static_cast<int16_t>(_ReferencePreciseLeft);
+        _ReferencePlayRight =
+            static_cast<int16_t>(_ReferencePreciseRight2) -
+            static_cast<int16_t>(_ReferencePreciseRight);
+        _ReferenceCenterShift =
+            static_cast<int16_t>(_ReferencePreciseCenter2) -
+            static_cast<int16_t>(_ReferencePreciseCenter);
+        _ReferenceSpan = (_ReferenceRightEndPosition > REFERENCE_LEFT_POSITION)
+            ? static_cast<uint16_t>(_ReferenceRightEndPosition - REFERENCE_LEFT_POSITION)
+            : 0U;
+
         const bool valid = _ReferenceCoarseCaptured &&
             _ReferencePreciseCaptured && _ReferenceSecondPreciseCaptured &&
             (_ReferencePreciseLength > 0U) && (_ReferencePreciseLength2 > 0U) &&
-            (_ReferenceRightEndPosition > REFERENCE_LEFT_POSITION);
+            (_ReferenceSpan > 0U);
         finishReference(valid);
         break;
     }
