@@ -93,11 +93,8 @@ void setup()
 void loop()
 {
   FY_uart.update();
-
-  /*
-  FY_Keyboard.Update();
-  FY_Switches.update();
   FY_motor.Update();
-  FY_display.update();
-  */
+
+  // Keyboard/switch/display scheduling and the HW_TEST cooperative OS
+  // are intentionally deferred to a later integration step.
 }
