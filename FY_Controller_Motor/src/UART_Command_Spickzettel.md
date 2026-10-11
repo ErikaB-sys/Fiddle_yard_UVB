@@ -10,7 +10,7 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | GET_ERROR | `0x1A` | – | `ERROR` |
 | REFERENCE | `0x16` | – | `REFERENCE` |
 | SET_PARAM | `0x2B` | Parameter-ID + 24-Bit-Rohwert (4 DATA-Byte) | `SET_PARAM <ID> <Rohwert>` |
-| STOPP | `0x01` | – | `STOP` |
+| STOPP | `0x01` | 2 Byte: `55 AA` = STOPP aktivieren, `AA 55` = STOPP aufheben | `STOPP 55AA` / `STOPP AA55` (auch `STOP` als Alias) |
 | LEFT | `0x0B` | – | `LEFT` |
 | RIGHT | `0x0D` | – | `RIGHT` |
 | SET_POSITION | `0x13` | uint16 | `SET_POSITION 3200` |
@@ -20,8 +20,9 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | HELP | `0x25` | – | `HELP` |
 | GET_FIRMWARE | `0x27` | – | `FIRMWARE` |
 | SET_MODE | `0x26` | 2 Byte: `55 AA` = LOCAL, `AA 55` = REMOTE | `SET_MODE LOCAL` / `SET_MODE REMOTE` |
+| GO | `0x07` | 2 Byte: `55 AA` = Treiber AUS, `AA 55` = Treiber EIN | `GO 55AA` / `GO AA55` |
 
-> `CMD_GO` ist bewusst nicht aufgeführt. Bewegungsbefehle sollen direkt ausgeführt werden.
+> `GO` schaltet nur den Motortreiber ein oder aus; es startet keine Bewegung. Die STOPP-Sperre hat Vorrang vor `GO AA55`.
 
 ## Status-Selektoren
 
@@ -40,6 +41,7 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 - `uint16`: 2 Byte, **Little Endian**
 - Beispiel: `SET_POSITION 3200` → `0x13 0x80 0x0C`
 - Beispiel: `SET_TRACK 3` → `0x1C 0x03`
+- Beispiel: `GO AA55` → Command `0x07`, DATA `AA 55`; auf der seriellen Diagnose erscheint `LEN=3` (Command plus zwei DATA-Byte).
 - Beispiel: `SET_PARAM 1 80` → `0x2B 0x01 0x50 0x00 0x00` (Beispiel-ID; Rohwert 80, Semantik gemäß Issue #145)
 
 ## Responses
@@ -86,6 +88,20 @@ Der UART setzt das obere Nibble aus der vorhandenen Fehlerortkonstante und das u
 
 NACK ist für eine unmittelbare, erwartbare Ablehnung eines Requests vorgesehen. Unerwartete interne Implementierungszustände werden weiterhin über `DEV_RESPONSE` gemeldet; Fehler, die erst während einer bereits gestarteten asynchronen Bewegung auftreten, sind keine nachträgliche NACK-Antwort.
 
+## GO und STOPP – Motortreibersteuerung
+
+Beide Befehle sind Execute-Commands mit zwei DATA-Byte. Die Hex-Werte werden ohne `0x` eingegeben; BabelFish prüft die Eingabe auf vier Hex-Zeichen, wandelt sie in zwei Bytes um und berechnet die CRC. Ob das Datenmuster für den Befehl zulässig ist, entscheidet der Motorhandler.
+
+| ASCII-Eingabe | Erwartete Wirkung | Erwartete Antwort |
+|---|---|---|
+| `GO 55AA` | Motortreiber ausschalten; laufende Bewegung wird abgebrochen und der Positionszustand invalidiert | ACK `0x60`, wenn angenommen |
+| `GO AA55` | Motortreiber einschalten, aber keine Bewegung starten | ACK `0x60`, sofern STOPP nicht aktiv ist; andernfalls NACK `NOT_READY` |
+| `STOPP 55AA` | STOPP-Sperre setzen und Treiber sofort ausschalten | ACK `0x60`, wenn angenommen |
+| `STOPP AA55` | STOPP-Sperre aufheben; Treiber bleibt ausgeschaltet | ACK `0x60`, wenn angenommen |
+| `GO 1234` / `STOPP 1234` | Ungültiges Datenmuster | NACK `INVALID_PARAMETER` |
+
+**Wichtig:** Nach `STOPP 55AA` wird `GO AA55` abgewiesen. Nach `STOPP AA55` läuft der Motor nicht automatisch wieder an; erst ein neuer `GO AA55` schaltet den Treiber ein. `GO` schaltet den Treiber, startet aber selbst keine Fahrt und stellt keine Referenz wieder her.
+
 ## HELP und GET_FIRMWARE
 
 - `HELP` liefert `STATUS_Help (0x18)` mit einem kurzen norwegischen Gimmick und dem Link zu diesem Spickzettel.
@@ -108,14 +124,19 @@ Während der Bewegung bleibt das aktuelle Gleis das zuletzt bestätigte Gleis. D
 Die Eingabe im Terminal erfolgt als lesbarer ASCII-Command:
 
 \`\`\`text
-STATUS
+STATUS 10
 GET_POSITION
 SET_TRACK 3
 SET_POSITION 3200
 SET_PARAM 1 80
 SET_MODE LOCAL
 SET_MODE REMOTE
-STOP
+GO 55AA
+GO AA55
+STOPP 55AA
+GO AA55
+STOPP AA55
+GO AA55
 FIRMWARE
 \`\`\`
 
