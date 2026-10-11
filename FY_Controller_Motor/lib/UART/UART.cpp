@@ -713,10 +713,24 @@ void UART::handleSetPosition()
 
 void UART::handleSetTrack()
 {
-    if ((CommandBuffer.command.data[0] >= static_cast<uint8_t>(FY_Track::BG1)) &&
-        (CommandBuffer.command.data[0] <= static_cast<uint8_t>(FY_Track::BG5)))
+    const uint8_t track = CommandBuffer.command.data[0];
+    if ((track < static_cast<uint8_t>(FY_Track::BG1)) ||
+        (track > static_cast<uint8_t>(FY_Track::BG5)))
     {
-        // Track validation will be completed with the motor command path.
+        setError(UART_ERROR_INVALID_DATA);
+        const uint8_t nackData = encodeNackData(
+            FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
+        return;
+    }
+
+    if (SetCommand())
+        handle_ACK();
+    else
+    {
+        const uint8_t nackData = encodeNackData(
+            FY_ERROR_LOCATION_MOTOR, NackReason::NOT_READY);
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
     }
 }
 
