@@ -35,28 +35,6 @@ MotorProfileParam_t Motor::_ProfileParam =
 // Hilfsfunktionen Timer
 // -----------------------------------------------------------------------------
 
-static uint16_t frequency_to_reload(uint16_t frequency)
-{
-    if (frequency == 0)
-        return 65535;
-
-    const uint32_t denominator =
-        2UL * TIMER_PRESCALER * static_cast<uint32_t>(frequency);
-
-    uint32_t reload =
-        ((TIMER_FREQUENCY / denominator) +
-         (denominator / 2UL)) - 1UL;
-
-    if (reload < 1UL)
-        reload = 1UL;
-
-    if (reload > 65535UL)
-        reload = 65535UL;
-
-    return static_cast<uint16_t>(reload);
-}
-
-
 // -----------------------------------------------------------------------------
 // Constructor / Destructor
 // -----------------------------------------------------------------------------
@@ -520,8 +498,8 @@ void Motor::Timer1_Init()
 
     OCR1A = TIMER_V_MIN;
 
-    // Verifiziert in FY_HW_TEST: Prescaler /256.
-    TCCR1B |= _BV(CS12);
+    // FY_HW_TEST: Timer1 CTC mit Prescaler /1024 (CS12=1, CS10=1).
+    TCCR1B |= _BV(CS12) | _BV(CS10);
 
     _StepRun = false;
     _StepLevel = false;
@@ -585,8 +563,9 @@ void Motor::Timer1_Start()
         // Treiber aktivieren.
         digitalWrite(_ENA_pin, LOW);
 
-        // Timer1 laeuft bereits im CTC-Modus mit /256.
-        TCCR1B |= _BV(CS12);
+        // Timer1 CTC: Prescaler /1024, wie im aktuellen FY_HW_TEST.
+        TCNT1 = 0;
+        TCCR1B |= _BV(CS12) | _BV(CS10);
     }
 }
 
