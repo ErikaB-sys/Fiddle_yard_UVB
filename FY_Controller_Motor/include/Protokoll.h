@@ -124,6 +124,25 @@ constexpr uint8_t DEV_ERROR_NULL_POINTER = 0x01;
 /** Acknowledgement response for movement commands. */
 constexpr uint8_t STATUS_ACK                    = 0x60;      // Answer on moving Commands  if accepted
 constexpr uint8_t STATUS_NACK                    = 0x70;     // Issue: #143 | Negative acknowledgement with one-byte reason code
+
+/**
+ * @brief Central NACK reason codes stored in DATA[0]'s low nibble.
+ *
+ * The high nibble identifies the responsible module/location using the
+ * FY_ERROR_LOCATION_* constants from Error.h. NACK payloads are queued via
+ * setResponse() and transmitted through the normal sendResponse() path.
+ * NONE is reserved and must not be used for an actual NACK.
+ */
+enum class NackReason : uint8_t
+{
+    NONE              = 0x00,
+    BUSY              = 0x01,
+    NOT_READY         = 0x02,
+    INVALID_COMMAND   = 0x03,
+    INVALID_PARAMETER = 0x04,
+    EXECUTION_ERROR   = 0x05,
+    INVALID_TELEGRAM  = 0x06
+};
 /** Response indicating that the help text has been sent. */
 constexpr uint8_t STATUS_Help                   = 0x18   ;    // Status indicating that the list of available commands has been sent to Uart
 
