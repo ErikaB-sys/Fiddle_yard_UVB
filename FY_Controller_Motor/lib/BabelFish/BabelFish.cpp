@@ -327,7 +327,47 @@ bool BabelFish::decodeLine()
         return true;
     }
 
-    // CMD_GO is deliberately not exposed by the ASCII adapter.
+    if (equalsIgnoreCase(command, "GO"))
+    {
+        const char* value = nextToken(cursor);
+
+        // GO accepts exactly one four-digit hexadecimal token: 55AA or AA55.
+        if ((value == nullptr) ||
+            (value[0] == '\0') ||
+            (value[1] == '\0') ||
+            (value[2] == '\0') ||
+            (value[3] == '\0') ||
+            (value[4] != '\0'))
+        {
+            return false;
+        }
+
+        char firstToken[3] = { value[0], value[1], '\0' };
+        char secondToken[3] = { value[2], value[3], '\0' };
+        uint8_t first = 0;
+        uint8_t second = 0;
+
+        if (!parseHexByte(firstToken, first) ||
+            !parseHexByte(secondToken, second))
+        {
+            return false;
+        }
+
+        if (!(((first == 0x55U) && (second == 0xAAU)) ||
+              ((first == 0xAAU) && (second == 0x55U))))
+        {
+            return false;
+        }
+
+        _command.cmd = CMD_GO;
+        _command.data[0] = first;
+        _command.data[1] = second;
+        _command.length = 3;
+        _command.valid = true;
+        _command.crc = calcCRC(_command.cmd, _command.data, 2);
+        return true;
+    }
+
     return false;
 }
 
