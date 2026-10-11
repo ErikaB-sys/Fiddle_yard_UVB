@@ -552,7 +552,7 @@ void UART::handleGetStatus()
     {
         setError(UART_ERROR_INVALID_DATA);
         const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
-                setResponse(STATUS_NACK, &nackData, sizeof(nackData));
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
         break;
     }
     }
@@ -610,7 +610,7 @@ void UART::handleGetTrack()
     {
         setError(UART_ERROR_INVALID_DATA);
         const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
-                setResponse(STATUS_NACK, &nackData, sizeof(nackData));
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
         return;
     }
 
@@ -670,7 +670,7 @@ void UART::handle_Busy()
 {
     // Execute commands rejected while the controller is busy receive NACK.
     const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::BUSY);
-                setResponse(STATUS_NACK, &nackData, sizeof(nackData));
+    setResponse(STATUS_NACK, &nackData, sizeof(nackData));
 }
 
 void UART::handle_ACK()
@@ -732,7 +732,7 @@ void UART::handleSetMode()
         FY_ModuleContext->motor == nullptr)
     {
         const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::NOT_READY);
-                setResponse(STATUS_NACK, &nackData, sizeof(nackData));
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
         return;
     }
 
@@ -741,7 +741,7 @@ void UART::handleSetMode()
         FY_ModuleContext->motor->isMoving())
     {
         const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::BUSY);
-                setResponse(STATUS_NACK, &nackData, sizeof(nackData));
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
         return;
     }
 
@@ -762,5 +762,5 @@ void UART::handleSetMode()
     }
 
     const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
-                setResponse(STATUS_NACK, &nackData, sizeof(nackData));
+    setResponse(STATUS_NACK, &nackData, sizeof(nackData));
 }
