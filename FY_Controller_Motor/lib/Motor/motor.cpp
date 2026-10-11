@@ -381,39 +381,92 @@ bool Motor::Reference()
 
 bool Motor::prepareSetPosition()
 {
-    // referenziert ?   -> missing ref Error
-    // position innerhalb ? -> out of range Error
-    // calcProfile();
-    return true;
+    if (FY_Refrun != REF_STATE::REF_VALID)
+        return false;
+
+    // Protocol DATA is uint16 little-endian: DATA[0] = LSB.
+    const uint16_t target = static_cast<uint16_t>(_Job.data[0]) |
+        (static_cast<uint16_t>(_Job.data[1]) << 8U);
+
+    if (target > POS_MAX || !CheckBorder())
+        return false;
+
+    move2Pos(static_cast<int16_t>(target));
+    return (_StepRun || target == getPosition());
 }
 
 bool Motor::prepareLeft()
 {
-    // referenziert ?   -> missing ref Error
-    // akt. pos + TrackSTEP -> position innerhalb ? -> out of range Error
-    // calcProfile();
-    return true;
+    if (FY_Refrun != REF_STATE::REF_VALID)
+        return false;
+
+    // LEFT selects the next measured track position to the left.
+    static constexpr uint16_t trackPositions[5] =
+        {1557U, 3157U, 4757U, 6357U, 7957U};
+    const uint16_t current = getPosition();
+
+    for (int8_t i = 4; i >= 0; --i)
+    {
+        if (trackPositions[static_cast<uint8_t>(i)] < current)
+        {
+            move2Pos(static_cast<int16_t>(trackPositions[static_cast<uint8_t>(i)]));
+            return _StepRun || trackPositions[static_cast<uint8_t>(i)] == current;
+        }
+    }
+    return false;
 }
 
 bool Motor::prepareRight()
 {
-    // referenziert ?   -> missing ref Error
-    // akt. pos + TrackSTEP -> position innerhalb ? -> out of range Error
-    // calcProfile();
-    return true;
+    if (FY_Refrun != REF_STATE::REF_VALID)
+        return false;
+
+    // RIGHT selects the next measured track position to the right.
+    static constexpr uint16_t trackPositions[5] =
+        {1557U, 3157U, 4757U, 6357U, 7957U};
+    const uint16_t current = getPosition();
+
+    for (uint8_t i = 0; i < 5; ++i)
+    {
+        if (trackPositions[i] > current)
+        {
+            move2Pos(static_cast<int16_t>(trackPositions[i]));
+            return _StepRun || trackPositions[i] == current;
+        }
+    }
+    return false;
 }
 
 bool Motor::prepareSetTrack()
 {
-    // referenziert ?   -> missing ref Error
-    // TRACK innerhalb ? -> TRACK out of range Error
-    // Track2Pos();
-    // calcProfile();
-    return true;
+    if (FY_Refrun != REF_STATE::REF_VALID)
+        return false;
+
+    const uint8_t track = _Job.data[0];
+    static constexpr uint16_t trackPositions[5] =
+        {1557U, 3157U, 4757U, 6357U, 7957U};
+
+    if (track < 1U || track > 5U)
+        return false;
+
+    const uint16_t target = trackPositions[track - 1U];
+    if (target > POS_MAX)
+        return false;
+
+    move2Pos(static_cast<int16_t>(target));
+    return _StepRun || target == getPosition();
 }
 
 bool Motor::CheckBorder()
 {
+    if (_TargetPosition > POS_MAX)
+        return false;
+
+    // If a measured span exists, the right limit is position 1000 + span.
+    if ((_TotalLength > 0U) &&
+        (_TargetPosition > static_cast<uint32_t>(1000U) + _TotalLength))
+        return false;
+
     return true;
 }
 
@@ -736,10 +789,7 @@ void Motor::Timer1_ISR()
         motor->_StepLevel = false;
         motor->_JobResult = MotorJobResult_t::ENDSTOP_LEFT;
         if (FY_Refrun == REF_STATE::REFR_EXEC)
-        {
             FY_Refrun = REF_STATE::REF_VALID;
-            motor->_State = MotorState_t::IDLE;
-        }
 
         if (motor->_StepPort != nullptr)
             *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
@@ -909,8 +959,15 @@ void Motor::Timer1_ISR()
         motor->_StepLevel = false;
         motor->_JobResult = MotorJobResult_t::DONE;
         motor->_Job.valid = false;
-        if (motor->_State != MotorState_t::REFRUN)
+        if (motor->_State == MotorState_t::REFRUN &&
+            FY_Refrun == REF_STATE::REFR_EXEC)
+        {
+            FY_Refrun = REF_STATE::REF_ERROR;
+        }
+        else if (motor->_State != MotorState_t::REFRUN)
+        {
             motor->_State = MotorState_t::IDLE;
+        }
 
         if (motor->_StepPort != nullptr)
             *motor->_StepPort &=
