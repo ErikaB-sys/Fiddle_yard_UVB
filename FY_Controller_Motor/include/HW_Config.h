@@ -38,11 +38,14 @@ constexpr uint8_t SWITCH_TRIM_LEFT_A   = NO_ANALOG;
 constexpr uint8_t SWITCH_TRIM_RIGHT_A  = NO_ANALOG;
 constexpr uint8_t SWITCH_TIMING_BELT_A = NO_ANALOG;
 
-// Digital pins for switches
-constexpr uint8_t SWITCH_REF_D         = PB1; // D09
-constexpr uint8_t SWITCH_TRIM_LEFT_D   = PB2; // D10
-constexpr uint8_t SWITCH_TRIM_RIGHT_D  = PB3; // D11
-constexpr uint8_t SWITCH_TIMING_BELT_D = PB4; // D12
+// Arduino digital pin numbers, matching the verified FY_HW_TEST wiring:
+// D9 = right end stop (PB1), D10 = hall/timing belt (PB2),
+// D11 = reference sensor (PB3), D12 = left end stop (PB4).
+// Do not use PBx here: PB1..PB4 are bit indices, not Arduino pin numbers.
+constexpr uint8_t SWITCH_REF_D         = 11; // LSREF / PB3
+constexpr uint8_t SWITCH_TRIM_LEFT_D   = 12; // LSL / PB4
+constexpr uint8_t SWITCH_TRIM_RIGHT_D  = 9;  // LSR / PB1
+constexpr uint8_t SWITCH_TIMING_BELT_D = 10; // LS4 / PB2
 
 // Motor control pins
 constexpr uint8_t MOTOR_PWM_PIN    = PD3; // white wire
