@@ -1107,269 +1107,188 @@ uint16_t Motor::current_profile_ramp_interval() const
 
 void Motor::Timer1_ISR()
 {
-    Motor* motor = _TimerMotor;
+    const bool limitRight = ((*LSR.inputRegister) & LSR.mask) != 0;
+    const bool reference  = ((*LSREF.inputRegister) & LSREF.mask) != 0;
+    const bool limitLeft  = ((*LSL.inputRegister) & LSL.mask) != 0;
 
-    if (motor == nullptr)
-        return;
-
-    // Timer1 darf weiterlaufen, auch wenn gerade kein STEP erzeugt wird.
-    // Damit bleibt die ISR-Struktur fuer spaetere Referenzphasen offen.
-    if (!motor->_StepRun)
+    if (!stepRun)
     {
-        motor->_StepLevel = false;
-
-        if (motor->_StepPort != nullptr)
-            *motor->_StepPort &=
-                static_cast<uint8_t>(~motor->_StepMask);
-
+        stepLevel = false;
+        PORTD &= ~_BV(PD3);
         return;
     }
 
-    const bool limitLeft =
-        ((*motor->_LeftLimitInputPort & motor->_LeftLimitMask) != 0U);
-    const bool limitRight =
-        ((*motor->_RightLimitInputPort & motor->_RightLimitMask) != 0U);
-    const bool reference =
-        ((*motor->_ReferenceInputPort & motor->_ReferenceInputMask) != 0U);
-
-    if (!motor->_DirectionRight && limitLeft)
+    // Endschalter haben Vorrang vor dem Profil.
+    if (!io.dir && limitLeft)
     {
-        motor->_StepRun = false;
-        motor->_StepLevel = false;
-        if (motor->_StepPort != nullptr)
-            *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
-        if (motor->_State == MotorState_t::REFRUN)
-        {
-            motor->_Position = REFERENCE_LEFT_POSITION;
-            motor->_ReferenceLeftEndHit = true;
-        }
-        else
-        {
-            motor->_JobResult = MotorJobResult_t::ENDSTOP_LEFT;
-            motor->Timer1_Stop();
-        }
+        stepRun = false;
+        profileRun = false;
+        stepLevel = false;
+        io.ledLeft = false;
+        updateOut = true;
+        hw.displayDirty = true;
+        PORTD &= ~_BV(PD3);
         return;
     }
 
-    if (motor->_DirectionRight && limitRight)
+    if (io.dir && limitRight)
     {
-        motor->_StepRun = false;
-        motor->_StepLevel = false;
-        if (motor->_StepPort != nullptr)
-            *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
-        if (motor->_State == MotorState_t::REFRUN)
-        {
-            motor->_ReferenceRightEndPosition = motor->_Position;
-            motor->_ReferenceRightEndHit = true;
-        }
-        else
-        {
-            motor->_JobResult = MotorJobResult_t::ENDSTOP_RIGHT;
-            motor->Timer1_Stop();
-        }
+        stepRun = false;
+        profileRun = false;
+        stepLevel = false;
+        io.ledRight = false;
+        updateOut = true;
+        hw.displayDirty = true;
+        PORTD &= ~_BV(PD3);
         return;
     }
 
-    motor->_StepLevel = !motor->_StepLevel;
+    stepLevel = !stepLevel;
 
-    if (motor->_StepLevel)
+    if (stepLevel)
     {
-        // STEP HIGH
-        if (motor->_StepPort != nullptr)
-            *motor->_StepPort |= motor->_StepMask;
-
+        PORTD |= _BV(PD3);
         return;
     }
 
-    // STEP LOW
-    if (motor->_StepPort != nullptr)
-        *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
+    PORTD &= ~_BV(PD3);
 
-    // Ein vollstaendiger STEP ist abgeschlossen.
-    if (motor->_DirectionRight)
-    {
-        ++motor->_Position;
-    }
-    else if (motor->_Position > 0)
-    {
-        --motor->_Position;
-    }
+    if (io.dir)
+        measurement.position++;
+    else if (measurement.position > 0)
+        measurement.position--;
 
-    if (motor->_State == MotorState_t::REFRUN)
+    if (!refLastState && reference)
     {
-        if (!motor->_ReferenceLastSensorState && reference)
+        measurement.refStart = measurement.position;
+        refStartValid = true;
+        measurement.refValid = false;
+
+        if (io.dir && !refCoarseCaptured)
         {
-            if (motor->_DirectionRight && !motor->_ReferenceCoarseCaptured)
-            {
-                motor->_ReferenceCoarsePosition = motor->_Position;
-                motor->_ReferenceCoarseCaptured = true;
-            }
-            if (!motor->_DirectionRight && motor->_ReferenceMeasureArmed &&
-                motor->_ReferenceMeasurePass == 1U &&
-                !motor->_ReferencePreciseRightCaptured)
-            {
-                motor->_ReferencePreciseRight = motor->_Position;
-                motor->_ReferencePreciseRightCaptured = true;
-                motor->_ReferenceStartValid = true;
-            }
-            if (motor->_DirectionRight && motor->_ReferenceMeasureArmed &&
-                motor->_ReferenceMeasurePass == 2U)
-            {
-                motor->_ReferencePreciseLeft2 = motor->_Position;
-                motor->_ReferenceStartValid = true;
-            }
+            refCoarsePosition = measurement.position;
+            refCoarseCaptured = true;
         }
-        else if (motor->_ReferenceLastSensorState && !reference)
+
+        if (!io.dir && refMeasureArmed &&
+            refMeasurePass == 1 && !refPreciseRightCaptured)
         {
-            if (!motor->_DirectionRight && motor->_ReferenceMeasureArmed &&
-                motor->_ReferenceMeasurePass == 1U &&
-                motor->_ReferencePreciseRightCaptured)
-            {
-                motor->_ReferencePreciseLeft = motor->_Position;
-                motor->_ReferencePreciseLength =
-                    (motor->_ReferencePreciseRight >= motor->_ReferencePreciseLeft)
-                    ? static_cast<uint16_t>(motor->_ReferencePreciseRight - motor->_ReferencePreciseLeft)
-                    : static_cast<uint16_t>(motor->_ReferencePreciseLeft - motor->_ReferencePreciseRight);
-                motor->_ReferencePreciseCenter = static_cast<uint16_t>(
-                    motor->_ReferencePreciseLeft + motor->_ReferencePreciseLength / 2U);
-                motor->_ReferencePreciseCaptured = true;
-                motor->_ReferenceMeasureArmed = false;
-            }
-            if (motor->_DirectionRight && motor->_ReferenceMeasureArmed &&
-                motor->_ReferenceMeasurePass == 2U)
-            {
-                motor->_ReferencePreciseRight2 = motor->_Position;
-                motor->_ReferencePreciseLength2 =
-                    (motor->_ReferencePreciseRight2 >= motor->_ReferencePreciseLeft2)
-                    ? static_cast<uint16_t>(motor->_ReferencePreciseRight2 - motor->_ReferencePreciseLeft2)
-                    : static_cast<uint16_t>(motor->_ReferencePreciseLeft2 - motor->_ReferencePreciseRight2);
-                motor->_ReferencePreciseCenter2 = static_cast<uint16_t>(
-                    motor->_ReferencePreciseLeft2 + motor->_ReferencePreciseLength2 / 2U);
-                motor->_ReferenceSecondPreciseCaptured = true;
-                motor->_ReferenceMeasureArmed = false;
-            }
+            refPreciseRight = measurement.position;
+            refPreciseRightCaptured = true;
         }
-        motor->_ReferenceLastSensorState = reference;
-        if (++motor->_ReferenceSteps > REFERENCE_MAX_STEPS)
+
+        if (io.dir && refMeasureArmed &&
+            refMeasurePass == 2)
         {
-            motor->_ReferenceError = true;
-            motor->_StepRun = false;
-            motor->_StepLevel = false;
-            if (motor->_StepPort != nullptr)
-                *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
-            return;
+            refPreciseLeft2 = measurement.position;
         }
-        // Reference motion is constant-speed and does not consume the normal
-        // six-element movement profile.
-        return;
     }
-
-    if (motor->_StepsRemaining > 0)
-        --motor->_StepsRemaining;
-
-    // Die Rampenaenderung gehoert zum gerade ausgefuehrten
-    // Profilelement. Es gibt keinen Sprung beim Wechsel ACC -> KONST.
-    const int16_t rampAccel =
-        motor->Motor_profil[
-            static_cast<uint8_t>(motor->_ProfileElement)
-        ].Accel;
-
-    const uint16_t rampInterval =
-        motor->current_profile_ramp_interval();
-
-    if ((rampAccel != 0) && (rampInterval > 0))
+    else if (refLastState && !reference)
     {
-        ++motor->_ProfileRampCounter;
-
-        if (motor->_ProfileRampCounter >= rampInterval)
+        if (refStartValid)
         {
-            motor->_ProfileRampCounter = 0;
+            measurement.refEnd = measurement.position;
 
-            const int32_t nextTimer =
-                static_cast<int32_t>(motor->_TimerValue) + rampAccel;
-
-            if (nextTimer < TIMER_MIN)
-                motor->_TimerValue = TIMER_MIN;
-            else if (nextTimer > TIMER_MAX)
-                motor->_TimerValue = TIMER_MAX;
+            if (measurement.refEnd >= measurement.refStart)
+                measurement.refLength =
+                    measurement.refEnd - measurement.refStart;
             else
-                motor->_TimerValue =
-                    static_cast<uint16_t>(nextTimer);
+                measurement.refLength =
+                    measurement.refStart - measurement.refEnd;
+
+            measurement.refValid = true;
+        }
+
+        if (!io.dir && refMeasureArmed &&
+            refMeasurePass == 1 && refPreciseRightCaptured)
+        {
+            refPreciseLeft = measurement.position;
+
+            if (refPreciseRight >= refPreciseLeft)
+                refPreciseLength = refPreciseRight - refPreciseLeft;
+            else
+                refPreciseLength = refPreciseLeft - refPreciseRight;
+
+            refPreciseCenter =
+                refPreciseLeft + (refPreciseLength / 2);
+
+            refPreciseCaptured = true;
+            refMeasureArmed = false;
+        }
+
+        if (io.dir && refMeasureArmed &&
+            refMeasurePass == 2)
+        {
+            refPreciseRight2 = measurement.position;
+
+            if (refPreciseRight2 >= refPreciseLeft2)
+                refPreciseLength2 =
+                    refPreciseRight2 - refPreciseLeft2;
+            else
+                refPreciseLength2 =
+                    refPreciseLeft2 - refPreciseRight2;
+
+            refPreciseCenter2 =
+                refPreciseLeft2 + (refPreciseLength2 / 2);
+
+            refSecondPreciseCaptured = true;
+            refMeasureArmed = false;
         }
     }
 
-    // Timerwert fuer den naechsten Interrupt uebernehmen.
-    OCR1A = motor->_TimerValue;
+    refLastState = reference;
 
-    if (motor->_StepsRemaining != 0)
+    if (!profileRun)
         return;
 
-    // ---------------------------------------------------------------
-    // Aktuelles Profilelement ist abgeschlossen.
-    // Erst jetzt zum naechsten Element wechseln.
-    // ---------------------------------------------------------------
-    bool nextElementLoaded = false;
+    if (profileStepsRemaining > 0)
+        --profileStepsRemaining;
 
-    for (uint8_t i = 0; i < 6; ++i)
+    // Die aktuelle Profilphase bestimmt die Timeränderung.
+    // Die Änderung erfolgt nur alle N STEP; dadurch wird die Rampe flacher.
+    const int16_t rampAccel = motionProfile[profileElement].Accel;
+
+    if (rampAccel != 0)
     {
-        switch (motor->_ProfileElement)
+        ++profileRampCounter;
+
+        if (profileRampCounter >= current_profile_ramp_interval())
         {
-        case MotorProfile_t::ACC1:
-            motor->_ProfileElement = MotorProfile_t::ACC2;
-            break;
+            profileRampCounter = 0;
 
-        case MotorProfile_t::ACC2:
-            motor->_ProfileElement = MotorProfile_t::KONST;
-            break;
-
-        case MotorProfile_t::KONST:
-            motor->_ProfileElement = MotorProfile_t::BRE1;
-            break;
-
-        case MotorProfile_t::BRE1:
-            motor->_ProfileElement = MotorProfile_t::BRE2;
-            break;
-
-        case MotorProfile_t::BRE2:
-            motor->_ProfileElement = MotorProfile_t::POSI;
-            break;
-
-        case MotorProfile_t::POSI:
-            // Kein weiteres Profilelement vorhanden.
-            break;
+            profileTimerValue =
+                static_cast<uint16_t>(
+                    static_cast<int32_t>(profileTimerValue) + rampAccel);
         }
-
-        const uint8_t element =
-            static_cast<uint8_t>(motor->_ProfileElement);
-
-        motor->_StepsRemaining = motor->Motor_profil[element].Steps;
-
-        if (motor->_StepsRemaining > 0)
-        {
-            nextElementLoaded = true;
-            break;
-        }
-
-        if (motor->_ProfileElement == MotorProfile_t::POSI)
-            break;
     }
 
-    if (!nextElementLoaded)
+    const uint16_t minReload = frequency_to_reload(profileVMax);
+    const uint16_t maxReload = frequency_to_reload(profileVMin);
+
+    if (profileTimerValue < minReload)
+        profileTimerValue = minReload;
+    if (profileTimerValue > maxReload)
+        profileTimerValue = maxReload;
+
+    OCR1A = profileTimerValue;
+
+    if (profileTimerValue < profileMinReloadReached)
+        profileMinReloadReached = profileTimerValue;
+
+    if (profileStepsRemaining == 0)
     {
-        // Profilende:
-        // letzter Schritt ist ausgefuehrt, danach keine weitere
-        // STEP-Erzeugung mehr.
-        motor->_TimerValid = false;
-        motor->_StepRun = false;
-        motor->_StepLevel = false;
-        motor->_JobResult = MotorJobResult_t::DONE;
+        ++profileElement;
 
-        if (motor->_StepPort != nullptr)
-            *motor->_StepPort &=
-                static_cast<uint8_t>(~motor->_StepMask);
-
-        motor->Timer1_Stop();
-        return;
+        if (!load_next_profile_element())
+        {
+            profileRun = false;
+            stepRun = false;
+            profileReportPending = true;
+            io.ledLeft = false;
+            io.ledRight = false;
+            updateOut = true;
+            hw.displayDirty = true;
+        }
     }
 }
 
