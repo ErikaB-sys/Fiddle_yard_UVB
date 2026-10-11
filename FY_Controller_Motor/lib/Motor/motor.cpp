@@ -85,6 +85,7 @@ bool Motor::begin()
     Timer1_Stop();
 
     _State = MotorState_t::IDLE;
+    _StopActive = false;
     _ProfileElement = MotorProfile_t::ACC1;
     _StepsRemaining = 0;
     _TimerValue = TIMER_V_MIN;
