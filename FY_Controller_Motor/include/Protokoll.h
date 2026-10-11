@@ -201,12 +201,12 @@ const CommandDefinition commandDefinitions[] =
     { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Code constructed (track snapshot connection pending)
     { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Code working
     { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Code constructed (STATUS_Firmware)
-    { CMD_REFERENCE,     CommandType::EXECUTE,   0,false }, // Issue: #120 | Status: Code constructed
+    { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Code constructed
     { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Code constructed
     { CMD_GO,            CommandType::EXECUTE,   2, true }, // Issue: #122 | Status: Code constructed
-    { CMD_LEFT,          CommandType::EXECUTE,   0, true }, // Issue: #123 | Status: Code constructed
-    { CMD_RIGHT,         CommandType::EXECUTE,   0, true }, // Issue: #124 | Status: Code constructed
-    { CMD_SET_POSITION,  CommandType::EXECUTE,   2, true }, // Issue: #125 | Status: Code constructed
+    { CMD_LEFT,          CommandType::EXECUTE,   3, true }, // Issue: #123 | Status: Code constructed
+    { CMD_RIGHT,         CommandType::EXECUTE,   3, true }, // Issue: #124 | Status: Code constructed
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true }, // Issue: #125 | Status: Code constructed
     { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true }, // Issue: #126 | Status: Code constructed
     { CMD_SET_MODE,      CommandType::EXECUTE,   2,false }, // Issue: #58 | Status: Code working
     { CMD_STOPP,         CommandType::PRIORITY,  2,false } // Issue: #129 | Status: Code constructed (safety behavior pending)
