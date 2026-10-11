@@ -542,6 +542,9 @@ bool Motor::Reference()
 
 void Motor::startReferenceMotion(bool directionRight, uint16_t frequency)
 {
+    // Bound each individual leg; a complete long reference consists of
+    // several legs and can legitimately exceed REFERENCE_MAX_STEPS in total.
+    _ReferenceSteps = 0U;
     _DirectionRight = directionRight;
     if (_DirPort != nullptr)
     {
