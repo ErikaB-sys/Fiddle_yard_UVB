@@ -173,8 +173,19 @@ void Motor::Update()
     case MotorState_t::REFRUN:
         if (FY_Refrun == REF_STATE::REF_VALID)
         {
-            _Job.valid = false;
-            _State = MotorState_t::IDLE;
+            // Match the HW-test short reference sequence: establish position
+            // 1000 at the left end stop, then move to the center track BG3.
+            _JobResult = MotorJobResult_t::NONE;
+            _TargetPosition = 4757U;
+            move2Pos(static_cast<int16_t>(_TargetPosition));
+
+            if (_StepRun || (_Position == _TargetPosition))
+                _State = MotorState_t::MOVING;
+            else
+            {
+                _Job.valid = false;
+                _State = MotorState_t::ERROR;
+            }
         }
         else if (FY_Refrun == REF_STATE::REF_ERROR)
         {
