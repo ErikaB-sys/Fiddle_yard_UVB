@@ -186,6 +186,13 @@ public:
 
 
 private:
+    enum class ReferenceState_t : uint8_t
+    {
+        IDLE, REF_START, REF_LEFT_END, REF_SEARCH_RIGHT,
+        REF_APPROACH_REF, REF_RETURN_TO_REF, REF_SHIFT_LEFT,
+        REF_MEASURE_LEFT, REF_CALCULATE, REF_ERROR
+    };
+
   // Hardware
     uint8_t _Dir_pin;
     uint8_t _Step_pin;
@@ -221,8 +228,56 @@ private:
    bool prepareSetTrack();
    bool CheckBorder();
    bool prepareParameter();
-   
-   
+
+    bool Prepare();
+    void updateReference();
+    void startReferenceMotion(bool directionRight, uint16_t frequency);
+    void stopReferenceMotion();
+    void finishReference(bool valid);
+
+    ReferenceState_t _ReferenceState = ReferenceState_t::IDLE;
+    uint8_t _ReferenceMode = 0U;
+    uint8_t _LastReferenceMode = 0xFFU;
+    bool _ReferenceLongRun = false;
+    volatile bool _ReferenceLeftEndHit = false;
+    volatile bool _ReferenceRightEndHit = false;
+    volatile bool _ReferenceError = false;
+    volatile bool _ReferenceCoarseCaptured = false;
+    volatile bool _ReferencePreciseRightCaptured = false;
+    volatile bool _ReferencePreciseCaptured = false;
+    volatile bool _ReferenceSecondPreciseCaptured = false;
+    volatile bool _ReferenceMeasureArmed = false;
+    volatile bool _ReferenceLastSensorState = false;
+    volatile bool _ReferenceStartValid = false;
+    volatile uint8_t _ReferenceMeasurePass = 0U;
+    volatile uint16_t _ReferenceSteps = 0U;
+    volatile uint16_t _ReferenceCoarsePosition = 0U;
+    volatile uint16_t _ReferenceRightEndPosition = 0U;
+    volatile uint16_t _ReferencePreciseRight = 0U;
+    volatile uint16_t _ReferencePreciseLeft = 0U;
+    volatile uint16_t _ReferencePreciseLength = 0U;
+    volatile uint16_t _ReferencePreciseCenter = 0U;
+    volatile uint16_t _ReferencePreciseRight2 = 0U;
+    volatile uint16_t _ReferencePreciseLeft2 = 0U;
+    volatile uint16_t _ReferencePreciseLength2 = 0U;
+    volatile uint16_t _ReferencePreciseCenter2 = 0U;
+    volatile uint16_t _ReferenceApproachTarget = 0U;
+    volatile uint16_t _ReferenceShiftTarget = 0U;
+
+    // Verified HW_TEST sensor mapping: LSR=D9/PB1, LSL=D12/PB4, LSREF=D11/PB3.
+    volatile uint8_t* _LeftLimitInputPort = nullptr;
+    volatile uint8_t* _RightLimitInputPort = nullptr;
+    volatile uint8_t* _ReferenceInputPort = nullptr;
+    uint8_t _LeftLimitMask = 0U;
+    uint8_t _RightLimitMask = 0U;
+    uint8_t _ReferenceInputMask = 0U;
+
+    static constexpr uint16_t REFERENCE_START_POSITION = 12500U;
+    static constexpr uint16_t REFERENCE_LEFT_POSITION = 1000U;
+    static constexpr uint16_t REFERENCE_MAX_STEPS = 25000U;
+    static constexpr uint16_t REFERENCE_BACKOFF_STEPS = 1200U;
+    static constexpr uint16_t REFERENCE_SHIFT_STEPS = 500U;
+
     static MotorProfileParam_t _ProfileParam;
 
     // TODO: timing / step counter
