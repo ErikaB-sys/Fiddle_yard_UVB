@@ -639,8 +639,8 @@ void Motor::Timer1_Init()
 
     OCR1A = TIMER_V_MIN;
 
-    // FY_HW_TEST: Timer1 CTC mit Prescaler /1024 (CS12=1, CS10=1).
-    TCCR1B |= _BV(CS12) | _BV(CS10);
+    // FY_HW_TEST: Timer1 CTC mit Prescaler /256 (CS12=1, CS11=0, CS10=0).
+    TCCR1B |= _BV(CS12);
 
     _StepRun = false;
     _StepLevel = false;
@@ -713,9 +713,9 @@ void Motor::Timer1_Start()
         // Treiber aktivieren.
         digitalWrite(_ENA_pin, LOW);
 
-        // Timer1 CTC: Prescaler /1024, wie im aktuellen FY_HW_TEST.
+        // Timer1 CTC: Prescaler /256, wie im aktuellen FY_HW_TEST.
         TCNT1 = 0;
-        TCCR1B |= _BV(CS12) | _BV(CS10);
+        TCCR1B |= _BV(CS12);
     }
 }
 
