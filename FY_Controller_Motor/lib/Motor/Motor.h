@@ -302,7 +302,7 @@ private:
 
     // Mechanischer Bewegungsbereich in Schritten
     static constexpr uint16_t POS_MIN = 0;
-    static constexpr uint16_t POS_MAX = 6400;
+    static constexpr uint16_t POS_MAX = 25000;
 
     // Timergrenzen
     // Kleinerer Wert = höhere Geschwindigkeit.
