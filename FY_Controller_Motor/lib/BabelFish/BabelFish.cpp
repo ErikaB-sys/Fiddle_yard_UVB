@@ -273,12 +273,6 @@ bool BabelFish::decodeLine()
             return false;
         }
 
-        if (!(((first == 0x55U) && (second == 0xAAU)) ||
-              ((first == 0xAAU) && (second == 0x55U))))
-        {
-            return false;
-        }
-
         _command.cmd = CMD_STOPP;
         _command.data[0] = first;
         _command.data[1] = second;
@@ -389,12 +383,6 @@ bool BabelFish::decodeLine()
 
         if (!parseHexByte(firstToken, first) ||
             !parseHexByte(secondToken, second))
-        {
-            return false;
-        }
-
-        if (!(((first == 0x55U) && (second == 0xAAU)) ||
-              ((first == 0xAAU) && (second == 0x55U))))
         {
             return false;
         }
