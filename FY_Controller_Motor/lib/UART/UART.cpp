@@ -475,11 +475,29 @@ void UART::clearCommandStatus()
 
 void UART::handleStop()
 {
-    setResponse(
-        STATUS_System,
-        reinterpret_cast<const uint8_t*>(UART_context->systemStatus),
-        sizeof(FY_SystemStatus_t)
-    );
+    if ((FY_ModuleContext == nullptr) || (FY_ModuleContext->motor == nullptr))
+    {
+        const uint8_t nackData = encodeNackData(
+            FY_ERROR_LOCATION_MOTOR, NackReason::NOT_READY);
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
+        return;
+    }
+
+    const MotorCommandResult_t result =
+        FY_ModuleContext->motor->prepareStop(CommandBuffer.command.data);
+
+    if (result == MotorCommandResult_t::ACCEPTED)
+    {
+        handle_ACK();
+        return;
+    }
+
+    const NackReason reason =
+        (result == MotorCommandResult_t::INVALID_DATA)
+            ? NackReason::INVALID_PARAMETER
+            : NackReason::EXECUTION_ERROR;
+    const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_MOTOR, reason);
+    setResponse(STATUS_NACK, &nackData, sizeof(nackData));
 }
 
 void UART::handleGetStatus()
@@ -693,7 +711,31 @@ void UART::handleSetParam()
 
 void UART::handleGo()
 {
-    SetCommand();
+    if ((FY_ModuleContext == nullptr) || (FY_ModuleContext->motor == nullptr))
+    {
+        const uint8_t nackData = encodeNackData(
+            FY_ERROR_LOCATION_MOTOR, NackReason::NOT_READY);
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
+        return;
+    }
+
+    const MotorCommandResult_t result =
+        FY_ModuleContext->motor->prepareGo(CommandBuffer.command.data);
+
+    if (result == MotorCommandResult_t::ACCEPTED)
+    {
+        handle_ACK();
+        return;
+    }
+
+    NackReason reason = NackReason::INVALID_PARAMETER;
+    if (result == MotorCommandResult_t::STOP_ACTIVE)
+        reason = NackReason::NOT_READY;
+    else if (result == MotorCommandResult_t::BUSY)
+        reason = NackReason::BUSY;
+
+    const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_MOTOR, reason);
+    setResponse(STATUS_NACK, &nackData, sizeof(nackData));
 }
 
 void UART::handleLeft()
