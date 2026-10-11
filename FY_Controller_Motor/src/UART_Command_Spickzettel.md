@@ -55,9 +55,41 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 | Track | `0x40` | 3 Byte: Zielgleis, zuletzt bestätigtes Gleis, Bewegungsstatus |
 | Motor | `0x50` | 3 Byte |
 | ACK | `0x60` | 1 Byte: bestätigte Command-ID |
-| NACK | `0x70` | 1 Byte: abgelehnte Command-ID |
+| NACK | `0x70` | 1 Byte: Fehlerort/Modul (oberes Nibble) + Ablehnungsgrund (unteres Nibble) |
 | DEV_RESPONSE | `0xFF` | 2 Byte: Modulkennung, Entwicklungsfehlercode (unerwarteter Implementierungszustand) |
-| Help | `0x18` | variabel |
+| Help | `0x18` | Hilfetext auf Norwegisch + GitHub-Spickzettel-Link (variabel) |
+| Firmware | `0x28` | Automatisch generierte Firmware-Identität: Name, Version, Build-Zeit, Git-Commit |
+
+## NACK – Codierung
+
+`STATUS_NACK (0x70)` enthält genau ein DATA-Byte:
+
+- **DATA[0], Bits 7..4:** Fehlerort bzw. zuständiges Modul; dafür werden die vorhandenen Fehlerort-/Modulkonstanten aus `Error.h` wiederverwendet.
+- **DATA[0], Bits 3..0:** Ablehnungsgrund.
+
+Die Command-ID wird **nicht** in der NACK-DATA übertragen. Sie ergibt sich aus dem vorausgegangenen Request. Damit unterscheiden sich ACK und NACK bewusst: ACK enthält die bestätigte Command-ID, NACK den Fehlerort und Ablehnungsgrund.
+
+Die zentralen Werte sind in `Protokoll.h` als `NackReason` definiert:
+
+| Wert | Name | Bedeutung |
+|---:|---|---|
+| `0x0` | `NONE` | reserviert; nicht für tatsächliche NACKs verwenden |
+| `0x1` | `BUSY` | Controller/Ressource ist beschäftigt |
+| `0x2` | `NOT_READY` | erforderliche Voraussetzung oder Modul ist nicht bereit |
+| `0x3` | `INVALID_COMMAND` | unbekannte oder nicht unterstützte Command-ID |
+| `0x4` | `INVALID_PARAMETER` | ungültige DATA-Länge, ungültiger Selektor oder Parameterwert |
+| `0x5` | `EXECUTION_ERROR` | unmittelbarer Ausführungsversuch ist fehlgeschlagen |
+| `0x6` | `INVALID_TELEGRAM` | Telegramm ist syntaktisch ungültig oder CRC fehlerhaft |
+| `0x7..0xF` | reserviert | für spätere Erweiterungen |
+
+Der UART setzt das obere Nibble aus der vorhandenen Fehlerortkonstante und das untere Nibble aus `NackReason` zusammen. Die NACK-DATA wird separat durch `encodeNackData()` codiert. Der jeweilige Aufrufer stellt sie anschließend mit `setResponse()` in den normalen Response-Puffer; übertragen wird sie ausschließlich über `sendResponse()`. Die Codierung selbst stellt keine Response ein.
+
+NACK ist für eine unmittelbare, erwartbare Ablehnung eines Requests vorgesehen. Unerwartete interne Implementierungszustände werden weiterhin über `DEV_RESPONSE` gemeldet; Fehler, die erst während einer bereits gestarteten asynchronen Bewegung auftreten, sind keine nachträgliche NACK-Antwort.
+
+## HELP und GET_FIRMWARE
+
+- `HELP` liefert `STATUS_Help (0x18)` mit einem kurzen norwegischen Gimmick und dem Link zu diesem Spickzettel.
+- `FIRMWARE` liefert `STATUS_Firmware (0x28)` mit denselben automatisch erzeugten Angaben wie die Firmware-Ausgabe beim Start: Name, Version, Build-Datum/-Zeit und Git-Commit.
 
 ## GET_TRACK – Antwortformat (Issue #58)
 
@@ -98,7 +130,7 @@ BabelFish wandelt diese Eingaben in die binären Commands um.
 - `55 AA`: LOCAL
 - `AA 55`: REMOTE
 - Betriebsartenwechsel nur im Stillstand
-- Antwort: ACK (`0x60`) mit Command-ID oder NACK (`0x70`) mit Command-ID
+- Antwort: ACK (`0x60`) mit Command-ID oder NACK (`0x70`) mit NACK-Code (oberes Nibble: Fehlerort/Modul, unteres Nibble: Ablehnungsgrund)
 - Bei ungültigem Datenmuster, fehlendem erforderlichem Modul oder laufender Bewegung erfolgt NACK; die Betriebsart bleibt unverändert.
 - Der Befehl schaltet den Motor nicht ein und startet keine Bewegung.
 
@@ -109,11 +141,11 @@ Siehe [Issue #58](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/58).
 
 `DEV_RESPONSE` (`0xFF`) ist für Zustände reserviert, die im normalen Betrieb nicht auftreten dürfen, aber erst später durch einen bislang nicht durchlaufenen Codepfad entdeckt werden könnten.
 
-- DATA[0]: Modulkennung; aktuell `0x01` = UART
-- DATA[1]: Fehlercode; aktuell `0x01` = NULL_POINTER
-- Beispiel: `FF 01 01` = UART meldet einen unerwarteten Nullpointer-Zustand (CRC folgt gemäß Telegrammformat).
-- Die Antwortdefinition bleibt regulär in `Protokoll.h` enthalten. Sie ist keine normale Betriebsantwort.
-- Bei einem solchen Fehler wird der betroffene Handler kontrolliert abgebrochen; es dürfen keine erfundenen oder ungültigen Nutzdaten gesendet werden.
+- DATA[0]: oberes Nibble = Fehlerort/Modul, unteres Nibble = Fehlercode; aktuell `0x10 | 0x01 = 0x11` für UART / NULL_POINTER.
+- DATA[1]: Debug-Reserve; im Release-Code immer `0x00`. Lokale Diagnosewerte dürfen hier nur temporär während der Entwicklung eingetragen und müssen vor einem Release zurückgesetzt werden.
+- Beispiel: `FF 11 00` = UART meldet einen unerwarteten Nullpointer-Zustand; CRC folgt gemäß Telegrammformat.
+- Modulkennung, Fehlercode und Release-Standardwert sind zentral in `Protokoll.h` definiert.
+- Die Antwort ist keine normale Betriebsantwort. Bei einem solchen Fehler wird der betroffene Handler kontrolliert abgebrochen; es dürfen keine erfundenen oder ungültigen Nutzdaten gesendet werden.
 - Weitere Modul- und Fehlercodes werden bei Bedarf ergänzt.
 
 Siehe [Issue #58](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/58).

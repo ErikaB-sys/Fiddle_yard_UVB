@@ -101,10 +101,23 @@ void UART::receive()
                     break;
                 }
 
-                const uint8_t reason =
-                    static_cast<uint8_t>(CommandBuffer.status);
-
-                setResponse(STATUS_NACK, &reason, 1);
+                NackReason reason = NackReason::INVALID_TELEGRAM;
+                switch (CommandBuffer.status)
+                {
+                case UART_CommandStatus_t::CMD_INVALID:
+                    reason = NackReason::INVALID_COMMAND;
+                    break;
+                case UART_CommandStatus_t::DATA_INVALID:
+                    reason = NackReason::INVALID_PARAMETER;
+                    break;
+                case UART_CommandStatus_t::CRC_INVALID:
+                case UART_CommandStatus_t::VALID:
+                default:
+                    reason = NackReason::INVALID_TELEGRAM;
+                    break;
+                }
+                const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, reason);
+                setResponse(STATUS_NACK, &nackData, sizeof(nackData));
                 commandReady = false;
                 return;
             }
@@ -116,10 +129,23 @@ void UART::receive()
             CommandBuffer.status = UART_CommandStatus_t::CMD_INVALID;
             setError(UART_ERROR_INVALID_TELEGRAM);
 
-            const uint8_t reason =
-                static_cast<uint8_t>(CommandBuffer.status);
-
-            setResponse(STATUS_NACK, &reason, 1);
+            NackReason reason = NackReason::INVALID_TELEGRAM;
+                switch (CommandBuffer.status)
+                {
+                case UART_CommandStatus_t::CMD_INVALID:
+                    reason = NackReason::INVALID_COMMAND;
+                    break;
+                case UART_CommandStatus_t::DATA_INVALID:
+                    reason = NackReason::INVALID_PARAMETER;
+                    break;
+                case UART_CommandStatus_t::CRC_INVALID:
+                case UART_CommandStatus_t::VALID:
+                default:
+                    reason = NackReason::INVALID_TELEGRAM;
+                    break;
+                }
+                const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, reason);
+                setResponse(STATUS_NACK, &nackData, sizeof(nackData));
             commandReady = false;
             return;
         }
@@ -322,11 +348,12 @@ void UART::sendResponse()
     ResponseBuffer.responsePending = false;
 }
 
-void UART::sendNack(UART_CommandStatus_t status)
+uint8_t UART::encodeNackData(uint8_t location, NackReason reason) const
 {
-    const uint8_t reason = static_cast<uint8_t>(status);
-    setResponse(STATUS_NACK, &reason, 1);
-    sendResponse();
+    return static_cast<uint8_t>(
+        (location & FY_ERROR_LOCATION_MASK) |
+        (static_cast<uint8_t>(reason) & FY_ERROR_TYPE_MASK)
+    );
 }
 
 void UART::sendHello()
@@ -460,8 +487,12 @@ void UART::handleGetStatus()
     const uint8_t selector = CommandBuffer.command.data[0];
     if ((UART_context == nullptr) || (UART_context->systemStatus == nullptr))
     {
-        const uint8_t reason = static_cast<uint8_t>(UART_CommandStatus_t::DATA_INVALID);
-        setResponse(STATUS_NACK, &reason, 1U);
+        const uint8_t errorData[2] =
+        {
+            static_cast<uint8_t>(DEV_MODULE_UART | DEV_ERROR_NULL_POINTER),
+            DEV_DEBUG_DATA_NONE
+        };
+        setResponse(DEV_RESPONSE, errorData, sizeof(errorData));
         return;
     }
     switch (selector)
@@ -519,9 +550,9 @@ void UART::handleGetStatus()
     }
     default:
     {
-        const uint8_t reason = static_cast<uint8_t>(UART_CommandStatus_t::DATA_INVALID);
         setError(UART_ERROR_INVALID_DATA);
-        setResponse(STATUS_NACK, &reason, 1U);
+        const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
         break;
     }
     }
@@ -544,78 +575,102 @@ void UART::handleGetError()
 
 void UART::handleGetPosition()
 {
-    setResponse(
-        STATUS_Position,
-        reinterpret_cast<const uint8_t*>(UART_context->motorPosition),
-        sizeof(int32_t)
-    );
+    if ((UART_context == nullptr) ||
+        (UART_context->motorPosition == nullptr))
+    {
+        const uint8_t errorData[2] =
+        {
+            static_cast<uint8_t>(DEV_MODULE_UART | DEV_ERROR_NULL_POINTER),
+            DEV_DEBUG_DATA_NONE
+        };
+        setResponse(DEV_RESPONSE, errorData, sizeof(errorData));
+        return;
+    }
+
+    // UART reads the Main-level snapshot, never the ISR-owned motor counter.
+    const uint32_t position =
+        static_cast<uint32_t>(*UART_context->motorPosition);
+
+    const uint8_t data[4] =
+    {
+        static_cast<uint8_t>(position & 0xFFU),
+        static_cast<uint8_t>((position >> 8U) & 0xFFU),
+        static_cast<uint8_t>((position >> 16U) & 0xFFU),
+        static_cast<uint8_t>((position >> 24U) & 0xFFU)
+    };
+
+    setResponse(STATUS_Position, data, sizeof(data));
 }
 
 void UART::handleGetTrack()
 {
-    const uint8_t commandId = CommandBuffer.command.cmd;
     const uint8_t option = CommandBuffer.command.data[0];
 
     if (option != GET_TRACK_OPTION_DEFAULT)
     {
         setError(UART_ERROR_INVALID_DATA);
-        setResponse(STATUS_NACK, &commandId, 1U);
+        const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
         return;
     }
 
-    uint8_t data[3] = {0U, 0U, TRACK_STATUS_ERROR};
-
-    if ((UART_context != nullptr) &&
-        (UART_context->Track_INFO != nullptr) &&
-        (UART_context->systemStatus != nullptr))
+    // All sources below are required to form a truthful track response.
+    if ((UART_context == nullptr) ||
+        (UART_context->Track_INFO == nullptr) ||
+        (UART_context->systemStatus == nullptr) ||
+        (FY_ModuleContext == nullptr) ||
+        (FY_ModuleContext->motor == nullptr))
     {
-        data[0] = static_cast<uint8_t>(
-            UART_context->Track_INFO->target_track);
-        data[1] = static_cast<uint8_t>(
-            UART_context->Track_INFO->akt_track);
-
-        if ((UART_context->systemStatus->state == FY_SystemState_t::Error) ||
-            UART_context->systemStatus->init.systemError ||
-            UART_context->systemStatus->error.motor)
+        const uint8_t errorData[2] =
         {
-            data[2] = TRACK_STATUS_ERROR;
-        }
-        else if ((FY_ModuleContext == nullptr) ||
-                 (FY_ModuleContext->motor == nullptr))
-        {
-            data[2] = TRACK_STATUS_ERROR;
-        }
-        else if (FY_ModuleContext->motor->isMoving())
-        {
-            data[2] = TRACK_STATUS_MOVING;
-        }
-        else
-        {
-            data[2] = TRACK_STATUS_REACHED;
-        }
+            static_cast<uint8_t>(DEV_MODULE_UART | DEV_ERROR_NULL_POINTER),
+            DEV_DEBUG_DATA_NONE
+        };
+        setResponse(DEV_RESPONSE, errorData, sizeof(errorData));
+        return;
     }
 
-    setResponse(STATUS_Track, data, 3U);
+    uint8_t data[3] =
+    {
+        static_cast<uint8_t>(UART_context->Track_INFO->target_track),
+        static_cast<uint8_t>(UART_context->Track_INFO->akt_track),
+        TRACK_STATUS_REACHED
+    };
+
+    if ((UART_context->systemStatus->state == FY_SystemState_t::Error) ||
+        UART_context->systemStatus->init.systemError ||
+        UART_context->systemStatus->error.motor)
+    {
+        data[2] = TRACK_STATUS_ERROR;
+    }
+    else if (FY_ModuleContext->motor->isMoving())
+    {
+        data[2] = TRACK_STATUS_MOVING;
+    }
+
+    setResponse(STATUS_Track, data, sizeof(data));
 }
 
 void UART::handleHelp()
 {
     static const char HELP_RESPONSE[] PROGMEM =
-        "GET_STATUS GET_ERROR GET_POSITION GET_TRACK HELP GET_FIRMWARE SET_MODE";
+        "Ta det med ro, hjelpen er på vei! Spickzettel: "
+        "https://github.com/ErikaB-sys/Fiddle_yard_UVB/blob/FY_Command_and_Responses/"
+        "FY_Controller_Motor/src/UART_Command_Spickzettel.md";
 
     setResponse(STATUS_Help, HELP_RESPONSE);
 }
 
 void UART::handleGetFirmware()
 {
-    setResponse(STATUS_Help, FW_RESPONSE);
+    setResponse(STATUS_Firmware, FW_RESPONSE);
 }
 
 void UART::handle_Busy()
 {
     // Execute commands rejected while the controller is busy receive NACK.
-    const uint8_t commandId = CommandBuffer.command.cmd;
-    setResponse(STATUS_NACK, &commandId, 1U);
+    const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::BUSY);
+    setResponse(STATUS_NACK, &nackData, sizeof(nackData));
 }
 
 void UART::handle_ACK()
@@ -676,7 +731,8 @@ void UART::handleSetMode()
         FY_ModuleContext == nullptr || FY_ModuleContext->keyboard == nullptr ||
         FY_ModuleContext->motor == nullptr)
     {
-        setResponse(STATUS_NACK, &commandId, 1U);
+        const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::NOT_READY);
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
         return;
     }
 
@@ -684,7 +740,8 @@ void UART::handleSetMode()
     if (UART_context->systemStatus->state == FY_SystemState_t::Busy ||
         FY_ModuleContext->motor->isMoving())
     {
-        setResponse(STATUS_NACK, &commandId, 1U);
+        const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::BUSY);
+        setResponse(STATUS_NACK, &nackData, sizeof(nackData));
         return;
     }
 
@@ -704,5 +761,6 @@ void UART::handleSetMode()
         return;
     }
 
-    setResponse(STATUS_NACK, &commandId, 1U);
+    const uint8_t nackData = encodeNackData(FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
+    setResponse(STATUS_NACK, &nackData, sizeof(nackData));
 }

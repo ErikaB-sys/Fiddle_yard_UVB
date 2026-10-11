@@ -91,34 +91,4 @@ uint8_t Error::getSystemByte() const
     return status;
 }
 
-// -----------------------------------------------------------------------------
-// Alte freie Fehler-API
-// -----------------------------------------------------------------------------
-//
-// Vorläufig auskommentiert. Die bisherige Implementierung wird nicht gelöscht,
-// damit bei der späteren Umstellung sichtbar bleibt, was ersetzt wurde.
-//
-// namespace
-// {
-//     uint8_t currentError = FY_ERROR_NONE;
-// }
-//
-// void setError(uint8_t errorCode)
-// {
-//     currentError = errorCode;
-// }
-//
-// uint8_t getError()
-// {
-//     return currentError;
-// }
-//
-// bool hasError()
-// {
-//     return currentError != FY_ERROR_NONE;
-// }
-//
-// void clearError()
-// {
-//     currentError = FY_ERROR_NONE;
-// }
+

@@ -21,6 +21,9 @@ UART_Context_t Main_Context;
 FY_SystemStatus_t systemStatus;
 FY_ModuleContext_t FY_Modules{};
 
+// Main-owned snapshot: UART never reads the ISR-owned position counter.
+int32_t motorPositionSnapshot = static_cast<int32_t>(POSITION_UNKNOWN);
+
 void printFirmwareInfo()
 {
   Serial.print(F("FW: "));
@@ -42,7 +45,7 @@ void setup()
 {
   Main_Context.systemStatus = &systemStatus;
   Main_Context.error = &FY_Error;
-  Main_Context.motorPosition = nullptr;
+  Main_Context.motorPosition = &motorPositionSnapshot;
   Main_Context.Track_INFO = nullptr;
   Main_Context.motorSpeed = nullptr;
 
@@ -58,6 +61,7 @@ void setup()
   FY_uart.begin(Main_Context, FY_Modules);
 
   FY_motor.begin();
+  motorPositionSnapshot = static_cast<int32_t>(FY_motor.getPosition());
 
   FY_Keyboard.begin();
   FY_Keyboard.setMode(systemStatus.mode);
@@ -93,6 +97,26 @@ void setup()
 
 void loop()
 {
+  static uint32_t lastPositionSnapshotMs = 0U;
+  static bool motorWasMoving = false;
+
+  const uint32_t now = millis();
+  const bool motorMoving = FY_motor.isMoving();
+
+  // Refresh the position snapshot every 100 ms while moving.
+  if (motorMoving && ((now - lastPositionSnapshotMs) >= 100UL))
+  {
+    motorPositionSnapshot = static_cast<int32_t>(FY_motor.getPosition());
+    lastPositionSnapshotMs = now;
+  }
+  // Capture the final position as soon as movement ends.
+  else if (!motorMoving && motorWasMoving)
+  {
+    motorPositionSnapshot = static_cast<int32_t>(FY_motor.getPosition());
+  }
+
+  motorWasMoving = motorMoving;
+
   FY_uart.update();
 
   /*
