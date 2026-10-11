@@ -112,8 +112,8 @@ private:
     void setResponse(uint8_t id, const uint8_t* data, uint8_t length);
     void setResponse(uint8_t id, PGM_P data);
 
-    /** @brief Sends a temporary NACK carrying the receive status. */
-    void sendNack(UART_CommandStatus_t status);
+        /** @brief Queues a centrally encoded NACK through the normal response path. */
+    void setNack(uint8_t location, NackReason reason);
 
     bool CheckError();
     bool CheckBusy();
