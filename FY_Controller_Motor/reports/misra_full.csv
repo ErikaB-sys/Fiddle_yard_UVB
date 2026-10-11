@@ -61,42 +61,42 @@ lib\Motor\motor.cpp,826,error,misra-config,Because of missing configuration, mis
 lib\Switches\Switches.cpp,3,style,functionStatic,The member function 'Switches::begin' can be static.
 lib\Switches\Switches.cpp,11,style,functionStatic,The member function 'Switches::getAnalogValue' can be static.
 lib\Switches\Switches.cpp,22,style,functionStatic,The member function 'Switches::getDigitalValue' can be static.
-lib\UART\UART.cpp,325,style,unusedPrivateFunction,Unused private function: 'UART::sendNack'
-lib\UART\UART.cpp,379,style,unusedPrivateFunction,Unused private function: 'UART::CheckError'
-lib\UART\UART.cpp,374,style,unusedPrivateFunction,Unused private function: 'UART::CheckBusy'
-lib\UART\UART.cpp,645,style,unusedPrivateFunction,Unused private function: 'UART::handle_ACK'
+lib\UART\UART.cpp,406,style,unusedPrivateFunction,Unused private function: 'UART::CheckError'
+lib\UART\UART.cpp,401,style,unusedPrivateFunction,Unused private function: 'UART::CheckBusy'
+lib\UART\UART.cpp,676,style,unusedPrivateFunction,Unused private function: 'UART::handle_ACK'
 lib\UART\UART.cpp,17,performance,useInitializationList,Variable 'CommandBuffer' is assigned in constructor body. Consider performing initialization in initialization list.
 lib\UART\UART.cpp,20,performance,useInitializationList,Variable 'ResponseBuffer' is assigned in constructor body. Consider performing initialization in initialization list.
-lib\UART\UART.cpp,379,style,functionStatic,The member function 'UART::CheckError' can be static.
-lib\UART\UART.cpp,374,style,functionStatic,The member function 'UART::CheckBusy' can be static.
-lib\UART\UART.cpp,399,style,functionStatic,The member function 'UART::Calc_CRC' can be static.
-lib\UART\UART.cpp,419,style,functionStatic,The member function 'UART::Calc_CRC_PGM' can be static.
-lib\UART\UART.cpp,332,style,functionStatic,The member function 'UART::sendHello' can be static.
+lib\UART\UART.cpp,351,style,functionStatic,The member function 'UART::encodeNackData' can be static.
+lib\UART\UART.cpp,406,style,functionStatic,The member function 'UART::CheckError' can be static.
+lib\UART\UART.cpp,401,style,functionStatic,The member function 'UART::CheckBusy' can be static.
+lib\UART\UART.cpp,426,style,functionStatic,The member function 'UART::Calc_CRC' can be static.
+lib\UART\UART.cpp,446,style,functionStatic,The member function 'UART::Calc_CRC_PGM' can be static.
+lib\UART\UART.cpp,359,style,functionStatic,The member function 'UART::sendHello' can be static.
 lib\UART\UART.cpp,38,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\UART\UART.cpp,72,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'Serial' is unknown
 lib\UART\UART.cpp,79,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'BabelFishResult' is unknown
-lib\UART\UART.cpp,114,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'BabelFishResult' is unknown
-lib\UART\UART.cpp,146,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
-lib\UART\UART.cpp,226,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'FY_SystemState_t' is unknown
-lib\UART\UART.cpp,293,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'ResponseContainer' is unknown
-lib\UART\UART.cpp,339,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,345,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,388,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,461,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,127,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'BabelFishResult' is unknown
+lib\UART\UART.cpp,172,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
+lib\UART\UART.cpp,252,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'FY_SystemState_t' is unknown
+lib\UART\UART.cpp,319,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'ResponseContainer' is unknown
+lib\UART\UART.cpp,366,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,372,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,415,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\UART\UART.cpp,488,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,500,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,534,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,547,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,548,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,587,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,588,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,589,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,590,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,591,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,609,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'FY_SystemState_t' is unknown
-lib\UART\UART.cpp,685,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
-lib\UART\UART.cpp,686,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
-lib\UART\UART.cpp,699,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,700,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,701,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\UART\UART.cpp,708,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'FY_SystemState_t' is unknown
+lib\UART\UART.cpp,519,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,531,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,565,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,578,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,579,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,618,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,619,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,620,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,621,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,622,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,640,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'FY_SystemState_t' is unknown
+lib\UART\UART.cpp,716,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
+lib\UART\UART.cpp,717,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'static_cast' is unknown
+lib\UART\UART.cpp,730,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,731,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,732,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\UART\UART.cpp,740,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'FY_SystemState_t' is unknown
