@@ -388,9 +388,12 @@ bool Motor::prepareSetPosition()
     const uint16_t target = static_cast<uint16_t>(_Job.data[0]) |
         (static_cast<uint16_t>(_Job.data[1]) << 8U);
 
-    if (target > POS_MAX || !CheckBorder())
+    if (target > POS_MAX ||
+        ((_TotalLength > 0U) &&
+         (target > static_cast<uint32_t>(1000U) + _TotalLength)))
         return false;
 
+    _TargetPosition = target;
     move2Pos(static_cast<int16_t>(target));
     return (_StepRun || target == getPosition());
 }
@@ -484,7 +487,8 @@ bool Motor::prepareParameter()
 
 bool Motor::isMoving()
 {
-    return (MotorState_t::MOVING == _State);
+    return (MotorState_t::MOVING == _State) ||
+           (MotorState_t::REFRUN == _State);
 }
 
 bool Motor::isDriverActive() const
@@ -958,14 +962,15 @@ void Motor::Timer1_ISR()
         motor->_StepRun = false;
         motor->_StepLevel = false;
         motor->_JobResult = MotorJobResult_t::DONE;
-        motor->_Job.valid = false;
         if (motor->_State == MotorState_t::REFRUN &&
             FY_Refrun == REF_STATE::REFR_EXEC)
         {
+            // The coarse reference move ended without reaching the left switch.
             FY_Refrun = REF_STATE::REF_ERROR;
         }
-        else if (motor->_State != MotorState_t::REFRUN)
+        else
         {
+            motor->_Job.valid = false;
             motor->_State = MotorState_t::IDLE;
         }
 
