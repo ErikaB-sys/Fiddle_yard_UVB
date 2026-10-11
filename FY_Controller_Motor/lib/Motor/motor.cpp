@@ -91,6 +91,7 @@ bool Motor::begin()
     _ProfileRampCounter = 0;
     _StepRun = false;
     _StepLevel = false;
+    _ReferenceContinuous = false;
     _TimerValid = false;
     _Position = POSITION_UNKNOWN;
     _TotalLength = 0U;
@@ -374,15 +375,18 @@ bool Motor::Reference()
     _JobResult = MotorJobResult_t::NONE;
     _State = MotorState_t::REFRUN;
 
-    if (!calcProfile(25000U))
-    {
-        FY_Refrun = REF_STATE::REF_ERROR;
-        _State = MotorState_t::ERROR;
-        return false;
-    }
-
-    Timer1_Start();
-    return _StepRun;
+    // The coarse reference leg is deliberately constant-speed, as in
+    // FY_HW_TEST. The left end switch, not a fixed step count, ends the leg.
+    _TimerValid = true;
+    _ReferenceContinuous = true;
+    _StepRun = true;
+    _StepLevel = false;
+    _TimerValue = speed_to_timer(V_MIN);
+    OCR1A = _TimerValue;
+    digitalWrite(_ENA_pin, LOW);
+    TCNT1 = 0;
+    TCCR1B |= _BV(CS12); // Timer1 /256
+    return true;
 }
 
 
@@ -801,6 +805,7 @@ void Motor::Timer1_ISR()
         motor->_Position = 1000U;
         motor->_StepRun = false;
         motor->_TimerValid = false;
+        motor->_ReferenceContinuous = false;
         motor->_StepLevel = false;
         motor->_JobResult = MotorJobResult_t::ENDSTOP_LEFT;
         if (FY_Refrun == REF_STATE::REFR_EXEC)
@@ -819,6 +824,7 @@ void Motor::Timer1_ISR()
 
         motor->_StepRun = false;
         motor->_TimerValid = false;
+        motor->_ReferenceContinuous = false;
         motor->_StepLevel = false;
         motor->_JobResult = MotorJobResult_t::ENDSTOP_RIGHT;
 
@@ -852,6 +858,11 @@ void Motor::Timer1_ISR()
     {
         --motor->_Position;
     }
+
+    // The reference leg is intentionally constant-speed; no movement
+    // profile is consumed until the left end switch terminates the leg.
+    if (motor->_ReferenceContinuous)
+        return;
 
     // -----------------------------------------------------------------
     // Referenzsensor – noch nicht implementiert
