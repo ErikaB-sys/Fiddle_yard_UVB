@@ -400,10 +400,10 @@ MotorCommandResult_t Motor::prepareStop(const uint8_t* data)
 
     if ((first == 0xAAU) && (second == 0x55U))
     {
-        // Releasing STOPP never enables the driver or restores a reference.
-        digitalWrite(_ENA_pin, HIGH);
+        // Release also guarantees a disabled driver and stopped timer.
+        // It never restores a reference or resumes a previous movement.
+        disableAndInvalidate(false);
         _StopActive = false;
-        _State = MotorState_t::STOPPED;
         return MotorCommandResult_t::ACCEPTED;
     }
 
