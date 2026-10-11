@@ -218,7 +218,8 @@ private:
     uint16_t _TargetPosition;
     // Results of Movment 
     MotorJobResult_t _JobResult;
-    volatile uint16_t _Position;    // Absolute position, valid after reference run 
+    volatile uint16_t _Position;    // Absolute position, valid after reference run
+    volatile uint16_t _TotalLength = 0U; // Calibrated span measured from position 1000
     volatile bool _DirectionRight = true; // logische Bewegungsrichtung fuer ISR
 
    // Prüfungen der Daten  
