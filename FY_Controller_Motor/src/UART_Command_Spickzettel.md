@@ -82,7 +82,7 @@ Die zentralen Werte sind in `Protokoll.h` als `NackReason` definiert:
 | `0x6` | `INVALID_TELEGRAM` | Telegramm ist syntaktisch ungültig oder CRC fehlerhaft |
 | `0x7..0xF` | reserviert | für spätere Erweiterungen |
 
-Der UART setzt das obere Nibble aus der vorhandenen Fehlerortkonstante und das untere Nibble aus `NackReason` zusammen. Alle NACKs werden mit `setResponse()` in den normalen Response-Puffer eingestellt und anschließend ausschließlich über `sendResponse()` übertragen. Es gibt keinen separaten NACK-Versandpfad.
+Der UART setzt das obere Nibble aus der vorhandenen Fehlerortkonstante und das untere Nibble aus `NackReason` zusammen. Die NACK-DATA wird separat durch `encodeNackData()` codiert. Der jeweilige Aufrufer stellt sie anschließend mit `setResponse()` in den normalen Response-Puffer; übertragen wird sie ausschließlich über `sendResponse()`. Die Codierung selbst stellt keine Response ein.
 
 NACK ist für eine unmittelbare, erwartbare Ablehnung eines Requests vorgesehen. Unerwartete interne Implementierungszustände werden weiterhin über `DEV_RESPONSE` gemeldet; Fehler, die erst während einer bereits gestarteten asynchronen Bewegung auftreten, sind keine nachträgliche NACK-Antwort.
 
@@ -141,11 +141,11 @@ Siehe [Issue #58](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/58).
 
 `DEV_RESPONSE` (`0xFF`) ist für Zustände reserviert, die im normalen Betrieb nicht auftreten dürfen, aber erst später durch einen bislang nicht durchlaufenen Codepfad entdeckt werden könnten.
 
-- DATA[0]: Modulkennung; aktuell `0x01` = UART
-- DATA[1]: Fehlercode; aktuell `0x01` = NULL_POINTER
-- Beispiel: `FF 01 01` = UART meldet einen unerwarteten Nullpointer-Zustand (CRC folgt gemäß Telegrammformat).
-- Die Antwortdefinition bleibt regulär in `Protokoll.h` enthalten. Sie ist keine normale Betriebsantwort.
-- Bei einem solchen Fehler wird der betroffene Handler kontrolliert abgebrochen; es dürfen keine erfundenen oder ungültigen Nutzdaten gesendet werden.
+- DATA[0]: oberes Nibble = Fehlerort/Modul, unteres Nibble = Fehlercode; aktuell `0x10 | 0x01 = 0x11` für UART / NULL_POINTER.
+- DATA[1]: Debug-Reserve; im Release-Code immer `0x00`. Lokale Diagnosewerte dürfen hier nur temporär während der Entwicklung eingetragen und müssen vor einem Release zurückgesetzt werden.
+- Beispiel: `FF 11 00` = UART meldet einen unerwarteten Nullpointer-Zustand; CRC folgt gemäß Telegrammformat.
+- Modulkennung, Fehlercode und Release-Standardwert sind zentral in `Protokoll.h` definiert.
+- Die Antwort ist keine normale Betriebsantwort. Bei einem solchen Fehler wird der betroffene Handler kontrolliert abgebrochen; es dürfen keine erfundenen oder ungültigen Nutzdaten gesendet werden.
 - Weitere Modul- und Fehlercodes werden bei Bedarf ergänzt.
 
 Siehe [Issue #58](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/58).
