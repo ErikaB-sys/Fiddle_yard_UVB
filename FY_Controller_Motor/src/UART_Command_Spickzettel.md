@@ -69,7 +69,20 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 
 Die Command-ID wird **nicht** in der NACK-DATA übertragen. Sie ergibt sich aus dem vorausgegangenen Request. Damit unterscheiden sich ACK und NACK bewusst: ACK enthält die bestätigte Command-ID, NACK den Fehlerort und Ablehnungsgrund.
 
-Die numerischen Werte für die Ablehnungsgründe im unteren Nibble müssen zentral festgelegt und in allen NACK-Sendewegen einheitlich verwendet werden. Vorgesehene Kategorien sind BUSY, NOT_AVAILABLE/NOT_READY, INVALID_COMMAND, INVALID_PARAMETER und – falls als unmittelbare Ablehnung benötigt – EXECUTION_ERROR. Diese Kategorien sind noch keine festgelegte numerische Zuordnung.
+Die zentralen Werte sind in `Protokoll.h` als `NackReason` definiert:
+
+| Wert | Name | Bedeutung |
+|---:|---|---|
+| `0x0` | `NONE` | reserviert; nicht für tatsächliche NACKs verwenden |
+| `0x1` | `BUSY` | Controller/Ressource ist beschäftigt |
+| `0x2` | `NOT_READY` | erforderliche Voraussetzung oder Modul ist nicht bereit |
+| `0x3` | `INVALID_COMMAND` | unbekannte oder nicht unterstützte Command-ID |
+| `0x4` | `INVALID_PARAMETER` | ungültige DATA-Länge, ungültiger Selektor oder Parameterwert |
+| `0x5` | `EXECUTION_ERROR` | unmittelbarer Ausführungsversuch ist fehlgeschlagen |
+| `0x6` | `INVALID_TELEGRAM` | Telegramm ist syntaktisch ungültig oder CRC fehlerhaft |
+| `0x7..0xF` | reserviert | für spätere Erweiterungen |
+
+Der UART setzt das obere Nibble aus der vorhandenen Fehlerortkonstante und das untere Nibble aus `NackReason` zusammen. Alle NACKs werden mit `setResponse()` in den normalen Response-Puffer eingestellt und anschließend ausschließlich über `sendResponse()` übertragen. Es gibt keinen separaten NACK-Versandpfad.
 
 NACK ist für eine unmittelbare, erwartbare Ablehnung eines Requests vorgesehen. Unerwartete interne Implementierungszustände werden weiterhin über `DEV_RESPONSE` gemeldet; Fehler, die erst während einer bereits gestarteten asynchronen Bewegung auftreten, sind keine nachträgliche NACK-Antwort.
 
