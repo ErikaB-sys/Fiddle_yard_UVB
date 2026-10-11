@@ -81,6 +81,21 @@ bool Motor::begin()
     pinMode(_Step_pin, OUTPUT);
     pinMode(_ENA_pin, OUTPUT);
 
+    // Inputs match the verified HW_TEST wiring.
+    pinMode(SWITCH_TRIM_LEFT_D, INPUT);   // LSL, D12
+    pinMode(SWITCH_TRIM_RIGHT_D, INPUT);  // LSR, D9
+    pinMode(SWITCH_REF_D, INPUT);         // LSREF, D11
+    _LeftLimitInputPort = portInputRegister(digitalPinToPort(SWITCH_TRIM_LEFT_D));
+    _RightLimitInputPort = portInputRegister(digitalPinToPort(SWITCH_TRIM_RIGHT_D));
+    _ReferenceInputPort = portInputRegister(digitalPinToPort(SWITCH_REF_D));
+    _LeftLimitMask = digitalPinToBitMask(SWITCH_TRIM_LEFT_D);
+    _RightLimitMask = digitalPinToBitMask(SWITCH_TRIM_RIGHT_D);
+    _ReferenceInputMask = digitalPinToBitMask(SWITCH_REF_D);
+    if ((_LeftLimitInputPort == nullptr) || (_RightLimitInputPort == nullptr) ||
+        (_ReferenceInputPort == nullptr) || (_LeftLimitMask == 0U) ||
+        (_RightLimitMask == 0U) || (_ReferenceInputMask == 0U))
+        return false;
+
     // Die Portregister werden einmalig aufgeloest.
     // In der ISR wird damit kein digitalWrite() benoetigt.
     _StepPort = portOutputRegister(digitalPinToPort(_Step_pin));
@@ -117,6 +132,8 @@ bool Motor::begin()
     _DirectionRight = true;
     _TargetPosition = 0;
     _JobResult = MotorJobResult_t::NONE;
+    _ReferenceState = ReferenceState_t::IDLE;
+    _ReferenceLastSensorState = ((*_ReferenceInputPort & _ReferenceInputMask) != 0U);
 
     return true;
 }
@@ -128,8 +145,13 @@ bool Motor::begin()
 
 void Motor::Update()
 {
-    // Called cyclically from loop()
-    // IDLE -> Auftrag angenommen -> MOVING -> IDLE
+    // The reference-run state machine is serviced cyclically by Motor::Update().
+    if (_State == MotorState_t::REFRUN)
+    {
+        updateReference();
+        return;
+    }
+
     if (false == _Job.valid)
         return;
 
@@ -143,7 +165,14 @@ void Motor::Update()
             break;
 
         case CMD_REFERENCE:
-            // start reference run
+            if (Prepare())
+                _State = MotorState_t::REFRUN;
+            else
+            {
+                _JobResult = MotorJobResult_t::NONE;
+                _Job.valid = false;
+                _State = MotorState_t::IDLE;
+            }
             break;
 
         case CMD_LEFT:
@@ -302,13 +331,215 @@ void Motor::Emergency_break()
 // Reference
 // -----------------------------------------------------------------------------
 
+bool Motor::Prepare()
+{
+    if ((_State != MotorState_t::IDLE) || !_Job.valid || (_Job.cmd != CMD_REFERENCE))
+        return false;
+
+    // DATA[0]: 0x00 = short, 0x01 = long.
+    const uint8_t mode = _Job.data[0];
+    if (mode > 0x01U)
+        return false;
+
+    // Persistent calibration storage is not implemented yet; short mode
+    // is temporarily accepted and establishes the canonical left datum.
+    _ReferenceMode = mode;
+    _LastReferenceMode = mode;
+    _ReferenceLongRun = (mode == 0x01U);
+    return Reference();
+}
+
 bool Motor::Reference()
 {
-    // TODO:
-    // - check whether reference run can be started
-    // - start reference movement
+    if ((_State != MotorState_t::IDLE) || !_Job.valid || (_Job.cmd != CMD_REFERENCE))
+        return false;
 
-    return false;
+    _ReferenceState = ReferenceState_t::REF_START;
+    _ReferenceLeftEndHit = false;
+    _ReferenceRightEndHit = false;
+    _ReferenceError = false;
+    _ReferenceCoarseCaptured = false;
+    _ReferencePreciseRightCaptured = false;
+    _ReferencePreciseCaptured = false;
+    _ReferenceSecondPreciseCaptured = false;
+    _ReferenceMeasureArmed = false;
+    _ReferenceStartValid = false;
+    _ReferenceMeasurePass = 0U;
+    _ReferenceSteps = 0U;
+    _ReferenceCoarsePosition = 0U;
+    _ReferenceRightEndPosition = 0U;
+    _ReferencePreciseRight = 0U;
+    _ReferencePreciseLeft = 0U;
+    _ReferencePreciseLength = 0U;
+    _ReferencePreciseCenter = 0U;
+    _ReferencePreciseRight2 = 0U;
+    _ReferencePreciseLeft2 = 0U;
+    _ReferencePreciseLength2 = 0U;
+    _ReferencePreciseCenter2 = 0U;
+    _ReferenceApproachTarget = 0U;
+    _ReferenceShiftTarget = 0U;
+    _Position = REFERENCE_START_POSITION;
+    _TargetPosition = REFERENCE_LEFT_POSITION;
+    _JobResult = MotorJobResult_t::NONE;
+    FY_Refrun = REF_STATE::REFR_EXEC;
+    return true;
+}
+
+void Motor::startReferenceMotion(bool directionRight, uint16_t frequency)
+{
+    _DirectionRight = directionRight;
+    if (_DirPort != nullptr)
+    {
+        if (directionRight)
+            *_DirPort |= _DirMask;
+        else
+            *_DirPort &= static_cast<uint8_t>(~_DirMask);
+    }
+
+    _StepLevel = false;
+    _StepRun = true;
+    _TimerValid = true;
+    _TimerValue = frequency_to_reload(frequency);
+    OCR1A = _TimerValue;
+    TCNT1 = 0;
+    digitalWrite(_ENA_pin, LOW);
+    if (_StepPort != nullptr)
+        *_StepPort &= static_cast<uint8_t>(~_StepMask);
+    TCCR1B |= _BV(CS12);
+}
+
+void Motor::stopReferenceMotion()
+{
+    _StepRun = false;
+    _StepLevel = false;
+    if (_StepPort != nullptr)
+        *_StepPort &= static_cast<uint8_t>(~_StepMask);
+    Timer1_Stop();
+}
+
+void Motor::finishReference(bool valid)
+{
+    stopReferenceMotion();
+    _Job.valid = false;
+    _ReferenceState = ReferenceState_t::IDLE;
+    _JobResult = valid ? MotorJobResult_t::DONE : MotorJobResult_t::NONE;
+    FY_Refrun = valid ? REF_STATE::REF_VALID : REF_STATE::REF_ERROR;
+    _State = MotorState_t::IDLE;
+}
+
+void Motor::updateReference()
+{
+    if (_ReferenceError)
+    {
+        finishReference(false);
+        return;
+    }
+
+    switch (_ReferenceState)
+    {
+    case ReferenceState_t::REF_START:
+        _ReferenceLeftEndHit = false;
+        _ReferenceRightEndHit = false;
+        _ReferenceLastSensorState = ((*_ReferenceInputPort & _ReferenceInputMask) != 0U);
+        startReferenceMotion(false, V_MIN);
+        _ReferenceState = ReferenceState_t::REF_LEFT_END;
+        break;
+
+    case ReferenceState_t::REF_LEFT_END:
+        if (_ReferenceLeftEndHit)
+        {
+            stopReferenceMotion();
+            if (!_ReferenceLongRun)
+            {
+                finishReference(true);
+                break;
+            }
+            _ReferenceRightEndHit = false;
+            startReferenceMotion(true,
+                (V_MIN + 20U > V_MAX) ? V_MAX : static_cast<uint16_t>(V_MIN + 20U));
+            _ReferenceState = ReferenceState_t::REF_SEARCH_RIGHT;
+        }
+        break;
+
+    case ReferenceState_t::REF_SEARCH_RIGHT:
+        if (_ReferenceRightEndHit)
+        {
+            stopReferenceMotion();
+            _ReferenceApproachTarget = static_cast<uint16_t>(
+                _ReferenceCoarsePosition + REFERENCE_BACKOFF_STEPS);
+            if (_ReferenceApproachTarget >= _ReferenceRightEndPosition)
+                _ReferenceApproachTarget = (_ReferenceRightEndPosition > 100U)
+                    ? static_cast<uint16_t>(_ReferenceRightEndPosition - 100U) : 0U;
+            startReferenceMotion(false,
+                (V_MIN + 20U > V_MAX) ? V_MAX : static_cast<uint16_t>(V_MIN + 20U));
+            _ReferenceState = ReferenceState_t::REF_APPROACH_REF;
+        }
+        break;
+
+    case ReferenceState_t::REF_APPROACH_REF:
+        if (_Position <= _ReferenceApproachTarget)
+        {
+            stopReferenceMotion();
+            _ReferenceLastSensorState = ((*_ReferenceInputPort & _ReferenceInputMask) != 0U);
+            _ReferencePreciseRightCaptured = false;
+            _ReferencePreciseCaptured = false;
+            _ReferenceMeasurePass = 1U;
+            _ReferenceMeasureArmed = true;
+            _ReferenceStartValid = false;
+            startReferenceMotion(false, V_MIN);
+            _ReferenceState = ReferenceState_t::REF_RETURN_TO_REF;
+        }
+        break;
+
+    case ReferenceState_t::REF_RETURN_TO_REF:
+        if (_ReferencePreciseCaptured)
+        {
+            stopReferenceMotion();
+            _ReferenceShiftTarget = (_ReferencePreciseLeft > REFERENCE_SHIFT_STEPS)
+                ? static_cast<uint16_t>(_ReferencePreciseLeft - REFERENCE_SHIFT_STEPS) : 0U;
+            startReferenceMotion(false, V_MIN);
+            _ReferenceState = ReferenceState_t::REF_SHIFT_LEFT;
+        }
+        break;
+
+    case ReferenceState_t::REF_SHIFT_LEFT:
+        if (_Position <= _ReferenceShiftTarget)
+        {
+            stopReferenceMotion();
+            _ReferenceLastSensorState = ((*_ReferenceInputPort & _ReferenceInputMask) != 0U);
+            _ReferenceMeasurePass = 2U;
+            _ReferenceMeasureArmed = true;
+            _ReferenceSecondPreciseCaptured = false;
+            _ReferenceStartValid = false;
+            startReferenceMotion(true, V_MIN);
+            _ReferenceState = ReferenceState_t::REF_MEASURE_LEFT;
+        }
+        break;
+
+    case ReferenceState_t::REF_MEASURE_LEFT:
+        if (_ReferenceSecondPreciseCaptured)
+        {
+            stopReferenceMotion();
+            _ReferenceState = ReferenceState_t::REF_CALCULATE;
+        }
+        break;
+
+    case ReferenceState_t::REF_CALCULATE:
+    {
+        const bool valid = _ReferenceCoarseCaptured &&
+            _ReferencePreciseCaptured && _ReferenceSecondPreciseCaptured &&
+            (_ReferencePreciseLength > 0U) && (_ReferencePreciseLength2 > 0U) &&
+            (_ReferenceRightEndPosition > REFERENCE_LEFT_POSITION);
+        finishReference(valid);
+        break;
+    }
+
+    case ReferenceState_t::REF_ERROR:
+    case ReferenceState_t::IDLE:
+    default:
+        finishReference(false);
+        break;
+    }
 }
 
 
@@ -643,31 +874,44 @@ void Motor::Timer1_ISR()
         return;
     }
 
-    // -----------------------------------------------------------------
-    // Endschalter – noch nicht implementiert
-    //
-    // HW_TEST:
-    //   LSL und LSR werden vor der STEP-Erzeugung geprueft.
-    //
-    // Pseudocode:
-    //
-    //   if (direction == LEFT && LSL_active)
-    //   {
-    //       stop movement;
-    //       _JobResult = ENDSTOP_LEFT;
-    //       return;
-    //   }
-    //
-    //   if (direction == RIGHT && LSR_active)
-    //   {
-    //       stop movement;
-    //       _JobResult = ENDSTOP_RIGHT;
-    //       return;
-    //   }
-    //
-    // Wichtig:
-    //   Endschalter haben Vorrang vor der Profilabarbeitung.
-    // -----------------------------------------------------------------
+    const bool limitLeft =
+        ((*motor->_LeftLimitInputPort & motor->_LeftLimitMask) != 0U);
+    const bool limitRight =
+        ((*motor->_RightLimitInputPort & motor->_RightLimitMask) != 0U);
+    const bool reference =
+        ((*motor->_ReferenceInputPort & motor->_ReferenceInputMask) != 0U);
+
+    if (!motor->_DirectionRight && limitLeft)
+    {
+        motor->_StepRun = false;
+        motor->_StepLevel = false;
+        if (motor->_StepPort != nullptr)
+            *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
+        if (motor->_State == MotorState_t::REFRUN)
+        {
+            motor->_Position = REFERENCE_LEFT_POSITION;
+            motor->_ReferenceLeftEndHit = true;
+        }
+        else
+            motor->_JobResult = MotorJobResult_t::ENDSTOP_LEFT;
+        return;
+    }
+
+    if (motor->_DirectionRight && limitRight)
+    {
+        motor->_StepRun = false;
+        motor->_StepLevel = false;
+        if (motor->_StepPort != nullptr)
+            *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
+        if (motor->_State == MotorState_t::REFRUN)
+        {
+            motor->_ReferenceRightEndPosition = motor->_Position;
+            motor->_ReferenceRightEndHit = true;
+        }
+        else
+            motor->_JobResult = MotorJobResult_t::ENDSTOP_RIGHT;
+        return;
+    }
 
     motor->_StepLevel = !motor->_StepLevel;
 
@@ -694,26 +938,71 @@ void Motor::Timer1_ISR()
         --motor->_Position;
     }
 
-    // -----------------------------------------------------------------
-    // Referenzsensor – noch nicht implementiert
-    //
-    // HW_TEST wertet hier die Signalflanken aus:
-    //
-    //   rising edge:
-    //       refStart / PreciseReference erfassen
-    //
-    //   falling edge:
-    //       refEnd / Referenzbreite berechnen
-    //
-    // Pseudocode:
-    //
-    //   if (reference_changed)
-    //       process_reference_edge();
-    //
-    // Die konkrete Referenzlogik gehoert spaeter in den Referenzlauf
-    // und darf die normale Profilbewegung nicht mit zusaetzlicher
-    // Logik belasten.
-    // -----------------------------------------------------------------
+    if (motor->_State == MotorState_t::REFRUN)
+    {
+        if (!motor->_ReferenceLastSensorState && reference)
+        {
+            if (motor->_DirectionRight && !motor->_ReferenceCoarseCaptured)
+            {
+                motor->_ReferenceCoarsePosition = motor->_Position;
+                motor->_ReferenceCoarseCaptured = true;
+            }
+            if (!motor->_DirectionRight && motor->_ReferenceMeasureArmed &&
+                motor->_ReferenceMeasurePass == 1U &&
+                !motor->_ReferencePreciseRightCaptured)
+            {
+                motor->_ReferencePreciseRight = motor->_Position;
+                motor->_ReferencePreciseRightCaptured = true;
+                motor->_ReferenceStartValid = true;
+            }
+            if (motor->_DirectionRight && motor->_ReferenceMeasureArmed &&
+                motor->_ReferenceMeasurePass == 2U)
+            {
+                motor->_ReferencePreciseLeft2 = motor->_Position;
+                motor->_ReferenceStartValid = true;
+            }
+        }
+        else if (motor->_ReferenceLastSensorState && !reference)
+        {
+            if (!motor->_DirectionRight && motor->_ReferenceMeasureArmed &&
+                motor->_ReferenceMeasurePass == 1U &&
+                motor->_ReferencePreciseRightCaptured)
+            {
+                motor->_ReferencePreciseLeft = motor->_Position;
+                motor->_ReferencePreciseLength =
+                    (motor->_ReferencePreciseRight >= motor->_ReferencePreciseLeft)
+                    ? static_cast<uint16_t>(motor->_ReferencePreciseRight - motor->_ReferencePreciseLeft)
+                    : static_cast<uint16_t>(motor->_ReferencePreciseLeft - motor->_ReferencePreciseRight);
+                motor->_ReferencePreciseCenter = static_cast<uint16_t>(
+                    motor->_ReferencePreciseLeft + motor->_ReferencePreciseLength / 2U);
+                motor->_ReferencePreciseCaptured = true;
+                motor->_ReferenceMeasureArmed = false;
+            }
+            if (motor->_DirectionRight && motor->_ReferenceMeasureArmed &&
+                motor->_ReferenceMeasurePass == 2U)
+            {
+                motor->_ReferencePreciseRight2 = motor->_Position;
+                motor->_ReferencePreciseLength2 =
+                    (motor->_ReferencePreciseRight2 >= motor->_ReferencePreciseLeft2)
+                    ? static_cast<uint16_t>(motor->_ReferencePreciseRight2 - motor->_ReferencePreciseLeft2)
+                    : static_cast<uint16_t>(motor->_ReferencePreciseLeft2 - motor->_ReferencePreciseRight2);
+                motor->_ReferencePreciseCenter2 = static_cast<uint16_t>(
+                    motor->_ReferencePreciseLeft2 + motor->_ReferencePreciseLength2 / 2U);
+                motor->_ReferenceSecondPreciseCaptured = true;
+                motor->_ReferenceMeasureArmed = false;
+            }
+        }
+        motor->_ReferenceLastSensorState = reference;
+        if (++motor->_ReferenceSteps > REFERENCE_MAX_STEPS)
+        {
+            motor->_ReferenceError = true;
+            motor->_StepRun = false;
+            motor->_StepLevel = false;
+            if (motor->_StepPort != nullptr)
+                *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
+            return;
+        }
+    }
 
     if (motor->_StepsRemaining > 0)
         --motor->_StepsRemaining;
