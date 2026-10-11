@@ -113,13 +113,14 @@ constexpr uint8_t STATUS_SELECTOR_MOTOR         = 0x20;
 constexpr uint8_t STATUS_SELECTOR_SWITCHES      = 0x40;
 constexpr uint8_t STATUS_SELECTOR_KEYBOARD      = 0x50;
 /**
- * Reserved development response. This response reports an unexpected
- * implementation state; it is not a normal operational response.
- * DATA[0] = module code, DATA[1] = development error code.
+ * Reserved development response for unexpected implementation states.
+ * DATA[0]: upper nibble = module/location, lower nibble = development error.
+ * DATA[1]: reserved for temporary local debugging; release value is 0x00.
  */
 constexpr uint8_t DEV_RESPONSE = 0xFF;
-constexpr uint8_t DEV_MODULE_UART = 0x01;
-constexpr uint8_t DEV_ERROR_NULL_POINTER = 0x01;
+constexpr uint8_t DEV_MODULE_UART = 0x10;       // Error-location nibble: UART
+constexpr uint8_t DEV_ERROR_NULL_POINTER = 0x01; // Error-type nibble
+constexpr uint8_t DEV_DEBUG_DATA_NONE = 0x00;    // Mandatory release value for DATA[1]
 
 /** Acknowledgement response for movement commands. */
 constexpr uint8_t STATUS_ACK                    = 0x60;      // Answer on moving Commands  if accepted
@@ -228,7 +229,7 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Firmware,  0, ResponseContainer::String }, // Automatically generated firmware identity
 { STATUS_ACK,       1, ResponseContainer::Data }, // Issue: #142 | Status: Code working
 { STATUS_NACK,      1, ResponseContainer::Data }, // Issue: #143 | Status: Code working
-{ DEV_RESPONSE,     2, ResponseContainer::Data }, // Reserved development response: module code + error code
+{ DEV_RESPONSE,     2, ResponseContainer::Data }, // DATA[0]=location|error; DATA[1]=0x00 in release
 { STATUS_Help,      0, ResponseContainer::String } // Issue: #144 | Norwegian help text + GitHub Spickzettel
 };
 
