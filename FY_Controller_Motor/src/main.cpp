@@ -98,33 +98,62 @@ void setup()
 void loop()
 {
   static uint32_t lastPositionSnapshotMs = 0U;
+  static uint32_t tSwitches = 0U;
+  static uint32_t tButtons = 0U;
+  static uint32_t tDisplay = 0U;
   static bool motorWasMoving = false;
+  static bool displayDirty = true;
 
   const uint32_t now = millis();
+
+  // 1. Read physical inputs on the HW-test timeslice (15 ms).
+  if ((now - tSwitches) >= 15UL)
+  {
+    tSwitches = now;
+    // TODO: Add the Switches input-image update here.
+    // FY_Switches.update();
+  }
+
+  // 2. Refresh the position snapshot BEFORE UART processing.
+  // UART responses therefore use the latest published snapshot.
   const bool motorMoving = FY_motor.isMoving();
 
-  // Refresh the position snapshot every 100 ms while moving.
   if (motorMoving && ((now - lastPositionSnapshotMs) >= 100UL))
   {
     motorPositionSnapshot = static_cast<int32_t>(FY_motor.getPosition());
     lastPositionSnapshotMs = now;
   }
-  // Capture the final position as soon as movement ends.
   else if (!motorMoving && motorWasMoving)
   {
+    // Capture the final position immediately after movement ends.
     motorPositionSnapshot = static_cast<int32_t>(FY_motor.getPosition());
+    lastPositionSnapshotMs = now;
   }
 
   motorWasMoving = motorMoving;
 
+  // 3. Communication runs on every loop pass.
+  // update() also handles any response that is due.
   FY_uart.update();
 
-  // Motor command execution is deliberately independent of local keyboard UI.
+  // 4. Apply newly received commands to the motor after UART processing.
   FY_motor.Update();
 
-  /* Local keyboard and switch polling remain disabled during UART motor bring-up.
-  FY_Keyboard.Update();
-  FY_Switches.update();
-  FY_display.update();
-  */
+  // 5. Apply the shared hardware output image here once Outputs is integrated.
+  // update_outputs();
+
+  // 6. Reserved timeslice for keyboard processing (25 ms).
+  if ((now - tButtons) >= 25UL)
+  {
+    tButtons = now;
+    // FY_Keyboard.Update();
+  }
+
+  // 7. Reserved timeslice for display refresh (200 ms or dirty flag).
+  if (((now - tDisplay) >= 200UL) || displayDirty)
+  {
+    tDisplay = now;
+    // FY_display.update();
+    displayDirty = false;
+  }
 }
