@@ -142,6 +142,14 @@ struct MotorProfileParam_t
     uint16_t Bre2RampInterval;
 };
 
+enum class MotorCommandResult_t : uint8_t
+{
+    ACCEPTED,
+    INVALID_DATA,
+    STOP_ACTIVE,
+    BUSY
+};
+
 enum class MotorJobResult_t
 {
     NONE,
@@ -165,6 +173,9 @@ public:
     void Update();
 
     bool  setJob(MotorJob_t newjob); // set Job after the condition was  checked  extern....!!
+    // GO/STOPP are immediate motor-state commands; UART owns the response telegram.
+    MotorCommandResult_t prepareGo(const uint8_t* data);
+    MotorCommandResult_t prepareStop(const uint8_t* data);
 
     // Start a move to the target position. Requires the motor to be referenced.
     void move2Pos(int16_t targetPosition);
@@ -207,6 +218,7 @@ private:
 
     // State
     MotorState_t _State;
+    bool _StopActive = false; // STOPP latch; only a valid STOPP release clears it.
     MotorJob_t _Job;
 
     // Movement profile
@@ -221,6 +233,8 @@ private:
     volatile uint16_t _Position;    // Absolute position, valid after reference run
     volatile uint16_t _TotalLength = 0U; // Calibrated span measured from position 1000
     volatile bool _DirectionRight = true; // logische Bewegungsrichtung fuer ISR
+
+   void disableAndInvalidate(bool latchStop);
 
    // Prüfungen der Daten  
    bool prepareSetPosition();
