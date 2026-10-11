@@ -55,10 +55,23 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 | Track | `0x40` | 3 Byte: Zielgleis, zuletzt bestätigtes Gleis, Bewegungsstatus |
 | Motor | `0x50` | 3 Byte |
 | ACK | `0x60` | 1 Byte: bestätigte Command-ID |
-| NACK | `0x70` | 1 Byte: abgelehnte Command-ID |
+| NACK | `0x70` | 1 Byte: Fehlerort/Modul (oberes Nibble) + Ablehnungsgrund (unteres Nibble) |
 | DEV_RESPONSE | `0xFF` | 2 Byte: Modulkennung, Entwicklungsfehlercode (unerwarteter Implementierungszustand) |
 | Help | `0x18` | Hilfetext auf Norwegisch + GitHub-Spickzettel-Link (variabel) |
 | Firmware | `0x28` | Automatisch generierte Firmware-Identität: Name, Version, Build-Zeit, Git-Commit |
+
+## NACK – Codierung
+
+`STATUS_NACK (0x70)` enthält genau ein DATA-Byte:
+
+- **DATA[0], Bits 7..4:** Fehlerort bzw. zuständiges Modul; dafür werden die vorhandenen Fehlerort-/Modulkonstanten aus `Error.h` wiederverwendet.
+- **DATA[0], Bits 3..0:** Ablehnungsgrund.
+
+Die Command-ID wird **nicht** in der NACK-DATA übertragen. Sie ergibt sich aus dem vorausgegangenen Request. Damit unterscheiden sich ACK und NACK bewusst: ACK enthält die bestätigte Command-ID, NACK den Fehlerort und Ablehnungsgrund.
+
+Die numerischen Werte für die Ablehnungsgründe im unteren Nibble müssen zentral festgelegt und in allen NACK-Sendewegen einheitlich verwendet werden. Vorgesehene Kategorien sind BUSY, NOT_AVAILABLE/NOT_READY, INVALID_COMMAND, INVALID_PARAMETER und – falls als unmittelbare Ablehnung benötigt – EXECUTION_ERROR. Diese Kategorien sind noch keine festgelegte numerische Zuordnung.
+
+NACK ist für eine unmittelbare, erwartbare Ablehnung eines Requests vorgesehen. Unerwartete interne Implementierungszustände werden weiterhin über `DEV_RESPONSE` gemeldet; Fehler, die erst während einer bereits gestarteten asynchronen Bewegung auftreten, sind keine nachträgliche NACK-Antwort.
 
 ## HELP und GET_FIRMWARE
 
@@ -104,7 +117,7 @@ BabelFish wandelt diese Eingaben in die binären Commands um.
 - `55 AA`: LOCAL
 - `AA 55`: REMOTE
 - Betriebsartenwechsel nur im Stillstand
-- Antwort: ACK (`0x60`) mit Command-ID oder NACK (`0x70`) mit Command-ID
+- Antwort: ACK (`0x60`) mit Command-ID oder NACK (`0x70`) mit NACK-Code (oberes Nibble: Fehlerort/Modul, unteres Nibble: Ablehnungsgrund)
 - Bei ungültigem Datenmuster, fehlendem erforderlichem Modul oder laufender Bewegung erfolgt NACK; die Betriebsart bleibt unverändert.
 - Der Befehl schaltet den Motor nicht ein und startet keine Bewegung.
 
