@@ -268,6 +268,7 @@ private:
     volatile bool _TimerValid = false;   // Profil ist vorbereitet
     volatile bool _StepRun = false;      // STEP-Ausgabe freigegeben
     volatile bool _StepLevel = false;    // aktueller STEP-Pegel
+    volatile bool _ReferenceContinuous = false; // HW-test-style constant-speed reference leg
     volatile uint16_t _ProfileRampCounter = 0;
 
     // Motorprofil: ACC1, ACC2, KONST, BRE1, BRE2, POSI
