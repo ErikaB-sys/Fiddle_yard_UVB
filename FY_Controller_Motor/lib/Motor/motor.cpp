@@ -575,11 +575,11 @@ void Motor::stopReferenceMotion()
 void Motor::finishReference(bool valid)
 {
     stopReferenceMotion();
-    _Job.valid = false;
+    // Keep the queued job valid until the existing post-reference BG3 move
+    // has completed; Motor::Update() owns final job cleanup.
     _ReferenceState = ReferenceState_t::IDLE;
     _JobResult = valid ? MotorJobResult_t::DONE : MotorJobResult_t::NONE;
     FY_Refrun = valid ? REF_STATE::REF_VALID : REF_STATE::REF_ERROR;
-    // Preserve FY_Motor's existing post-reference handling (BG3 positioning).
     _State = MotorState_t::REFRUN;
 }
 
