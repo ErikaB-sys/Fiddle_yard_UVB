@@ -1,8 +1,8 @@
 # FY Produktivsoftware – technische Roadmap
 
-**Aktiver Entwicklungsbranch:** `FY_Command_and_Responses`  
-**Basis:** aktueller, kompilierbarer Stand von `main`  
-**Phasenziel:** UART-Befehle und Antworten vervollständigen, Protokoll und Handler konsistent machen und die Implementierung gezielt testen. Nach erfolgreicher Abschlussprüfung wird die Phase nach `main` gemergt.
+**Aktiver Entwicklungsbranch:** `FY_Motor`  
+**Basis:** aktueller, kompilierbarer Stand von `main` (Branch-Erstellung nach Abschluss und Merge der UART-Phase)  
+**Phasenziel:** Timer-/STEP-Ausführung und Bewegungsprofil gegen den verifizierten HW-Test abgleichen; Timerbasis, Prescaler, Compare-Berechnung, Rampenbeschleunigung und Segmentwechsel konsistent machen. Danach Motoraufträge und Sicherheits-/Referenzpfade schrittweise umsetzen und gezielt testen.
 
 > Arbeitsdiagramm für die schrittweise Überführung der Erkenntnisse aus dem FY_HW_TEST in die Produktivsoftware.
 
@@ -89,18 +89,20 @@ Für `FY_Common/MotorProfile.h` ist damit zunächst **keine automatische gemeins
 
 `main` ist die maßgebliche Referenz für den aktuellen Produktivstand. Die jeweils laufende Implementierungsphase erhält einen eigenen, klar benannten Branch, der aus dem aktuellen `main` erstellt wird. Es wird nicht parallel auf mehreren Produktiv-Branches gearbeitet.
 
-**Aktuelle Phase:** `FY_Command_and_Responses`  
-**Ausgangsbasis:** der aktuelle, kompilierbare Stand von `main` mit den bewusst akzeptierten `unused`- und MISRA-Warnings.
+**Aktuelle Phase:** `FY_Motor`  
+**Ausgangsbasis:** `main` zum Stand der abgeschlossenen UART-Phase; die bewusst akzeptierten `unused`- und MISRA-Warnings bleiben zunächst akzeptiert.
 
 Ziele der Phase:
 
-1. Command- und Response-Definitionen mit der tatsächlichen Implementierung abgleichen und vervollständigen.
-2. Telegrammlängen, Parameter, Handler und Fehlerantworten konsistent machen.
-3. Verfügbare native Tests und gezielte Protokolltests ausführen; nicht ausgeführte Prüfungen ausdrücklich offenhalten.
-4. Relevante Issues und Implementierungsstatus aktualisieren.
-5. Einen kompilierbaren, überprüften Zwischenstand ohne bekannte Blocker für die abgeschlossene Phase erreichen.
+1. Timer1-Konfiguration und Prescaler mit dem HW-Test vergleichen und eine gemeinsame, nachvollziehbare Zeitbasis festlegen.
+2. Compare-Wert-Berechnung einschließlich Rundung, Wertebereich und Frequenzgrenzen korrigieren bzw. bestätigen.
+3. Prüfen, wie die Profilbeschleunigung den Compare-Wert verändert und ob Rampenintervalle, STEP-Flanken und Beschleunigungswerte zum gewählten Timer-Takt passen.
+4. Den Segmentwechsel so umsetzen bzw. verifizieren, dass Segmente mit `Steps == 0` unmittelbar übersprungen werden und das Profilende sicher erkannt wird.
+5. Bewährte STEP-/Portzugriffe, Endschalterkoordinaten und Positionslogik gezielt in die Produktivarchitektur übertragen.
+6. Anschließend Bewegungsaufträge, Abbruch-/Fehlerpfade und Referenzabläufe schrittweise implementieren und testen.
+7. Hardwarefreie Tests und Buildprüfungen durchführen; nicht ausgeführte Hardwaretests ausdrücklich offenhalten.
 
-Nach Abschlussprüfung wird `FY_Command_and_Responses` gezielt nach `main` gemergt. Danach wird die nächste Implementierungsphase – voraussichtlich `FY_Motor` – aus dem dann aktuellen `main` erstellt. Der bisherige Branch `FY_Controller_Motor` bleibt als historischer Entwicklungsstand erhalten und wird nicht gelöscht.
+`FY_Motor` wurde aus dem aktuellen `main` erstellt. Der bisherige Branch `FY_Controller_Motor` bleibt als historischer Entwicklungsstand erhalten und wird nicht gelöscht. Nach Abschlussprüfung wird `FY_Motor` gezielt nach `main` gemergt; die nächste Phase wird erst danach festgelegt.
 
 Vor jeder Übernahme werden Commit-Historie, relevante Issues und bewusste Architekturentscheidungen geprüft. Eine Abweichung zwischen Branches gilt nicht automatisch als Fehler. Bereits bewusst in `main` vorgenommene Änderungen werden respektiert; es werden nur tatsächlich relevante Unterschiede als offene Punkte gemeldet.
 
