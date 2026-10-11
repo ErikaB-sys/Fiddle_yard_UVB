@@ -41,8 +41,8 @@ static constexpr uint16_t POSITION_UNKNOWN = UINT16_MAX / 2;
 // -----------------------------------------------------------------------------
 
 #define TIMER_FREQUENCY 16000000UL
-// Timer1 runs at F_CPU / 1024. V_MIN and V_MAX are STEP frequencies in Hz.
-#define TIMER_PRESCALER 1024UL
+// Match the verified FY_HW_TEST Timer1 prescaler (/256).
+#define TIMER_PRESCALER 256UL
 
 constexpr uint16_t V_MIN = 120;
 constexpr uint16_t V_MAX = 800;
