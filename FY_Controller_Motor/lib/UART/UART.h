@@ -112,8 +112,8 @@ private:
     void setResponse(uint8_t id, const uint8_t* data, uint8_t length);
     void setResponse(uint8_t id, PGM_P data);
 
-        /** @brief Queues a centrally encoded NACK through the normal response path. */
-    void setNack(uint8_t location, NackReason reason);
+    /** @brief Encodes the NACK location/reason into one DATA byte. */
+    uint8_t encodeNackData(uint8_t location, NackReason reason) const;
 
     bool CheckError();
     bool CheckBusy();
