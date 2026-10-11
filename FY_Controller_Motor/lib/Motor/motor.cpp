@@ -93,6 +93,7 @@ bool Motor::begin()
     _StepLevel = false;
     _TimerValid = false;
     _Position = POSITION_UNKNOWN;
+    _TotalLength = 0U;
     _DirectionRight = true;
     _TargetPosition = 0;
     _JobResult = MotorJobResult_t::NONE;
@@ -122,7 +123,10 @@ void Motor::Update()
             break;
 
         case CMD_REFERENCE:
-            // start reference run
+            if (Reference())
+                _State = MotorState_t::REFRUN;
+            else
+                _State = MotorState_t::ERROR;
             break;
 
         case CMD_LEFT:
@@ -166,14 +170,33 @@ void Motor::Update()
         }
         break;
 
+    case MotorState_t::REFRUN:
+        if (FY_Refrun == REF_STATE::REF_VALID)
+        {
+            _Job.valid = false;
+            _State = MotorState_t::IDLE;
+        }
+        else if (FY_Refrun == REF_STATE::REF_ERROR)
+        {
+            _Job.valid = false;
+            _State = MotorState_t::ERROR;
+        }
+        break;
+
     case MotorState_t::CONF:
         if (prepareParameter())
             _State = MotorState_t::IDLE;
         break;
 
     case MotorState_t::MOVING:
-        // while moving stay
-        // position reached or STOP command -> stopped
+        // The ISR owns the pulse timing. The main loop only resolves its result.
+        if (!_StepRun)
+        {
+            if (_JobResult == MotorJobResult_t::NONE)
+                _JobResult = MotorJobResult_t::DONE;
+            _Job.valid = false;
+            _State = MotorState_t::IDLE;
+        }
         break;
 
     case MotorState_t::STOPPED:
@@ -196,21 +219,61 @@ void Motor::Update()
 
 void Motor::move2Pos(int16_t targetPosition)
 {
-    // TODO:
-    // - check reference state
-    // - check target limits
-    // - store target position
-    // - calculate movement profile
-    // - start movement
+    if (FY_Refrun != REF_STATE::REF_VALID || targetPosition < 0 ||
+        targetPosition > static_cast<int16_t>(POS_MAX))
+        return;
+
+    const uint16_t current = getPosition();
+    _TargetPosition = static_cast<uint16_t>(targetPosition);
+    _DirectionRight = (_TargetPosition >= current);
+
+    if (_DirPort != nullptr)
+    {
+        if (_DirectionRight)
+            *_DirPort |= _DirMask;
+        else
+            *_DirPort &= static_cast<uint8_t>(~_DirMask);
+    }
+
+    const uint16_t distance = (_TargetPosition >= current)
+        ? static_cast<uint16_t>(_TargetPosition - current)
+        : static_cast<uint16_t>(current - _TargetPosition);
+
+    if (distance == 0U)
+    {
+        _JobResult = MotorJobResult_t::DONE;
+        _StepRun = false;
+        return;
+    }
+
+    if (calcProfile(distance))
+        Timer1_Start();
 }
 
 void Motor::moveSteps(int16_t Steps)
 {
-    // TODO:
-    // - calculate target from current position
-    // - no reference required
-    // - calculate movement profile
-    // - start movement
+    if (Steps == 0)
+        return;
+
+    const uint16_t current = getPosition();
+    const int32_t target = static_cast<int32_t>(current) + Steps;
+
+    if ((current == POSITION_UNKNOWN) || target < 0 || target > POS_MAX)
+        return;
+
+    _TargetPosition = static_cast<uint16_t>(target);
+    _DirectionRight = Steps > 0;
+
+    if (_DirPort != nullptr)
+    {
+        if (_DirectionRight)
+            *_DirPort |= _DirMask;
+        else
+            *_DirPort &= static_cast<uint8_t>(~_DirMask);
+    }
+
+    if (calcProfile(static_cast<uint16_t>(Steps > 0 ? Steps : -Steps)))
+        Timer1_Start();
 }
 
 
@@ -238,6 +301,7 @@ bool Motor::setJob(MotorJob_t newjob)
         return false;
 
     _Job = newjob;
+    _JobResult = MotorJobResult_t::NONE;
     _Job.valid = true;
 
     return true;
@@ -283,11 +347,31 @@ void Motor::Emergency_break()
 
 bool Motor::Reference()
 {
-    // TODO:
-    // - check whether reference run can be started
-    // - start reference movement
+    if ((_State != MotorState_t::IDLE) || !_TimerMotor)
+        return false;
 
-    return false;
+    // Initial coarse position mirrors the working HW-test startup.
+    // The left end stop establishes the canonical reference position 1000.
+    _Position = 12500U;
+    _TargetPosition = 1000U;
+    _DirectionRight = false;
+    FY_Refrun = REF_STATE::REFR_EXEC;
+
+    if (_DirPort != nullptr)
+        *_DirPort &= static_cast<uint8_t>(~_DirMask);
+
+    _JobResult = MotorJobResult_t::NONE;
+    _State = MotorState_t::REFRUN;
+
+    if (!calcProfile(25000U))
+    {
+        FY_Refrun = REF_STATE::REF_ERROR;
+        _State = MotorState_t::ERROR;
+        return false;
+    }
+
+    Timer1_Start();
+    return _StepRun;
 }
 
 
@@ -560,6 +644,15 @@ void Motor::Timer1_Start()
 
     if (_StepRun)
     {
+        // DIR must be stable before STEP pulses begin.
+        if (_DirPort != nullptr)
+        {
+            if (_DirectionRight)
+                *_DirPort |= _DirMask;
+            else
+                *_DirPort &= static_cast<uint8_t>(~_DirMask);
+        }
+
         // Treiber aktivieren.
         digitalWrite(_ENA_pin, LOW);
 
@@ -630,31 +723,45 @@ void Motor::Timer1_ISR()
         return;
     }
 
-    // -----------------------------------------------------------------
-    // Endschalter – noch nicht implementiert
-    //
-    // HW_TEST:
-    //   LSL und LSR werden vor der STEP-Erzeugung geprueft.
-    //
-    // Pseudocode:
-    //
-    //   if (direction == LEFT && LSL_active)
-    //   {
-    //       stop movement;
-    //       _JobResult = ENDSTOP_LEFT;
-    //       return;
-    //   }
-    //
-    //   if (direction == RIGHT && LSR_active)
-    //   {
-    //       stop movement;
-    //       _JobResult = ENDSTOP_RIGHT;
-    //       return;
-    //   }
-    //
-    // Wichtig:
-    //   Endschalter haben Vorrang vor der Profilabarbeitung.
-    // -----------------------------------------------------------------
+    // End stops use the proven FY_HW_TEST electrical mapping and active-high
+    // polarity: D12/PB4 = left, D9/PB1 = right.
+    const bool limitRight = (PINB & _BV(PB1)) != 0;
+    const bool limitLeft  = (PINB & _BV(PB4)) != 0;
+
+    if (!motor->_DirectionRight && limitLeft)
+    {
+        motor->_Position = 1000U;
+        motor->_StepRun = false;
+        motor->_TimerValid = false;
+        motor->_StepLevel = false;
+        motor->_JobResult = MotorJobResult_t::ENDSTOP_LEFT;
+        if (FY_Refrun == REF_STATE::REFR_EXEC)
+        {
+            FY_Refrun = REF_STATE::REF_VALID;
+            motor->_State = MotorState_t::IDLE;
+        }
+
+        if (motor->_StepPort != nullptr)
+            *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
+        motor->Timer1_Stop();
+        return;
+    }
+
+    if (motor->_DirectionRight && limitRight)
+    {
+        if (motor->_Position >= 1000U)
+            motor->_TotalLength = static_cast<uint16_t>(motor->_Position - 1000U);
+
+        motor->_StepRun = false;
+        motor->_TimerValid = false;
+        motor->_StepLevel = false;
+        motor->_JobResult = MotorJobResult_t::ENDSTOP_RIGHT;
+
+        if (motor->_StepPort != nullptr)
+            *motor->_StepPort &= static_cast<uint8_t>(~motor->_StepMask);
+        motor->Timer1_Stop();
+        return;
+    }
 
     motor->_StepLevel = !motor->_StepLevel;
 
@@ -801,6 +908,9 @@ void Motor::Timer1_ISR()
         motor->_StepRun = false;
         motor->_StepLevel = false;
         motor->_JobResult = MotorJobResult_t::DONE;
+        motor->_Job.valid = false;
+        if (motor->_State != MotorState_t::REFRUN)
+            motor->_State = MotorState_t::IDLE;
 
         if (motor->_StepPort != nullptr)
             *motor->_StepPort &=
