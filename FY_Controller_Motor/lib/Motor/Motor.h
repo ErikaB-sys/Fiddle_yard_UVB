@@ -261,6 +261,10 @@ private:
     volatile uint16_t _ReferencePreciseLeft2 = 0U;
     volatile uint16_t _ReferencePreciseLength2 = 0U;
     volatile uint16_t _ReferencePreciseCenter2 = 0U;
+    int16_t _ReferencePlayLeft = 0;
+    int16_t _ReferencePlayRight = 0;
+    int16_t _ReferenceCenterShift = 0;
+    uint16_t _ReferenceSpan = 0U;
     volatile uint16_t _ReferenceApproachTarget = 0U;
     volatile uint16_t _ReferenceShiftTarget = 0U;
 
