@@ -60,6 +60,7 @@ private:
     static uint8_t calcCRC(uint8_t cmd, const uint8_t* data, uint8_t length);
 
     bool makeSimpleCommand(uint8_t cmd);
+    bool finalizeCommand(uint8_t cmd, uint8_t dataLength);
     void reportInvalid() const;
     void reportBinaryCommand() const;
 };
