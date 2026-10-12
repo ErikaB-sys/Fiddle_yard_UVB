@@ -29,3 +29,10 @@ static const char FW_RESPONSE[] PROGMEM =
     "VER: " FW_VERSION_TEXT "\n"
     "BUILD: " FW_BUILD_TEXT " " FW_TIME_TEXT "\n"
     "GIT: " FW_GIT_COMMIT;
+//zentral  help string    
+    static const char HELP_RESPONSE[] PROGMEM =
+        "Ta det med ro, hjelpen er på vei! Spickzettel: "
+        "https://github.com/ErikaB-sys/Fiddle_yard_UVB/blob/FY_Command_and_Responses/"
+        "FY_Controller_Motor/src/UART_Command_Spickzettel.md";
+
+        
