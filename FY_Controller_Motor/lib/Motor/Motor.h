@@ -161,8 +161,7 @@ enum class MotorJobResult_t
 
 
 
- // FY_HW_TEST motor execution state — step 3a.
- // The old Motor members remain temporarily until step 3b removes the parallel state.
+ // Shared FY_HW_TEST-compatible motor execution and reference-run state.
 enum class RefRunState : uint8_t
 {
     IDLE, REF_START, REF_LEFT_END, REF_SEARCH_RIGHT, REF_RIGHT_END,
