@@ -1,7 +1,7 @@
 # UART-Datenfluss: BabelFish bis Motor und Systemantwort
 
 **Branch:** `FY_Motor`  
-**Stand:** 2026-10-12 (BabelFish auf ASCII-Name + Hex-DATA reduziert; Build/Test offen)  
+**Stand:** 2026-10-12 (Build erfolgreich; erster Hardware-Funktionstest mit `GO` erfolgreich)  
 **Zweck:** Überblick über den vorhandenen Datenfluss und die noch offenen Verbindungen. Die Darstellung folgt dem aktuellen Quellcode; gestrichelte Verbindungen und `TBD` markieren noch nicht fertig integrierte oder zu verifizierende Stellen.
 
 ## 1. Datenfluss und Antwortpfad
@@ -66,11 +66,24 @@ flowchart TD
 4. **Motor:** Einige Handler legen über `setJob()` einen Job ab; andere rufen `prepareGo()` oder `prepareStop()` direkt auf. `Motor::Update()` verarbeitet Jobs im Hauptloop. Der Timer/ISR erzeugt die zeitkritischen Schritte.
 5. **Antwort:** Handler legen eine Antwort im `ResponseBuffer` ab. Ein späterer Aufruf von `UART::update()` sendet sie als `ID | DATA | CRC` oder als String-Antwort mit CRC. ACK bestätigt derzeit grundsätzlich die Annahme eines Befehls, nicht das erfolgreiche Ende einer Bewegung.
 
+## Funktionstest vom 2026-10-12
+
+**Ergebnis: erster Hardwaretest erfolgreich.**
+
+- PlatformIO-Build erfolgreich; Firmware-HEX wurde erzeugt.
+- Speicherverbrauch laut Build: RAM **77,5 %** (1.587 / 2.048 Byte), Flash **87,5 %** (26.884 / 30.720 Byte).
+- MISRA-Lauf: keine Syntaxfehlermeldung mehr; im eingecheckten CSV sind weiterhin `misra-config`-Meldungen zur unvollständigen Konfiguration enthalten. Diese sind von tatsächlichen Regelverletzungen zu unterscheiden.
+- Serielle Eingabe: `GO AA 55`.
+- BabelFish-Ausgabe: `CMD=0x07 LEN=3 CRC=0x5D`.
+- Beobachtetes Hardwareverhalten: **Licht eingeschaltet**.
+
+Dieser Test bestätigt den grundlegenden Pfad für diesen Befehl. Er ersetzt keine systematische Prüfung der übrigen Befehle und Antwortpfade.
+
 ## 2. Aktuell erkennbare offene Enden
 
 | Stelle | Befund im aktuellen Code | Status |
 |---|---|---|
-| `BabelFish → UART-Validierung` | BabelFish löst nur den CMD-Namen auf, wandelt die nachfolgenden Hex-Tokens in DATA-Bytes um und berechnet die CRC über die tatsächlich gelieferten Bytes. Die Befehlsdefinitionen und die erwartete DATA-Länge prüft ausschließlich `UART::validateCommand()`. | **Im Code angepasst – Build/Test offen** |
+| `BabelFish → UART-Validierung` | BabelFish löst den CMD-Namen auf, wandelt nachfolgende Hex-Tokens in DATA-Bytes um und berechnet die CRC über die tatsächlich gelieferten Bytes. `GO AA 55` wurde auf dem Nano erkannt; das Licht ging an. | **Build und erster Hardwaretest erfolgreich; weitere Befehle offen** |
 | `REFERENCE` | BabelFish liefert nur explizit eingegebene Hex-Bytes; der aktuelle Descriptor erwartet 1 DATA-Byte. | **Im Code angepasst – Build/Test offen** |
 | `LEFT / RIGHT` | Beide Befehle erzeugen 0 DATA-Bytes; Descriptor ist entsprechend auf 0 gesetzt. | **Im Code angepasst – Build/Test offen** |
 | `SET_POSITION` | Parser erzeugt 2 DATA-Bytes für die 16-Bit-Position; Descriptor ist auf 2 gesetzt. | **Im Code angepasst – Build/Test offen** |
@@ -91,7 +104,7 @@ Die folgende Übersicht fasst Befehle nach ihrem Datenpfad zusammen, statt für 
 |---|---|---|
 | Sofortige Abfragen | `GET_STATUS`, `GET_ERROR`, `GET_POSITION`, `GET_TRACK`, `HELP`, `GET_FIRMWARE` | Je nach Befehl `STATUS_System`, `STATUS_Motor`, `STATUS_Switches`, `STATUS_Keyboard`, `STATUS_Error`, `STATUS_Position`, `STATUS_Track`, `STATUS_Help`, `STATUS_Firmware`; GET_TRACK-Kontext fehlt derzeit. |
 | Ausführung / Motorjob | `REFERENCE`, `SET_PARAM`, `LEFT`, `RIGHT`, `SET_POSITION`, `SET_TRACK` | Motorjob wird übergeben; mehrere Handler ignorieren `SetCommand()`-Fehler und generieren keine Antwort. Die DATA-Länge wird erst in `UART::validateCommand()` gegen den Descriptor geprüft. Build und Laufzeittest stehen aus. |
-| Direkte Treibersteuerung | `GO`, `STOPP` | `prepareGo()` bzw. `prepareStop()`; bei Annahme `STATUS_ACK`, bei Ablehnung `STATUS_NACK`. STOPP deaktiviert den Treiber und invalidiert die Referenzposition; Hex-DATA wird byteweise eingegeben, z. B. `STOPP 55 AA`. |
+| Direkte Treibersteuerung | `GO`, `STOPP` | `GO AA 55` wurde getestet: BabelFish meldete `CMD=0x07 LEN=3 CRC=0x5D`, und das Licht ging an. `STOPP` / `prepareStop()` ist noch separat zu testen. |
 | Betriebsmodus | `SET_MODE` mit Hex-DATA | Prüft Busy/Bewegung und Nutzdaten; setzt `systemStatus.mode`, aktualisiert Keyboard-Modus und antwortet mit ACK/NACK. |
 | Fehler bei Telegramm/Validierung | unbekannte ID, falsche DATA-Länge, falsche CRC oder ungültige ASCII-Zeile | `STATUS_NACK` mit codiertem Ort/Grund; ungültige ASCII-Zeile wird von BabelFish zusätzlich mit `CMD_INVALID` ausgegeben. |
 
@@ -109,6 +122,6 @@ Die folgende Übersicht fasst Befehle nach ihrem Datenpfad zusammen, statt für 
 2. Für alle Motorbefehle einheitlich festlegen: Alle Aufträge sollen über `setJob()` laufen; erst danach entscheiden die `prepare...`-Funktionen über Zulässigkeit, Vorbereitung und Start. Außerdem einheitliche ACK/NACK- und Abschluss-/Laufzeitfehler festlegen.
 3. `GET_TRACK`-Datenquelle anbinden.
 4. Keyboard-Events und Anzeige-Status in `loop()` integrieren; anschließend Switches-/Ausgangsaktualisierung prüfen.
-5. Erst nach diesen Schritten die Befehle mit Hardware testen und die offenen Punkte aus der Tabelle abhaken.
+5. Den erfolgreichen `GO`-Test dokumentieren; anschließend weitere Befehle einzeln mit Hardware testen und die offenen Punkte aus der Tabelle abhaken.
 
 **Abgrenzung:** Dieses Dokument beschreibt den im Branch `FY_Motor` sichtbaren Stand. Es behauptet nicht, dass alle markierten Funktionen bereits zur Laufzeit getestet wurden.
