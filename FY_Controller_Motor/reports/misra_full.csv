@@ -1,4 +1,9 @@
-lib\BabelFish\BabelFish.cpp,397,error,syntaxError,Unmatched '}'. Configuration: 'ARDUINO=1;ARDUINO_AVR_NANO=1;PROGMEM='.
+lib\BabelFish\BabelFish.cpp,278,style,functionStatic,The member function 'BabelFish::reportInvalid' can be static.
+lib\BabelFish\BabelFish.cpp,303,style,constVariablePointer,Variable 'start' can be declared as pointer to const
+lib\BabelFish\BabelFish.cpp,38,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'Serial' is unknown
+lib\BabelFish\BabelFish.cpp,164,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,216,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,355,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\Error\Error.cpp,18,style,functionStatic,The member function 'Error::update' can be static.
 lib\Keyboard\Keyboard.cpp,5,warning,uninitMemberVar,Member variable 'Button::_lastState' is not initialized in the constructor.
 lib\Keyboard\Keyboard.cpp,238,style,unusedPrivateFunction,Unused private function: 'Keyboard::drawDiagnostic'

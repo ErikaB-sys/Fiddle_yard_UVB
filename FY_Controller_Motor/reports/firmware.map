@@ -261,28 +261,28 @@ c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/av
 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/../../../../avr/lib/avr5\libc.a(strlen_P.o)
                               UART.cpp.o (symbol from plugin) (__strlen_P)
 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_udivmodsi4.o)
-                              C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o (__udivmodsi4)
+                              C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o (__udivmodsi4)
 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_tablejump2.o)
-                              C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o (__tablejump2__)
+                              C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o (__tablejump2__)
 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_copy_data.o)
-                              C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o (__do_copy_data)
+                              C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o (__do_copy_data)
 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_clear_bss.o)
-                              C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o (__do_clear_bss)
+                              C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o (__do_clear_bss)
 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_ctors.o)
-                              C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o (__do_global_ctors)
+                              C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o (__do_global_ctors)
 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_muluhisi3.o)
-                              C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o (__muluhisi3)
+                              C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o (__muluhisi3)
 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_umulhisi3.o)
                               c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_muluhisi3.o) (__umulhisi3)
 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/../../../../avr/lib/avr5\libc.a(memset.o)
-                              C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o (memset)
+                              C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o (memset)
 
 Discarded input sections
 
  .data          0x00000000        0x0 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/../../../../avr/lib/avr5/crtatmega328p.o
  .bss           0x00000000        0x0 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/../../../../avr/lib/avr5/crtatmega328p.o
  .text          0x00000000        0x0 .pio\build\nanoatmega328\src\main.cpp.o (symbol from plugin)
- .avr.prop      0x00000000       0x16 C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
+ .avr.prop      0x00000000       0x16 C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
  .text          0x00000000        0x0 Error.cpp.o (symbol from plugin)
  .text          0x00000000        0x0 Keyboard.cpp.o (symbol from plugin)
  .gnu.linkonce.t._ZN5Print17availableForWriteEv
@@ -622,7 +622,7 @@ Linker script and memory map
 Address of section .data set to 0x800100
 LOAD c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/../../../../avr/lib/avr5/crtatmega328p.o
 LOAD .pio\build\nanoatmega328\src\main.cpp.o
-LOAD C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
+LOAD C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
 START GROUP
 LOAD .pio\build\nanoatmega328\libe48\libSPI.a
 LOAD .pio\build\nanoatmega328\libf8d\libWire.a
@@ -743,7 +743,7 @@ END GROUP
 .rela.plt
  *(.rela.plt)
 
-.text           0x00000000     0x6ab8
+.text           0x00000000     0x66dc
  *(.vectors)
  .vectors       0x00000000       0x68 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/../../../../avr/lib/avr5/crtatmega328p.o
                 0x00000000                __vectors
@@ -760,10 +760,10 @@ END GROUP
  *libc.a:*(.progmem.data)
  *(.progmem*)
  .progmem.u8g2_font_helvR08_tf
-                0x00000068      0x884 C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
- .progmem.data  0x000008ec      0x1df C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
+                0x00000068      0x884 C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
+ .progmem.data  0x000008ec      0x1df C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
  .progmem.u8g2_font_6x12_tf
-                0x00000acb      0x7c5 C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
+                0x00000acb      0x7c5 C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
                 0x00001290                . = ALIGN (0x2)
  *(.jumptables)
  *(.jumptables*)
@@ -771,7 +771,7 @@ END GROUP
  *(.lowtext*)
                 0x00001290                __ctors_start = .
  *(.ctors)
- .ctors         0x00001290        0x2 C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
+ .ctors         0x00001290        0x2 C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
                 0x00001292                __ctors_end = .
                 0x00001292                __dtors_start = .
  *(.dtors)
@@ -829,42 +829,40 @@ END GROUP
                 0x000012e2                __vector_14
                 0x000012e2                __vector_17
                 0x000012e2                __bad_interrupt
- .text          0x000012e6     0x3b5c C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
-                0x00004586                __vector_2
-                0x000045d4                __vector_1
-                0x00004622                __vector_24
-                0x00004860                __vector_16
-                0x000048f4                __vector_19
-                0x00004940                __vector_18
-                0x000049a4                __vector_11
-                0x00004e42                . = ALIGN (0x2)
+ .text          0x000012e6     0x381e C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
+                0x00004248                __vector_2
+                0x00004296                __vector_1
+                0x000042e4                __vector_24
+                0x00004522                __vector_16
+                0x000045b6                __vector_19
+                0x00004602                __vector_18
+                0x00004666                __vector_11
+                0x00004b04                . = ALIGN (0x2)
  *(.text.*)
- .text.unlikely
-                0x00004e42       0x9e C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
- .text.startup  0x00004ee0     0x1b30 C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
-                0x000052e6                main
+ .text.startup  0x00004b04     0x1b30 C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
+                0x00004f0a                main
  .text.avr-libc
-                0x00006a10       0x12 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/../../../../avr/lib/avr5\libc.a(strlen_P.o)
-                0x00006a10                __strlen_P
+                0x00006634       0x12 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/../../../../avr/lib/avr5\libc.a(strlen_P.o)
+                0x00006634                __strlen_P
  .text.libgcc.div
-                0x00006a22       0x44 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_udivmodsi4.o)
-                0x00006a22                __udivmodsi4
- .text.libgcc   0x00006a66        0xc c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_tablejump2.o)
-                0x00006a66                __tablejump2__
+                0x00006646       0x44 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_udivmodsi4.o)
+                0x00006646                __udivmodsi4
+ .text.libgcc   0x0000668a        0xc c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_tablejump2.o)
+                0x0000668a                __tablejump2__
  .text.libgcc.mul
-                0x00006a72       0x16 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_muluhisi3.o)
-                0x00006a72                __muluhisi3
+                0x00006696       0x16 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_muluhisi3.o)
+                0x00006696                __muluhisi3
  .text.libgcc.mul
-                0x00006a88       0x1e c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_umulhisi3.o)
-                0x00006a88                __umulhisi3
+                0x000066ac       0x1e c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_umulhisi3.o)
+                0x000066ac                __umulhisi3
  .text.avr-libc
-                0x00006aa6        0xe c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/../../../../avr/lib/avr5\libc.a(memset.o)
-                0x00006aa6                memset
-                0x00006ab4                . = ALIGN (0x2)
+                0x000066ca        0xe c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/../../../../avr/lib/avr5\libc.a(memset.o)
+                0x000066ca                memset
+                0x000066d8                . = ALIGN (0x2)
  *(.fini9)
- .fini9         0x00006ab4        0x0 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_exit.o)
-                0x00006ab4                exit
-                0x00006ab4                _exit
+ .fini9         0x000066d8        0x0 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_exit.o)
+                0x000066d8                exit
+                0x000066d8                _exit
  *(.fini9)
  *(.fini8)
  *(.fini8)
@@ -883,42 +881,42 @@ END GROUP
  *(.fini1)
  *(.fini1)
  *(.fini0)
- .fini0         0x00006ab4        0x4 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_exit.o)
+ .fini0         0x000066d8        0x4 c:/users/eri/.platformio/packages/toolchain-atmelavr/bin/../lib/gcc/avr/7.3.0/avr5\libgcc.a(_exit.o)
  *(.fini0)
-                0x00006ab8                _etext = .
+                0x000066dc                _etext = .
 
-.data           0x00800100      0x264 load address 0x00006ab8
+.data           0x00800100      0x228 load address 0x000066dc
                 0x00800100                PROVIDE (__data_start, .)
  *(.data)
- .data          0x00800100       0x19 C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
+ .data          0x00800100       0x19 C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
  *(.data*)
  *(.gnu.linkonce.d*)
  *(.rodata)
- .rodata        0x00800119      0x184 C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
+ .rodata        0x00800119      0x148 C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
  *(.rodata*)
  .rodata.str1.1
-                0x0080029d       0xc7 C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
+                0x00800261       0xc7 C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
                                  0xec (size before relaxing)
  *(.gnu.linkonce.r*)
-                0x00800364                . = ALIGN (0x2)
-                0x00800364                _edata = .
-                0x00800364                PROVIDE (__data_end, .)
+                0x00800328                . = ALIGN (0x2)
+                0x00800328                _edata = .
+                0x00800328                PROVIDE (__data_end, .)
 
-.bss            0x00800364      0x40b
-                0x00800364                PROVIDE (__bss_start, .)
+.bss            0x00800328      0x40b
+                0x00800328                PROVIDE (__bss_start, .)
  *(.bss)
- .bss           0x00800364      0x40b C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
+ .bss           0x00800328      0x40b C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
  *(.bss*)
  *(COMMON)
-                0x0080076f                PROVIDE (__bss_end, .)
-                0x00006ab8                __data_load_start = LOADADDR (.data)
-                0x00006d1c                __data_load_end = (__data_load_start + SIZEOF (.data))
+                0x00800733                PROVIDE (__bss_end, .)
+                0x000066dc                __data_load_start = LOADADDR (.data)
+                0x00006904                __data_load_end = (__data_load_start + SIZEOF (.data))
 
-.noinit         0x0080076f        0x0
+.noinit         0x00800733        0x0
                 [!provide]                PROVIDE (__noinit_start, .)
  *(.noinit*)
                 [!provide]                PROVIDE (__noinit_end, .)
-                0x0080076f                _end = .
+                0x00800733                _end = .
                 [!provide]                PROVIDE (__heap_start, .)
 
 .eeprom         0x00810000        0x0
@@ -960,7 +958,7 @@ END GROUP
 
 .comment        0x00000000       0x11
  *(.comment)
- .comment       0x00000000       0x11 C:\Users\ERI\AppData\Local\Temp\ccvqUGL9.ltrans0.ltrans.o
+ .comment       0x00000000       0x11 C:\Users\ERI\AppData\Local\Temp\ccmnsIoW.ltrans0.ltrans.o
                                  0x12 (size before relaxing)
 
 .note.gnu.avr.deviceinfo
