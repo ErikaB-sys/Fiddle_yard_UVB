@@ -37,7 +37,7 @@ struct HWMeasurement
     uint16_t refStart{0U};
     uint16_t refEnd{0U};
     uint16_t refLength{0U};
-    uint16_t totalLength{0U};
+    uint16_t totalLength{25000U};
     bool refValid{false};
 };
 

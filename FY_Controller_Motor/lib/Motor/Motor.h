@@ -159,6 +159,64 @@ enum class MotorJobResult_t
 };
 
 
+
+ // FY_HW_TEST motor execution state — step 3a.
+ // The old Motor members remain temporarily until step 3b removes the parallel state.
+enum class RefRunState : uint8_t
+{
+    IDLE, REF_START, REF_LEFT_END, REF_SEARCH_RIGHT, REF_RIGHT_END,
+    REF_RETURN_TO_REF, REF_APPROACH_REF, REF_SLOW_REF, REF_MEASURE_RIGHT,
+    REF_SHIFT_LEFT, REF_MEASURE_LEFT, REF_CALCULATE, REF_VALID, REF_ERROR
+};
+
+struct HWISRUiState { bool displayDirty{true}; };
+
+extern volatile bool stepRun;
+extern volatile bool stepLevel;
+extern volatile bool profileRun;
+extern volatile bool profileReportPending;
+extern volatile bool updateOut;
+extern HWISRUiState hw;
+extern uint16_t profileVMin;
+extern uint16_t profileVMax;
+extern volatile uint8_t profileRampCounter;
+extern Profilelement_t motionProfile[6];
+extern volatile uint8_t profileElement;
+extern volatile uint16_t profileStepsRemaining;
+extern volatile uint16_t profileTimerValue;
+extern volatile uint16_t profileMinReloadReached;
+
+extern RefRunState refRunState;
+extern bool refRunActive;
+extern bool refLongRun;
+extern uint16_t refRunVMax;
+extern uint16_t refBackoffTarget;
+extern volatile uint16_t refCoarsePosition;
+extern volatile uint16_t refRightEndPosition;
+extern volatile uint16_t refPreciseRight;
+extern volatile uint16_t refPreciseLeft;
+extern volatile uint16_t refPreciseLength;
+extern volatile uint16_t refPreciseCenter;
+extern volatile uint16_t refPreciseRight2;
+extern volatile uint16_t refPreciseLeft2;
+extern volatile uint16_t refPreciseLength2;
+extern volatile uint16_t refPreciseCenter2;
+extern volatile uint16_t refApproachTarget;
+extern volatile uint16_t refShiftTarget;
+extern volatile uint8_t refMeasurePass;
+extern volatile bool refCoarseCaptured;
+extern volatile bool refPreciseRightCaptured;
+extern volatile bool refPreciseCaptured;
+extern volatile bool refSecondPreciseCaptured;
+extern volatile bool refMeasureArmed;
+extern volatile bool refLastState;
+extern volatile bool refStartValid;
+extern volatile bool leftReferenceApplied;
+extern volatile bool rightLengthCaptured;
+
+bool load_next_profile_element();
+void get_measurement(HWMeasurement* result);
+
 class Motor
 {
 public:
@@ -317,7 +375,7 @@ private:
     void Timer1_Init();
     void Timer1_Start();
     void Timer1_Stop();
-    uint16_t current_profile_ramp_interval() const;
+    static uint16_t current_profile_ramp_interval();
 
     //------------------------------------------------------------------------------------
     /// @defgroup Fahrprofil 

@@ -15,6 +15,83 @@ REF_STATE FY_Refrun = REF_STATE::REF_REQ;
 // The motor module owns the measurement data updated by motor execution/ISR.
 volatile HWMeasurement measurement{};
 
+ // Shared execution/profile/reference storage adopted from FY_HW_TEST in step 3a.
+volatile bool stepRun = false;
+volatile bool stepLevel = false;
+volatile bool profileRun = false;
+volatile bool profileReportPending = false;
+volatile bool updateOut = true;
+HWISRUiState hw{};
+
+uint16_t profileVMin = 80U;
+uint16_t profileVMax = 800U;
+volatile uint8_t profileRampCounter = 0U;
+Profilelement_t motionProfile[6]{};
+volatile uint8_t profileElement = 0U;
+volatile uint16_t profileStepsRemaining = 0U;
+volatile uint16_t profileTimerValue = 0U;
+volatile uint16_t profileMinReloadReached = 65535U;
+
+RefRunState refRunState = RefRunState::IDLE;
+bool refRunActive = false;
+bool refLongRun = false;
+uint16_t refRunVMax = 80U;
+uint16_t refBackoffTarget = 0U;
+volatile uint16_t refCoarsePosition = 0U;
+volatile uint16_t refRightEndPosition = 0U;
+volatile uint16_t refPreciseRight = 0U;
+volatile uint16_t refPreciseLeft = 0U;
+volatile uint16_t refPreciseLength = 0U;
+volatile uint16_t refPreciseCenter = 0U;
+volatile uint16_t refPreciseRight2 = 0U;
+volatile uint16_t refPreciseLeft2 = 0U;
+volatile uint16_t refPreciseLength2 = 0U;
+volatile uint16_t refPreciseCenter2 = 0U;
+volatile uint16_t refApproachTarget = 0U;
+volatile uint16_t refShiftTarget = 0U;
+volatile uint8_t refMeasurePass = 0U;
+volatile bool refCoarseCaptured = false;
+volatile bool refPreciseRightCaptured = false;
+volatile bool refPreciseCaptured = false;
+volatile bool refSecondPreciseCaptured = false;
+volatile bool refMeasureArmed = false;
+volatile bool refLastState = false;
+volatile bool refStartValid = false;
+volatile bool leftReferenceApplied = false;
+volatile bool rightLengthCaptured = false;
+
+bool load_next_profile_element()
+{
+    while (profileElement < 6U)
+    {
+        profileStepsRemaining = motionProfile[profileElement].Steps;
+        if (profileStepsRemaining > 0U)
+        {
+            profileRampCounter = 0U;
+            OCR1A = profileTimerValue;
+            return true;
+        }
+        ++profileElement;
+    }
+    return false;
+}
+
+void get_measurement(HWMeasurement* result)
+{
+    if (result == nullptr)
+        return;
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    {
+        result->position = measurement.position;
+        result->refStart = measurement.refStart;
+        result->refEnd = measurement.refEnd;
+        result->refLength = measurement.refLength;
+        result->totalLength = measurement.totalLength;
+        result->refValid = measurement.refValid;
+    }
+}
+
 Motor* Motor::_TimerMotor = nullptr;
 
 MotorProfileParam_t Motor::_ProfileParam =
@@ -127,6 +204,24 @@ bool Motor::begin()
     _Position = POSITION_UNKNOWN;
     _TotalLength = 0U;
     _DirectionRight = true;
+
+    // HW_TEST measurement starts at the mechanical midpoint; this is not
+    // a validated calibration. The reference run will set refValid later.
+    measurement.position = 12500U;
+    measurement.refStart = 0U;
+    measurement.refEnd = 0U;
+    measurement.refLength = 0U;
+    measurement.totalLength = 25000U;
+    measurement.refValid = false;
+    stepRun = false;
+    stepLevel = false;
+    profileRun = false;
+    profileReportPending = false;
+    profileElement = 0U;
+    profileStepsRemaining = 0U;
+    profileTimerValue = frequency_to_reload(profileVMin);
+    profileMinReloadReached = profileTimerValue;
+    profileRampCounter = 0U;
     _TargetPosition = 0;
     _JobResult = MotorJobResult_t::NONE;
 
@@ -1072,34 +1167,15 @@ void Motor::Timer1_Stop()
     TCCR1B &= ~(_BV(CS12) | _BV(CS11) | _BV(CS10));
 }
 
-uint16_t Motor::current_profile_ramp_interval() const
+uint16_t Motor::current_profile_ramp_interval()
 {
-    switch (_ProfileElement)
+    switch (profileElement)
     {
-    case MotorProfile_t::ACC1:
-        return (_ProfileParam.Acc1RampInterval == 0)
-            ? 1
-            : _ProfileParam.Acc1RampInterval;
-
-    case MotorProfile_t::ACC2:
-        return (_ProfileParam.Acc2RampInterval == 0)
-            ? 1
-            : _ProfileParam.Acc2RampInterval;
-
-    case MotorProfile_t::BRE1:
-        return (_ProfileParam.Bre1RampInterval == 0)
-            ? 1
-            : _ProfileParam.Bre1RampInterval;
-
-    case MotorProfile_t::BRE2:
-        return (_ProfileParam.Bre2RampInterval == 0)
-            ? 1
-            : _ProfileParam.Bre2RampInterval;
-
-    case MotorProfile_t::KONST:
-    case MotorProfile_t::POSI:
-    default:
-        return 0;
+    case static_cast<uint8_t>(MotorProfile_t::ACC1): return 1U;
+    case static_cast<uint8_t>(MotorProfile_t::ACC2): return 2U;
+    case static_cast<uint8_t>(MotorProfile_t::BRE1): return 2U;
+    case static_cast<uint8_t>(MotorProfile_t::BRE2): return 1U;
+    default: return 1U;
     }
 }
 
