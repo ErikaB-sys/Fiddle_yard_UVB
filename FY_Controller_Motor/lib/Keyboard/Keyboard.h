@@ -96,6 +96,5 @@ private:
     void drawDiagnostic();
 
     static bool i2cDevicePresent(uint8_t address);
-    static uint8_t buttonToExtenderPin(uint8_t virtualPin);
     static const char* modeText(FY_OperatingMode_t mode);
 };

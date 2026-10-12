@@ -57,13 +57,3 @@ constexpr uint8_t LED_LEFT_PIN  = 2;
 constexpr uint8_t LED_GO_PIN    = 1;
 constexpr uint8_t LED_RIGHT_PIN = 0;
 
-// Virtual pins for the I2C port expander.
-// Values >= 100 avoid conflicts with normal Arduino pins.
-constexpr uint8_t BUTTON_STOP  = 100;
-constexpr uint8_t BUTTON_GO    = 101;
-constexpr uint8_t BUTTON_LEFT  = 102;
-constexpr uint8_t BUTTON_RIGHT = 103;
-constexpr uint8_t LED1 = 104;
-constexpr uint8_t LED2 = 105;
-constexpr uint8_t LED3 = 106;
-constexpr uint8_t LED4 = 107;

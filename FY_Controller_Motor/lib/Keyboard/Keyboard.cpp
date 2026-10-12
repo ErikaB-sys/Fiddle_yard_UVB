@@ -39,33 +39,16 @@ bool Keyboard::Button::pressed() {
 
 Keyboard::Keyboard()
     : _extender(PORT_EXPANDER_ADDRESS),
-      _left(&_extender, buttonToExtenderPin(BUTTON_LEFT)),
-      _right(&_extender, buttonToExtenderPin(BUTTON_RIGHT)),
-      _ok(&_extender, buttonToExtenderPin(BUTTON_GO)),
-      _stop(&_extender, buttonToExtenderPin(BUTTON_STOP)), // cppcheck-suppress misra-c2012-12.3
+      _left(&_extender, BUTTON_LEFT_PIN),
+      _right(&_extender, BUTTON_RIGHT_PIN),
+      _ok(&_extender, BUTTON_GO_PIN),
+      _stop(&_extender, BUTTON_STOP_PIN), // cppcheck-suppress misra-c2012-12.3
       _display(U8G2_R0, U8X8_PIN_NONE) {
 }
 
 bool Keyboard::i2cDevicePresent(uint8_t address) {
     Wire.beginTransmission(address);
     return Wire.endTransmission() == 0;
-}
-
-uint8_t Keyboard::buttonToExtenderPin(uint8_t virtualPin) {
-    // Virtual button definitions are part of HW_Config.h.
-    // Physical assignment is defined centrally in HW_Config.h.
-    switch (virtualPin) {
-        case BUTTON_STOP:
-            return BUTTON_STOP_PIN;
-        case BUTTON_GO:
-            return BUTTON_GO_PIN;
-        case BUTTON_LEFT:
-            return BUTTON_LEFT_PIN;
-        case BUTTON_RIGHT:
-            return BUTTON_RIGHT_PIN;
-        default:
-            return BUTTON_STOP_PIN;
-    }
 }
 
 void Keyboard::begin() {
