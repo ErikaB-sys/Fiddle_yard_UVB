@@ -376,22 +376,3 @@ bool BabelFish::parseHexByte(const char* text, uint8_t& value)
     return digits > 0;
 }
 
-    uint32_t parsed = 0;
-
-    while (*text != '\0')
-    {
-        if (*text < '0' || *text > '9')
-            return false;
-
-        const uint8_t digit = static_cast<uint8_t>(*text - '0');
-
-        if (parsed > ((0xFFFFFFUL - digit) / 10UL))
-            return false;
-
-        parsed = (parsed * 10UL) + digit;
-        ++text;
-    }
-
-    value = parsed;
-    return true;
-}
