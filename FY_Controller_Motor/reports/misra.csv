@@ -1,17 +1,4 @@
-lib\BabelFish\BabelFish.cpp,38,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'Serial' is unknown
-lib\BabelFish\BabelFish.cpp,164,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,175,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,209,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,252,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,290,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,304,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,325,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,326,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,342,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,391,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,506,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,543,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,567,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,397,error,syntaxError,Unmatched '}'. Configuration: 'ARDUINO=1;ARDUINO_AVR_NANO=1;PROGMEM='.
 lib\Keyboard\Keyboard.cpp,28,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'HIGH' is unknown
 lib\Keyboard\Keyboard.cpp,28,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'LOW' is unknown
 lib\Motor\motor.cpp,81,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
