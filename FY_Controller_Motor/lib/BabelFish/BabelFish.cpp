@@ -243,7 +243,16 @@ bool BabelFish::decodeLine()
 
     // Execute / priority commands.
     if (equalsIgnoreCase(command, "REFERENCE"))
-        return makeSimpleCommand(CMD_REFERENCE);
+    {
+        // Default to the normal reference run (mode 0).
+        // Motor::Prepare() expects one DATA byte for the reference mode.
+        _command.cmd = CMD_REFERENCE;
+        _command.data[0] = 0U;
+        _command.length = 2;
+        _command.valid = true;
+        _command.crc = calcCRC(_command.cmd, _command.data, 1);
+        return true;
+    }
 
     if (equalsIgnoreCase(command, "STOP") ||
         equalsIgnoreCase(command, "STOPP"))
