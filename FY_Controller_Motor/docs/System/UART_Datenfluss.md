@@ -1,7 +1,7 @@
 # UART-Datenfluss: BabelFish bis Motor und Systemantwort
 
 **Branch:** `FY_Motor`  
-**Stand:** 2026-10-12 (Parser/Descriptor-Abgleich ergänzt; Build noch offen)  
+**Stand:** 2026-10-12 (BabelFish auf ASCII-Name + Hex-DATA reduziert; Build/Test offen)  
 **Zweck:** Überblick über den vorhandenen Datenfluss und die noch offenen Verbindungen. Die Darstellung folgt dem aktuellen Quellcode; gestrichelte Verbindungen und `TBD` markieren noch nicht fertig integrierte oder zu verifizierende Stellen.
 
 ## 1. Datenfluss und Antwortpfad
@@ -10,7 +10,7 @@
 flowchart TD
     HOST["PC / externe Steuerung<br/>ASCII-Befehl über Serial"]
     BF["BabelFish::process()<br/>Zeichen lesen, Echo, CR/LF erkennen"]
-    LINE["BabelFish::processLine()<br/>trim(), decodeLine(), CRC bilden"]
+    LINE["BabelFish::processLine()<br/>trim(), CMD-Name auflösen, Hex-DATA lesen, CRC bilden"]
     CMD["BabelFishCommand_t<br/>cmd + DATA + length + CRC"]
     VALID["UART::receive() / validateCommand()<br/>Command-ID → DATA-Länge → CRC"]
     INVALID["Fehlerpfad<br/>Error setzen; STATUS_NACK"]
@@ -60,7 +60,7 @@ flowchart TD
 
 ### Ablauf im Detail
 
-1. **BabelFish:** Die UART-Schicht übergibt jedes empfangene Zeichen an `BabelFish::process()`. BabelFish spiegelt Eingabezeichen zum Terminal, erkennt CR/LF und übersetzt eine vollständige ASCII-Zeile in einen binären Command-Datensatz. `finalizeCommand()` bezieht die erwartete DATA-Länge aus `commandDefinitions`, setzt daraus die Telegrammlänge und berechnet die CRC.
+1. **BabelFish:** Die UART-Schicht übergibt jedes empfangene Zeichen an `BabelFish::process()`. BabelFish spiegelt Eingabezeichen zum Terminal, erkennt CR/LF, löst den CMD-Namen auf und wandelt jedes folgende Hex-Token in genau ein DATA-Byte um. Es interpretiert keine Parameter und prüft nicht die befehlsspezifische DATA-Länge. Es setzt die tatsächlich gelieferte Länge und berechnet die CRC über die vorhandenen Bytes.
 2. **Validierung:** `UART::validateCommand()` prüft zuerst die Command-ID, dann die DATA-Länge und danach die CRC. Fehler führen zu einem NACK-Pfad.
 3. **Dispatch:** Die Command-Tabelle teilt gültige Befehle in `IMMEDIATE`, `EXECUTE` und `PRIORITY` ein. EXECUTE-Befehle werden bei Systemzustand `Busy` abgewiesen.
 4. **Motor:** Einige Handler legen über `setJob()` einen Job ab; andere rufen `prepareGo()` oder `prepareStop()` direkt auf. `Motor::Update()` verarbeitet Jobs im Hauptloop. Der Timer/ISR erzeugt die zeitkritischen Schritte.
@@ -70,7 +70,7 @@ flowchart TD
 
 | Stelle | Befund im aktuellen Code | Status |
 |---|---|---|
-| `BabelFish → commandDefinitions` | `finalizeCommand()` sucht den Command-Descriptor und verwendet dessen DATA-Länge für Telegrammlänge und CRC. Ein unbekannter Befehl oder eine Abweichung zwischen erzeugter und deklarierter DATA-Länge wird im Parser verworfen. | **Im Code umgesetzt – Build/Test offen** |
+| `BabelFish → UART-Validierung` | BabelFish löst nur den CMD-Namen auf, wandelt die nachfolgenden Hex-Tokens in DATA-Bytes um und berechnet die CRC über die tatsächlich gelieferten Bytes. Die Befehlsdefinitionen und die erwartete DATA-Länge prüft ausschließlich `UART::validateCommand()`. | **Im Code angepasst – Build/Test offen** |
 | `REFERENCE` | ASCII-Befehl liefert nun das Standard-Modusbyte `0`; Descriptor erwartet 1 DATA-Byte. | **Im Code angepasst – Build/Test offen** |
 | `LEFT / RIGHT` | Beide Befehle erzeugen 0 DATA-Bytes; Descriptor ist entsprechend auf 0 gesetzt. | **Im Code angepasst – Build/Test offen** |
 | `SET_POSITION` | Parser erzeugt 2 DATA-Bytes für die 16-Bit-Position; Descriptor ist auf 2 gesetzt. | **Im Code angepasst – Build/Test offen** |
@@ -90,7 +90,7 @@ Die folgende Übersicht fasst Befehle nach ihrem Datenpfad zusammen, statt für 
 | Gruppe | Befehle | Aktuelle Antwort / offene Punkte |
 |---|---|---|
 | Sofortige Abfragen | `GET_STATUS`, `GET_ERROR`, `GET_POSITION`, `GET_TRACK`, `HELP`, `GET_FIRMWARE` | Je nach Befehl `STATUS_System`, `STATUS_Motor`, `STATUS_Switches`, `STATUS_Keyboard`, `STATUS_Error`, `STATUS_Position`, `STATUS_Track`, `STATUS_Help`, `STATUS_Firmware`; GET_TRACK-Kontext fehlt derzeit. |
-| Ausführung / Motorjob | `REFERENCE`, `SET_PARAM`, `LEFT`, `RIGHT`, `SET_POSITION`, `SET_TRACK` | Motorjob wird übergeben; mehrere Handler ignorieren `SetCommand()`-Fehler und generieren keine Antwort. DATA-Längen werden jetzt beim BabelFish-Finalisieren gegen den Descriptor geprüft; Build und Laufzeittest stehen aus. |
+| Ausführung / Motorjob | `REFERENCE`, `SET_PARAM`, `LEFT`, `RIGHT`, `SET_POSITION`, `SET_TRACK` | Motorjob wird übergeben; mehrere Handler ignorieren `SetCommand()`-Fehler und generieren keine Antwort. Die DATA-Länge wird erst in `UART::validateCommand()` gegen den Descriptor geprüft. Build und Laufzeittest stehen aus. |
 | Direkte Treibersteuerung | `GO`, `STOPP` | `prepareGo()` bzw. `prepareStop()`; bei Annahme `STATUS_ACK`, bei Ablehnung `STATUS_NACK`. STOPP deaktiviert den Treiber und invalidiert die Referenzposition. |
 | Betriebsmodus | `SET_MODE LOCAL/REMOTE` | Prüft Busy/Bewegung und Nutzdaten; setzt `systemStatus.mode`, aktualisiert Keyboard-Modus und antwortet mit ACK/NACK. |
 | Fehler bei Telegramm/Validierung | unbekannte ID, falsche DATA-Länge, falsche CRC oder ungültige ASCII-Zeile | `STATUS_NACK` mit codiertem Ort/Grund; ungültige ASCII-Zeile wird von BabelFish zusätzlich mit `CMD_INVALID` ausgegeben. |
@@ -105,7 +105,7 @@ Die folgende Übersicht fasst Befehle nach ihrem Datenpfad zusammen, statt für 
 
 ## 5. Nächste Arbeitsschritte
 
-1. **Parser-/Descriptor-Abgleich bauen und prüfen:** DATA-Längen für REFERENCE, LEFT, RIGHT und SET_POSITION sind angepasst; BabelFish nutzt `commandDefinitions` jetzt zentral zur Finalisierung.
+1. **BabelFish prüfen:** Der Parser soll nur den CMD-Namen auflösen und die nachfolgenden Hex-Bytes unverändert liefern. Beispiele: `GO 55 AA`, `SET_POSITION E8 03`, `SET_MODE 55 AA`. Fehlende oder zusätzliche Bytes werden nicht im BabelFish fachlich bewertet, sondern von `UART::validateCommand()` anhand des Command-Descriptors abgewiesen.
 2. Für alle Motorbefehle einheitlich festlegen: Alle Aufträge sollen über `setJob()` laufen; erst danach entscheiden die `prepare...`-Funktionen über Zulässigkeit, Vorbereitung und Start. Außerdem einheitliche ACK/NACK- und Abschluss-/Laufzeitfehler festlegen.
 3. `GET_TRACK`-Datenquelle anbinden.
 4. Keyboard-Events und Anzeige-Status in `loop()` integrieren; anschließend Switches-/Ausgangsaktualisierung prüfen.
