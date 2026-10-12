@@ -1,22 +1,22 @@
-lib\BabelFish\BabelFish.cpp,434,style,functionStatic,The member function 'BabelFish::reportInvalid' can be static.
-lib\BabelFish\BabelFish.cpp,265,style,constVariable,Variable 'firstToken' can be declared as const array
-lib\BabelFish\BabelFish.cpp,266,style,constVariable,Variable 'secondToken' can be declared as const array
-lib\BabelFish\BabelFish.cpp,379,style,constVariable,Variable 'firstToken' can be declared as const array
-lib\BabelFish\BabelFish.cpp,380,style,constVariable,Variable 'secondToken' can be declared as const array
-lib\BabelFish\BabelFish.cpp,459,style,constVariablePointer,Variable 'start' can be declared as pointer to const
+lib\BabelFish\BabelFish.cpp,443,style,functionStatic,The member function 'BabelFish::reportInvalid' can be static.
+lib\BabelFish\BabelFish.cpp,274,style,constVariable,Variable 'firstToken' can be declared as const array
+lib\BabelFish\BabelFish.cpp,275,style,constVariable,Variable 'secondToken' can be declared as const array
+lib\BabelFish\BabelFish.cpp,388,style,constVariable,Variable 'firstToken' can be declared as const array
+lib\BabelFish\BabelFish.cpp,389,style,constVariable,Variable 'secondToken' can be declared as const array
+lib\BabelFish\BabelFish.cpp,468,style,constVariablePointer,Variable 'start' can be declared as pointer to const
 lib\BabelFish\BabelFish.cpp,38,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'Serial' is unknown
 lib\BabelFish\BabelFish.cpp,164,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,175,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\BabelFish\BabelFish.cpp,215,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,255,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,296,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,317,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,345,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,346,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,369,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,511,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,548,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
-lib\BabelFish\BabelFish.cpp,572,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,264,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,305,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,326,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,354,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,355,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,378,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,520,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,557,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
+lib\BabelFish\BabelFish.cpp,581,error,misra-config,Because of missing configuration, misra checking is incomplete. There can be false negatives! Variable 'nullptr' is unknown
 lib\Error\Error.cpp,18,style,functionStatic,The member function 'Error::update' can be static.
 lib\Keyboard\Keyboard.cpp,5,warning,uninitMemberVar,Member variable 'Button::_lastState' is not initialized in the constructor.
 lib\Keyboard\Keyboard.cpp,238,style,unusedPrivateFunction,Unused private function: 'Keyboard::drawDiagnostic'
