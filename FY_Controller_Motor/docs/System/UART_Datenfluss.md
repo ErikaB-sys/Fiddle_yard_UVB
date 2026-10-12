@@ -71,7 +71,7 @@ flowchart TD
 | Stelle | Befund im aktuellen Code | Status |
 |---|---|---|
 | `BabelFish → UART-Validierung` | BabelFish löst nur den CMD-Namen auf, wandelt die nachfolgenden Hex-Tokens in DATA-Bytes um und berechnet die CRC über die tatsächlich gelieferten Bytes. Die Befehlsdefinitionen und die erwartete DATA-Länge prüft ausschließlich `UART::validateCommand()`. | **Im Code angepasst – Build/Test offen** |
-| `REFERENCE` | ASCII-Befehl liefert nun das Standard-Modusbyte `0`; Descriptor erwartet 1 DATA-Byte. | **Im Code angepasst – Build/Test offen** |
+| `REFERENCE` | BabelFish liefert nur explizit eingegebene Hex-Bytes; der aktuelle Descriptor erwartet 1 DATA-Byte. | **Im Code angepasst – Build/Test offen** |
 | `LEFT / RIGHT` | Beide Befehle erzeugen 0 DATA-Bytes; Descriptor ist entsprechend auf 0 gesetzt. | **Im Code angepasst – Build/Test offen** |
 | `SET_POSITION` | Parser erzeugt 2 DATA-Bytes für die 16-Bit-Position; Descriptor ist auf 2 gesetzt. | **Im Code angepasst – Build/Test offen** |
 | `handleReference / handleSetParam / handleLeft / handleRight / handleSetPosition` | `SetCommand()`-Rückgabe wird ignoriert; diese Handler setzen weder ACK noch NACK. | **TBD – Annahmefehler behandeln und Antwortvertrag festlegen** |
@@ -91,8 +91,8 @@ Die folgende Übersicht fasst Befehle nach ihrem Datenpfad zusammen, statt für 
 |---|---|---|
 | Sofortige Abfragen | `GET_STATUS`, `GET_ERROR`, `GET_POSITION`, `GET_TRACK`, `HELP`, `GET_FIRMWARE` | Je nach Befehl `STATUS_System`, `STATUS_Motor`, `STATUS_Switches`, `STATUS_Keyboard`, `STATUS_Error`, `STATUS_Position`, `STATUS_Track`, `STATUS_Help`, `STATUS_Firmware`; GET_TRACK-Kontext fehlt derzeit. |
 | Ausführung / Motorjob | `REFERENCE`, `SET_PARAM`, `LEFT`, `RIGHT`, `SET_POSITION`, `SET_TRACK` | Motorjob wird übergeben; mehrere Handler ignorieren `SetCommand()`-Fehler und generieren keine Antwort. Die DATA-Länge wird erst in `UART::validateCommand()` gegen den Descriptor geprüft. Build und Laufzeittest stehen aus. |
-| Direkte Treibersteuerung | `GO`, `STOPP` | `prepareGo()` bzw. `prepareStop()`; bei Annahme `STATUS_ACK`, bei Ablehnung `STATUS_NACK`. STOPP deaktiviert den Treiber und invalidiert die Referenzposition. |
-| Betriebsmodus | `SET_MODE LOCAL/REMOTE` | Prüft Busy/Bewegung und Nutzdaten; setzt `systemStatus.mode`, aktualisiert Keyboard-Modus und antwortet mit ACK/NACK. |
+| Direkte Treibersteuerung | `GO`, `STOPP` | `prepareGo()` bzw. `prepareStop()`; bei Annahme `STATUS_ACK`, bei Ablehnung `STATUS_NACK`. STOPP deaktiviert den Treiber und invalidiert die Referenzposition; Hex-DATA wird byteweise eingegeben, z. B. `STOPP 55 AA`. |
+| Betriebsmodus | `SET_MODE` mit Hex-DATA | Prüft Busy/Bewegung und Nutzdaten; setzt `systemStatus.mode`, aktualisiert Keyboard-Modus und antwortet mit ACK/NACK. |
 | Fehler bei Telegramm/Validierung | unbekannte ID, falsche DATA-Länge, falsche CRC oder ungültige ASCII-Zeile | `STATUS_NACK` mit codiertem Ort/Grund; ungültige ASCII-Zeile wird von BabelFish zusätzlich mit `CMD_INVALID` ausgegeben. |
 
 ## 4. Antworttypen
