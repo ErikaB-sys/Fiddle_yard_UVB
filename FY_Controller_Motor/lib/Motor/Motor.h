@@ -2,6 +2,7 @@
 // Motor.h
 //default declarations 
 
+#include "FY_System.h"
 #include "Protokoll.h"
 #include "Error.h"
 
