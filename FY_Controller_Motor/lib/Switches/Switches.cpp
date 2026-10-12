@@ -2,10 +2,10 @@
 
 void Switches::begin()
 {
-    pinMode(SWITCH_REF_D, INPUT);
-    pinMode(SWITCH_TRIM_LEFT_D, INPUT);
-    pinMode(SWITCH_TRIM_RIGHT_D, INPUT);
-    pinMode(SWITCH_TIMING_BELT_D, INPUT);
+    pinMode(LSREF.pin, INPUT);
+    pinMode(LSL.pin, INPUT);
+    pinMode(LSR.pin, INPUT);
+    pinMode(LS4.pin, INPUT);
 }
 
 int Switches::getAnalogValue(Id id) const
@@ -44,14 +44,14 @@ uint8_t Switches::digitalPin(Id id)
 {
     switch (id) {
         case Id::REF:
-            return SWITCH_REF_D;
+            return LSREF.pin;
         case Id::TRIM_LEFT:
-            return SWITCH_TRIM_LEFT_D;
+            return LSL.pin;
         case Id::TRIM_RIGHT:
-            return SWITCH_TRIM_RIGHT_D;
+            return LSR.pin;
         case Id::TIMING_BELT:
-            return SWITCH_TIMING_BELT_D;
+            return LS4.pin;
     }
 
-    return SWITCH_REF_D;
+    return LSREF.pin;
 }

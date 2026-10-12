@@ -53,19 +53,18 @@ bool Keyboard::i2cDevicePresent(uint8_t address) {
 
 uint8_t Keyboard::buttonToExtenderPin(uint8_t virtualPin) {
     // Virtual button definitions are part of HW_Config.h.
-    // Physical assignment follows the tested FY hardware:
-    // STOP=P7, GO=P6, LEFT=P5, RIGHT=P4.
+    // Physical assignment is defined centrally in HW_Config.h.
     switch (virtualPin) {
         case BUTTON_STOP:
-            return P7;
+            return BUTTON_STOP_PIN;
         case BUTTON_GO:
-            return P6;
+            return BUTTON_GO_PIN;
         case BUTTON_LEFT:
-            return P5;
+            return BUTTON_LEFT_PIN;
         case BUTTON_RIGHT:
-            return P4;
+            return BUTTON_RIGHT_PIN;
         default:
-            return P7;
+            return BUTTON_STOP_PIN;
     }
 }
 
