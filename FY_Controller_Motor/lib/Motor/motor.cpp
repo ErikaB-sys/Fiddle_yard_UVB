@@ -150,16 +150,14 @@ bool Motor::begin()
     pinMode(_Step_pin, OUTPUT);
     pinMode(_ENA_pin, OUTPUT);
 
-    // Inputs match the physically verified FY_HW_TEST wiring.
-    pinMode(SWITCH_TRIM_LEFT_D, INPUT);
-    pinMode(SWITCH_TRIM_RIGHT_D, INPUT);
-    pinMode(SWITCH_REF_D, INPUT);
-    _LeftLimitInputPort = portInputRegister(digitalPinToPort(SWITCH_TRIM_LEFT_D));
-    _RightLimitInputPort = portInputRegister(digitalPinToPort(SWITCH_TRIM_RIGHT_D));
-    _ReferenceInputPort = portInputRegister(digitalPinToPort(SWITCH_REF_D));
-    _LeftLimitMask = digitalPinToBitMask(SWITCH_TRIM_LEFT_D);
-    _RightLimitMask = digitalPinToBitMask(SWITCH_TRIM_RIGHT_D);
-    _ReferenceInputMask = digitalPinToBitMask(SWITCH_REF_D);
+    // Switches::begin() owns INPUT initialization. Motor only resolves the
+    // cached port registers and masks needed for fast ISR sensor access.
+    _LeftLimitInputPort = portInputRegister(digitalPinToPort(LSL.pin));
+    _RightLimitInputPort = portInputRegister(digitalPinToPort(LSR.pin));
+    _ReferenceInputPort = portInputRegister(digitalPinToPort(LSREF.pin));
+    _LeftLimitMask = digitalPinToBitMask(LSL.pin);
+    _RightLimitMask = digitalPinToBitMask(LSR.pin);
+    _ReferenceInputMask = digitalPinToBitMask(LSREF.pin);
     if ((_LeftLimitInputPort == nullptr) || (_RightLimitInputPort == nullptr) ||
         (_ReferenceInputPort == nullptr) || (_LeftLimitMask == 0U) ||
         (_RightLimitMask == 0U) || (_ReferenceInputMask == 0U))

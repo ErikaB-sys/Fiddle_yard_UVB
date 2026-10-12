@@ -2,6 +2,8 @@
 
 void Switches::begin()
 {
+    // Centralized input initialization for all physical sensors.
+    // REF, TRIM_LEFT and TRIM_RIGHT are also read directly by the motor ISR.
     pinMode(LSREF.pin, INPUT);
     pinMode(LSL.pin, INPUT);
     pinMode(LSR.pin, INPUT);
