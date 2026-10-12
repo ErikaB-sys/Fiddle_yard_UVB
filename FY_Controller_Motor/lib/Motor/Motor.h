@@ -300,13 +300,6 @@ private:
     void stopReferenceMotion();
     void finishReference(bool valid);
 
-    volatile uint8_t* _LeftLimitInputPort = nullptr;
-    volatile uint8_t* _RightLimitInputPort = nullptr;
-    volatile uint8_t* _ReferenceInputPort = nullptr;
-    uint8_t _LeftLimitMask = 0U;
-    uint8_t _RightLimitMask = 0U;
-    uint8_t _ReferenceInputMask = 0U;
-
     static constexpr uint16_t REFERENCE_START_POSITION = 12500U;
     static constexpr uint16_t REFERENCE_LEFT_POSITION = 1000U;
     static constexpr uint16_t REFERENCE_BACKOFF_STEPS = 1200U;

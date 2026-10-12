@@ -150,18 +150,8 @@ bool Motor::begin()
     pinMode(_Step_pin, OUTPUT);
     pinMode(_ENA_pin, OUTPUT);
 
-    // Switches::begin() owns INPUT initialization. Motor only resolves the
-    // cached port registers and masks needed for fast ISR sensor access.
-    _LeftLimitInputPort = portInputRegister(digitalPinToPort(LSL.pin));
-    _RightLimitInputPort = portInputRegister(digitalPinToPort(LSR.pin));
-    _ReferenceInputPort = portInputRegister(digitalPinToPort(LSREF.pin));
-    _LeftLimitMask = digitalPinToBitMask(LSL.pin);
-    _RightLimitMask = digitalPinToBitMask(LSR.pin);
-    _ReferenceInputMask = digitalPinToBitMask(LSREF.pin);
-    if ((_LeftLimitInputPort == nullptr) || (_RightLimitInputPort == nullptr) ||
-        (_ReferenceInputPort == nullptr) || (_LeftLimitMask == 0U) ||
-        (_RightLimitMask == 0U) || (_ReferenceInputMask == 0U))
-        return false;
+    // Sensor ports and masks are compile-time constants in HW_Config.h.
+    // Switches::begin() owns INPUT initialization.
 
     // Die Portregister werden einmalig aufgeloest.
     // In der ISR wird damit kein digitalWrite() benoetigt.
@@ -195,7 +185,7 @@ bool Motor::begin()
     _ProfileRampCounter = 0;
     _StepRun = false;
     _StepLevel = false;
-    refLastState = ((*_ReferenceInputPort & _ReferenceInputMask) != 0U);
+    refLastState = ((*LSREF.inputRegister & LSREF.mask) != 0U);
     _TimerValid = false;
     _Position = POSITION_UNKNOWN;
     _TotalLength = 0U;
@@ -716,10 +706,8 @@ void Motor::finishReference(bool valid)
 void Motor::updateReference()
 {
     _Position = measurement.position;
-    const bool limitLeft = (_LeftLimitInputPort != nullptr) &&
-        ((*_LeftLimitInputPort & _LeftLimitMask) != 0U);
-    const bool limitRight = (_RightLimitInputPort != nullptr) &&
-        ((*_RightLimitInputPort & _RightLimitMask) != 0U);
+    const bool limitLeft = ((*LSL.inputRegister & LSL.mask) != 0U);
+    const bool limitRight = ((*LSR.inputRegister & LSR.mask) != 0U);
 
     switch (refRunState)
     {
@@ -791,8 +779,7 @@ void Motor::updateReference()
         if (measurement.position <= refApproachTarget)
         {
             stopReferenceMotion();
-            refLastState = (_ReferenceInputPort != nullptr) &&
-                ((*_ReferenceInputPort & _ReferenceInputMask) != 0U);
+            refLastState = ((*LSREF.inputRegister & LSREF.mask) != 0U);
             refPreciseRightCaptured = false;
             refPreciseCaptured = false;
             refMeasurePass = 1U;
@@ -819,8 +806,7 @@ void Motor::updateReference()
         if (measurement.position <= refShiftTarget)
         {
             stopReferenceMotion();
-            refLastState = (_ReferenceInputPort != nullptr) &&
-                ((*_ReferenceInputPort & _ReferenceInputMask) != 0U);
+            refLastState = ((*LSREF.inputRegister & LSREF.mask) != 0U);
             refMeasurePass = 2U;
             refMeasureArmed = true;
             refSecondPreciseCaptured = false;
