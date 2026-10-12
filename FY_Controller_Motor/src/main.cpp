@@ -11,6 +11,9 @@
 
 FY_SystemInitStatus_t FY_System;
 
+// The system layer owns the shared physical I/O image.
+HWIOState io{};
+
 Switches       FY_Switches;
 UART           FY_uart;
 Motor          FY_motor;

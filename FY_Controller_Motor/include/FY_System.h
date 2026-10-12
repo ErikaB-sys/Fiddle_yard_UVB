@@ -2,6 +2,49 @@
 
 #include <Arduino.h>
 
+// -----------------------------------------------------------------------------
+// Shared hardware state and motor measurements
+// -----------------------------------------------------------------------------
+// The structures are declared here because more than one module may consume
+// them. The owning translation units define the actual instances:
+//   - io: system/main layer (shared physical I/O image)
+//   - measurement: motor module (ISR-updated measurement data)
+
+struct HWIOState
+{
+    bool buttonStop{false};
+    bool buttonLeft{false};
+    bool buttonRight{false};
+    bool buttonGo{false};
+
+    bool limitLeft{false};
+    bool limitRight{false};
+    bool reference{false};
+    bool hall{false};
+
+    bool ledStop{false};
+    bool ledLeft{false};
+    bool ledRight{false};
+    bool ledGo{false};
+
+    bool ena{false};
+    bool dir{false};
+};
+
+struct HWMeasurement
+{
+    uint16_t position{0U};
+    uint16_t refStart{0U};
+    uint16_t refEnd{0U};
+    uint16_t refLength{0U};
+    uint16_t totalLength{0U};
+    bool refValid{false};
+};
+
+extern HWIOState io;
+extern volatile HWMeasurement measurement;
+
+
 
 // System debug options
 //#define DebugSwitches

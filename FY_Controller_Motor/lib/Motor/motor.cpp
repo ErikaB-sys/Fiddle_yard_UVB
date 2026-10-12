@@ -12,6 +12,9 @@
 
 REF_STATE FY_Refrun = REF_STATE::REF_REQ;
 
+// The motor module owns the measurement data updated by motor execution/ISR.
+volatile HWMeasurement measurement{};
+
 Motor* Motor::_TimerMotor = nullptr;
 
 MotorProfileParam_t Motor::_ProfileParam =
