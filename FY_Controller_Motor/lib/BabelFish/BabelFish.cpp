@@ -176,10 +176,7 @@ bool BabelFish::decodeLine()
             return false;
         _command.cmd = CMD_GET_STATUS;
         _command.data[0] = selector;
-        _command.length = 2;
-        _command.valid = true;
-        _command.crc = calcCRC(_command.cmd, _command.data, 1);
-        return true;
+        return finalizeCommand(CMD_GET_STATUS, 1);
     }
 
     if (equalsIgnoreCase(command, "GET_ERROR") ||
@@ -195,10 +192,7 @@ bool BabelFish::decodeLine()
     {
         _command.cmd = CMD_GET_TRACK;
         _command.data[0] = GET_TRACK_OPTION_DEFAULT;
-        _command.length = 2;
-        _command.valid = true;
-        _command.crc = calcCRC(_command.cmd, _command.data, 1);
-        return true;
+        return finalizeCommand(CMD_GET_TRACK, 1);
     }
 
     if (equalsIgnoreCase(command, "HELP"))
@@ -235,10 +229,7 @@ bool BabelFish::decodeLine()
         _command.cmd = CMD_SET_MODE;
         _command.data[0] = first;
         _command.data[1] = second;
-        _command.length = 3;
-        _command.valid = true;
-        _command.crc = calcCRC(_command.cmd, _command.data, 2);
-        return true;
+        return finalizeCommand(CMD_SET_MODE, 2);
     }
 
     // Execute / priority commands.
@@ -248,10 +239,7 @@ bool BabelFish::decodeLine()
         // Motor::Prepare() expects one DATA byte for the reference mode.
         _command.cmd = CMD_REFERENCE;
         _command.data[0] = 0U;
-        _command.length = 2;
-        _command.valid = true;
-        _command.crc = calcCRC(_command.cmd, _command.data, 1);
-        return true;
+        return finalizeCommand(CMD_REFERENCE, 1);
     }
 
     if (equalsIgnoreCase(command, "STOP") ||
@@ -285,10 +273,7 @@ bool BabelFish::decodeLine()
         _command.cmd = CMD_STOPP;
         _command.data[0] = first;
         _command.data[1] = second;
-        _command.length = 3;
-        _command.valid = true;
-        _command.crc = calcCRC(_command.cmd, _command.data, 2);
-        return true;
+        return finalizeCommand(CMD_STOPP, 2);
     }
 
     if (equalsIgnoreCase(command, "LEFT"))
@@ -308,14 +293,7 @@ bool BabelFish::decodeLine()
         _command.cmd = CMD_SET_POSITION;
         _command.data[0] = static_cast<uint8_t>(position & 0xFF);
         _command.data[1] = static_cast<uint8_t>(position >> 8);
-        _command.length = 3;
-        _command.valid = true;
-        _command.crc = calcCRC(
-            _command.cmd,
-            _command.data,
-            _command.length - 1
-        );
-        return true;
+        return finalizeCommand(CMD_SET_POSITION, 2);
     }
 
     if (equalsIgnoreCase(command, "SET_TRACK"))
@@ -331,14 +309,7 @@ bool BabelFish::decodeLine()
 
         _command.cmd = CMD_SET_TRACK;
         _command.data[0] = track;
-        _command.length = 2;
-        _command.valid = true;
-        _command.crc = calcCRC(
-            _command.cmd,
-            _command.data,
-            _command.length - 1
-        );
-        return true;
+        return finalizeCommand(CMD_SET_TRACK, 1);
     }
 
     // Generic parameter command: SET_PARAM <parameter-id> <value>
@@ -360,14 +331,7 @@ bool BabelFish::decodeLine()
         _command.data[1] = static_cast<uint8_t>(parameterValue & 0xFFUL);
         _command.data[2] = static_cast<uint8_t>((parameterValue >> 8) & 0xFFUL);
         _command.data[3] = static_cast<uint8_t>((parameterValue >> 16) & 0xFFUL);
-        _command.length = 5;
-        _command.valid = true;
-        _command.crc = calcCRC(
-            _command.cmd,
-            _command.data,
-            _command.length - 1
-        );
-        return true;
+        return finalizeCommand(CMD_SET_PARAM, 4);
     }
 
     if (equalsIgnoreCase(command, "GO"))
@@ -399,10 +363,7 @@ bool BabelFish::decodeLine()
         _command.cmd = CMD_GO;
         _command.data[0] = first;
         _command.data[1] = second;
-        _command.length = 3;
-        _command.valid = true;
-        _command.crc = calcCRC(_command.cmd, _command.data, 2);
-        return true;
+        return finalizeCommand(CMD_GO, 2);
     }
 
     return false;
@@ -411,9 +372,34 @@ bool BabelFish::decodeLine()
 bool BabelFish::makeSimpleCommand(uint8_t cmd)
 {
     _command.cmd = cmd;
-    _command.length = 1;
+    return finalizeCommand(cmd, 0);
+}
+
+bool BabelFish::finalizeCommand(uint8_t cmd, uint8_t dataLength)
+{
+    const CommandDefinition* definition = nullptr;
+
+    for (uint8_t i = 0; i < COMMAND_COUNT; ++i)
+    {
+        if (commandDefinitions[i].id == cmd)
+        {
+            definition = &commandDefinitions[i];
+            break;
+        }
+    }
+
+    if ((definition == nullptr) ||
+        (definition->dataLength != dataLength) ||
+        (dataLength > (MAX_COMMAND_LENGTH - 1U)))
+    {
+        _command = {};
+        return false;
+    }
+
+    _command.cmd = cmd;
+    _command.length = static_cast<uint8_t>(definition->dataLength + 1U);
     _command.valid = true;
-    _command.crc = calcCRC(_command.cmd, nullptr, 0);
+    _command.crc = calcCRC(cmd, _command.data, definition->dataLength);
     return true;
 }
 

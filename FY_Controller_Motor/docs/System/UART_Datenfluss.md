@@ -1,7 +1,7 @@
 # UART-Datenfluss: BabelFish bis Motor und Systemantwort
 
 **Branch:** `FY_Motor`  
-**Stand:** 2026-10-12  
+**Stand:** 2026-10-12 (Parser/Descriptor-Abgleich ergänzt; Build noch offen)  
 **Zweck:** Überblick über den vorhandenen Datenfluss und die noch offenen Verbindungen. Die Darstellung folgt dem aktuellen Quellcode; gestrichelte Verbindungen und `TBD` markieren noch nicht fertig integrierte oder zu verifizierende Stellen.
 
 ## 1. Datenfluss und Antwortpfad
@@ -60,7 +60,7 @@ flowchart TD
 
 ### Ablauf im Detail
 
-1. **BabelFish:** Die UART-Schicht übergibt jedes empfangene Zeichen an `BabelFish::process()`. BabelFish spiegelt Eingabezeichen zum Terminal, erkennt CR/LF und übersetzt eine vollständige ASCII-Zeile in einen binären Command-Datensatz.
+1. **BabelFish:** Die UART-Schicht übergibt jedes empfangene Zeichen an `BabelFish::process()`. BabelFish spiegelt Eingabezeichen zum Terminal, erkennt CR/LF und übersetzt eine vollständige ASCII-Zeile in einen binären Command-Datensatz. `finalizeCommand()` bezieht die erwartete DATA-Länge aus `commandDefinitions`, setzt daraus die Telegrammlänge und berechnet die CRC.
 2. **Validierung:** `UART::validateCommand()` prüft zuerst die Command-ID, dann die DATA-Länge und danach die CRC. Fehler führen zu einem NACK-Pfad.
 3. **Dispatch:** Die Command-Tabelle teilt gültige Befehle in `IMMEDIATE`, `EXECUTE` und `PRIORITY` ein. EXECUTE-Befehle werden bei Systemzustand `Busy` abgewiesen.
 4. **Motor:** Einige Handler legen über `setJob()` einen Job ab; andere rufen `prepareGo()` oder `prepareStop()` direkt auf. `Motor::Update()` verarbeitet Jobs im Hauptloop. Der Timer/ISR erzeugt die zeitkritischen Schritte.
@@ -70,9 +70,10 @@ flowchart TD
 
 | Stelle | Befund im aktuellen Code | Status |
 |---|---|---|
-| `BabelFish → REFERENCE` | `REFERENCE` wird als Simple Command ohne DATA erzeugt; die Command-Tabelle verlangt 1 DATA-Byte (Referenzmodus 0/1). Die Längenprüfung weist den Befehl daher ab. | **TBD – Protokoll/Parser angleichen** |
-| `BabelFish → LEFT / RIGHT` | Beide ASCII-Befehle werden ohne Parameter erzeugt; die Command-Tabelle verlangt jeweils 3 DATA-Bytes. | **TBD – Parameterformat festlegen und Parser ergänzen** |
-| `BabelFish → SET_POSITION` | Parser erzeugt 2 DATA-Bytes (16-Bit-Position), die Tabelle verlangt 3 DATA-Bytes. Die Längenprüfung weist den Befehl ab. | **TBD – Protokolllänge und Positionsformat abgleichen** |
+| `BabelFish → commandDefinitions` | `finalizeCommand()` sucht den Command-Descriptor und verwendet dessen DATA-Länge für Telegrammlänge und CRC. Ein unbekannter Befehl oder eine Abweichung zwischen erzeugter und deklarierter DATA-Länge wird im Parser verworfen. | **Im Code umgesetzt – Build/Test offen** |
+| `REFERENCE` | ASCII-Befehl liefert nun das Standard-Modusbyte `0`; Descriptor erwartet 1 DATA-Byte. | **Im Code angepasst – Build/Test offen** |
+| `LEFT / RIGHT` | Beide Befehle erzeugen 0 DATA-Bytes; Descriptor ist entsprechend auf 0 gesetzt. | **Im Code angepasst – Build/Test offen** |
+| `SET_POSITION` | Parser erzeugt 2 DATA-Bytes für die 16-Bit-Position; Descriptor ist auf 2 gesetzt. | **Im Code angepasst – Build/Test offen** |
 | `handleReference / handleSetParam / handleLeft / handleRight / handleSetPosition` | `SetCommand()`-Rückgabe wird ignoriert; diese Handler setzen weder ACK noch NACK. | **TBD – Annahmefehler behandeln und Antwortvertrag festlegen** |
 | Bewegungsabschluss → UART | ACK/NACK beschreibt bei den vorhandenen Handlern überwiegend Annahme/Ablehnung. Eine allgemeine Rückmeldung über abgeschlossene Bewegung oder Laufzeitfehler ist nicht durchgängig angebunden. | **TBD – Abschluss-/Fehlerpfad definieren** |
 | `GET_TRACK` | `Main_Context.Track_INFO` wird in `main.cpp` auf `nullptr` gesetzt. `handleGetTrack()` antwortet deshalb mit `DEV_RESPONSE`, bis die Trackdaten verbunden sind. | **TBD – Track-Kontext anbinden** |
@@ -89,7 +90,7 @@ Die folgende Übersicht fasst Befehle nach ihrem Datenpfad zusammen, statt für 
 | Gruppe | Befehle | Aktuelle Antwort / offene Punkte |
 |---|---|---|
 | Sofortige Abfragen | `GET_STATUS`, `GET_ERROR`, `GET_POSITION`, `GET_TRACK`, `HELP`, `GET_FIRMWARE` | Je nach Befehl `STATUS_System`, `STATUS_Motor`, `STATUS_Switches`, `STATUS_Keyboard`, `STATUS_Error`, `STATUS_Position`, `STATUS_Track`, `STATUS_Help`, `STATUS_Firmware`; GET_TRACK-Kontext fehlt derzeit. |
-| Ausführung / Motorjob | `REFERENCE`, `SET_PARAM`, `LEFT`, `RIGHT`, `SET_POSITION`, `SET_TRACK` | Motorjob wird übergeben; mehrere Handler ignorieren `SetCommand()`-Fehler und generieren keine Antwort. Zusätzlich bestehen die oben genannten BabelFish-/Längenabweichungen. |
+| Ausführung / Motorjob | `REFERENCE`, `SET_PARAM`, `LEFT`, `RIGHT`, `SET_POSITION`, `SET_TRACK` | Motorjob wird übergeben; mehrere Handler ignorieren `SetCommand()`-Fehler und generieren keine Antwort. DATA-Längen werden jetzt beim BabelFish-Finalisieren gegen den Descriptor geprüft; Build und Laufzeittest stehen aus. |
 | Direkte Treibersteuerung | `GO`, `STOPP` | `prepareGo()` bzw. `prepareStop()`; bei Annahme `STATUS_ACK`, bei Ablehnung `STATUS_NACK`. STOPP deaktiviert den Treiber und invalidiert die Referenzposition. |
 | Betriebsmodus | `SET_MODE LOCAL/REMOTE` | Prüft Busy/Bewegung und Nutzdaten; setzt `systemStatus.mode`, aktualisiert Keyboard-Modus und antwortet mit ACK/NACK. |
 | Fehler bei Telegramm/Validierung | unbekannte ID, falsche DATA-Länge, falsche CRC oder ungültige ASCII-Zeile | `STATUS_NACK` mit codiertem Ort/Grund; ungültige ASCII-Zeile wird von BabelFish zusätzlich mit `CMD_INVALID` ausgegeben. |
@@ -104,8 +105,8 @@ Die folgende Übersicht fasst Befehle nach ihrem Datenpfad zusammen, statt für 
 
 ## 5. Nächste Arbeitsschritte
 
-1. BabelFish-Parser und `commandDefinitions` auf identische DATA-Längen bringen; besonders REFERENCE, LEFT, RIGHT und SET_POSITION.
-2. Für alle Motorbefehle einheitlich festlegen: Was gilt als angenommen, welche Antwort folgt bei Ablehnung, und wie wird der Abschluss bzw. ein Laufzeitfehler gemeldet?
+1. **Parser-/Descriptor-Abgleich bauen und prüfen:** DATA-Längen für REFERENCE, LEFT, RIGHT und SET_POSITION sind angepasst; BabelFish nutzt `commandDefinitions` jetzt zentral zur Finalisierung.
+2. Für alle Motorbefehle einheitlich festlegen: Alle Aufträge sollen über `setJob()` laufen; erst danach entscheiden die `prepare...`-Funktionen über Zulässigkeit, Vorbereitung und Start. Außerdem einheitliche ACK/NACK- und Abschluss-/Laufzeitfehler festlegen.
 3. `GET_TRACK`-Datenquelle anbinden.
 4. Keyboard-Events und Anzeige-Status in `loop()` integrieren; anschließend Switches-/Ausgangsaktualisierung prüfen.
 5. Erst nach diesen Schritten die Befehle mit Hardware testen und die offenen Punkte aus der Tabelle abhaken.
