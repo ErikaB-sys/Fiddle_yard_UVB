@@ -204,9 +204,9 @@ const CommandDefinition commandDefinitions[] =
     { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Code constructed
     { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Code constructed
     { CMD_GO,            CommandType::EXECUTE,   2,false }, // Issue: #122 | Motor enable/disable does not require a reference
-    { CMD_LEFT,          CommandType::EXECUTE,   3, true }, // Issue: #123 | Status: Code constructed
-    { CMD_RIGHT,         CommandType::EXECUTE,   3, true }, // Issue: #124 | Status: Code constructed
-    { CMD_SET_POSITION,  CommandType::EXECUTE,   3, true }, // Issue: #125 | Status: Code constructed
+    { CMD_LEFT,          CommandType::EXECUTE,   0, true }, // Issue: #123 | No DATA payload
+    { CMD_RIGHT,         CommandType::EXECUTE,   0, true }, // Issue: #124 | No DATA payload
+    { CMD_SET_POSITION,  CommandType::EXECUTE,   2, true }, // Issue: #125 | uint16 target position, little-endian
     { CMD_SET_TRACK,     CommandType::EXECUTE,   1, true }, // Issue: #126 | Status: Code constructed
     { CMD_SET_MODE,      CommandType::EXECUTE,   2,false }, // Issue: #58 | Status: Code working
     { CMD_STOPP,         CommandType::PRIORITY,  2,false } // Issue: #129 | Status: Code constructed (safety behavior pending)
