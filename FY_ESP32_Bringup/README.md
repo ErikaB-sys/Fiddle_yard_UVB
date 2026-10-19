@@ -30,6 +30,9 @@ Isolierter Testaufbau im Branch `feature/FY_ESP32`, **kein Ersatz** für die pro
 2. Geeignetes ESP32-WROOM-Board anschließen, hochladen.
 3. Seriellen Monitor (115200 Baud) öffnen.
 4. Sekündliche Meldungen `comm core=0, motor core=1` bestätigen den Nachrichtenaustausch über Queues.
+5. Bei Boards mit eingebauter, an GPIO 2 angeschlossener LED blinkt diese nach jeweils erfolgreichem Befehls-/Antwortzyklus im Sekundentakt (1 s an / 1 s aus). Ohne erfolgreiche Rückantwort ändert sich ihr Zustand nicht.
+
+**LED-Konfiguration:** In `platformio.ini` sind `FY_STATUS_LED_PIN=2` und `FY_STATUS_LED_ACTIVE_HIGH=1` vorgegeben. GPIO 2 ist bei vielen (nicht allen) WROOM-Devboards die eingebaute LED und ein Boot-Strapping-Pin. Falls das Board keine solche LED hat, `FY_STATUS_LED_PIN=-1` setzen. Bei anderer LED-Pinbelegung oder aktiv-low entsprechend anpassen. Keine zusätzliche externe Last an GPIO 2 anschließen; Boardaufdruck bzw. Schaltplan ist maßgeblich.
 
 **Noch keine Motor-, Sensor-, UART-Protokoll- oder Timingtests.** Das Programm schaltet **keine** STEP/DIR/ENABLE-Ausgänge.
 
