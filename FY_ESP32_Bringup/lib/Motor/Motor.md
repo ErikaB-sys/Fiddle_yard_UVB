@@ -20,6 +20,6 @@ Die Dummy-Task läuft auf Core 1. Sie besitzt ihren lokalen LED-Zustand. Das `Br
 - `Muninn_motorMockTask()`: Queue lesen und simulierte Testantwort senden.
 
 ## Nano-Referenz und weitere Portierung
-Die Nano-Motorlogik in `FY_Controller_Motor/lib/Motor/` bleibt maßgeblich. Timer-/ISR-Entscheidungen folgen erst nach getrennter Analyse und Hardwareprüfung.
+Die übernommenen Arbeitsdiagramme `Motor_ISR.md`, `PrepareLeft.md`, `PrepareRight.md`, `ReferenceRun.md`, `ReferenceRunStateMachine.md` und `isr-Zustand.md` liegen direkt neben diesem Modul und werden bei der Portierung fortgeschrieben. Die originale Nano-Motorlogik in `FY_Controller_Motor/lib/Motor/` bleibt als Ausgangsstand verfügbar. Timer-/ISR-Entscheidungen folgen erst nach getrennter Analyse und Hardwareprüfung.
 
 Zugehörige Issues: #152 (Queue), #154 (Motorzustand), #153 (ISR), #155 (Referenzierung), #162 (Architektur).
