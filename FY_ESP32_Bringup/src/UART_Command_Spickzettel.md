@@ -1,5 +1,8 @@
 # UART – Command-Spickzettel
 
+> **ESP32-Portierungsstand (19.10.2026):** Dieser Spickzettel ist zunächst eine **unveränderte Kopie der Nano-Referenz**; die nachfolgenden Funktionsbeschreibungen sind noch nicht vollständig im ESP32 implementiert. Aktuell arbeitet die UART mit Motor-Dummy und diagnostischen Textantworten, nicht mit den regulären Nano-ACK/NACK-Telegrammen. Im aktuellen übernommenen BabelFish für den getesteten GO-Befehl **getrennte Hex-Bytes** eingeben: `GO AA 55` (nicht `GO AA55`). Entsprechend sind weitere Beispiele mit zusammengezogenen Hex-Bytes vor Nutzung am ESP32 gegen den BabelFish zu prüfen. Die aktuelle Implementierung steht in [UART.md](../lib/UART/UART.md).
+
+
 Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Terminalbetrieb.
 
 ## Commands
