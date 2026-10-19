@@ -2,87 +2,143 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
+#include "Protokoll.h"
+#include "BabelFish.h"
 
-// ESP32-WROOM dual-core bring-up. No FY motor outputs are driven.
+// Safe phase-1 prototype: unchanged Nano BabelFish and Protokoll.h.
+// No motor GPIO or actual movement is enabled.
 #ifndef FY_STATUS_LED_PIN
-#define FY_STATUS_LED_PIN 2  // Typical on-board LED, depends on dev board. -1 disables.
+#define FY_STATUS_LED_PIN 2
 #endif
 #ifndef FY_STATUS_LED_ACTIVE_HIGH
 #define FY_STATUS_LED_ACTIVE_HIGH 1
 #endif
 
-constexpr bool statusLedEnabled = FY_STATUS_LED_PIN >= 0;
-bool ledOn = false;
-void writeStatusLed(bool on) {
-    if (statusLedEnabled) {
-        digitalWrite(FY_STATUS_LED_PIN, (on == (FY_STATUS_LED_ACTIVE_HIGH != 0)) ? HIGH : LOW);
-    }
-}
-
 namespace {
-enum class Op : uint8_t { Heartbeat };
-struct Command { Op op; uint32_t sequence; };
-struct Response { uint32_t sequence; uint8_t motorCore; };
-QueueHandle_t commandQueue = nullptr;
-QueueHandle_t responseQueue = nullptr;
+struct CommandMessage {
+    uint8_t id;
+    uint8_t data[MAX_COMMAND_LENGTH - 1];
+    uint8_t length;   // command length includes ID, excludes CRC (Nano BabelFish semantics)
+    uint32_t sequence;
+};
+struct MotorEvent {
+    uint32_t sequence;
+    uint8_t commandId;
+    uint8_t core;
+    bool accepted;
+};
+QueueHandle_t commands = nullptr;
+QueueHandle_t events = nullptr;
+BabelFish babelFish;
+uint32_t nextSequence = 0;
 
-void motorTask(void *) {
-    Command cmd{};
+void setLed(bool on) {
+#if FY_STATUS_LED_PIN >= 0
+    digitalWrite(FY_STATUS_LED_PIN,
+                 (on == (FY_STATUS_LED_ACTIVE_HIGH != 0)) ? HIGH : LOW);
+#else
+    (void)on;
+#endif
+}
+
+const CommandDefinition* lookup(uint8_t cmd) {
+    for (size_t i = 0; i < COMMAND_COUNT; ++i) {
+        if (commandDefinitions[i].id == cmd) return &commandDefinitions[i];
+    }
+    return nullptr;
+}
+
+uint8_t crc8(uint8_t id, const uint8_t* data, uint8_t count) {
+    uint8_t crc = id;
+    for (uint8_t i = 0; i < count; ++i) {
+        crc ^= data[i];
+        for (uint8_t bit = 0; bit < 8; ++bit) {
+            crc = (crc & 0x80U) ?
+                static_cast<uint8_t>((crc << 1U) ^ 0x07U) :
+                static_cast<uint8_t>(crc << 1U);
+        }
+    }
+    return crc;
+}
+
+void motorTask(void*) {
+    CommandMessage cmd{};
+    bool ledState = false;
     for (;;) {
-        if (xQueueReceive(commandQueue, &cmd, portMAX_DELAY) == pdTRUE) {
-            // In the real port: the sole owner of motion state, sensors and motor GPIO.
-            Response result{cmd.sequence, static_cast<uint8_t>(xPortGetCoreID())};
-            (void)xQueueSend(responseQueue, &result, 0);
+        if (xQueueReceive(commands, &cmd, portMAX_DELAY) == pdTRUE) {
+            // Simulation only: no position, state machine, sensor or movement.
+            ledState = !ledState;
+            setLed(ledState);
+            MotorEvent response{cmd.sequence, cmd.id,
+                                static_cast<uint8_t>(xPortGetCoreID()), true};
+            (void)xQueueSend(events, &response, pdMS_TO_TICKS(10));
         }
     }
 }
 
-void communicationTask(void *) {
-    uint32_t seq = 0;
-    TickType_t lastWake = xTaskGetTickCount();
+void uartTask(void*) {
+    babelFish.begin(115200); // Original Nano behavior: echo and ASCII translation.
+    Serial.println("FY ESP32 UART + Nano BabelFish: simulated motor, NO MOTION");
     for (;;) {
-        vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(1000));
-        Command cmd{Op::Heartbeat, ++seq};
-        if (xQueueSend(commandQueue, &cmd, 0) != pdTRUE) {
-            Serial.println("Bridge: command queue full");
-            continue;
+        while (Serial.available() > 0) {
+            BabelFishCommand_t decoded{};
+            const BabelFishResult result =
+                babelFish.process(static_cast<char>(Serial.read()), decoded);
+            if (result != BabelFishResult::COMMAND_READY) continue;
+
+            const CommandDefinition* def = lookup(decoded.cmd);
+            const bool valid =
+                (def != nullptr) &&
+                (decoded.length > 0) &&
+                (static_cast<uint8_t>(decoded.length - 1) == def->dataLength) &&
+                (decoded.crc == crc8(decoded.cmd, decoded.data,
+                                     static_cast<uint8_t>(decoded.length - 1)));
+
+            // During bring-up, status reports are diagnostic TEXT, not final
+            // binary FY ACK/NACK frames. No invented protocol response format.
+            if (!valid) {
+                Serial.println("FY_TEST: Nano protocol table validation rejected command");
+                continue;
+            }
+
+            CommandMessage request{};
+            request.id = decoded.cmd;
+            request.length = decoded.length;
+            request.sequence = ++nextSequence;
+            memcpy(request.data, decoded.data, sizeof(request.data));
+            if (xQueueSend(commands, &request, 0) != pdTRUE) {
+                Serial.println("FY_TEST: motor queue full");
+            }
         }
-        Response response{};
-        if (xQueueReceive(responseQueue, &response, pdMS_TO_TICKS(100)) == pdTRUE) {
-            ledOn = !ledOn;
-            writeStatusLed(ledOn);
-            Serial.printf("Bridge seq=%lu: comm core=%d, motor core=%u\n",
-                          static_cast<unsigned long>(response.sequence),
-                          xPortGetCoreID(), response.motorCore);
-        } else {
-            Serial.println("Bridge: response timeout");
+
+        MotorEvent event{};
+        while (xQueueReceive(events, &event, 0) == pdTRUE) {
+            Serial.printf("FY_TEST: seq=%lu cmd=0x%02X mock_core=%u accepted=%u\n",
+                static_cast<unsigned long>(event.sequence), event.commandId,
+                event.core, event.accepted ? 1U : 0U);
         }
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 }
 
 void setup() {
     Serial.begin(115200);
-    if (statusLedEnabled) {
-        // GPIO 2 is a boot strapping pin: only use the board's own LED.
-        pinMode(FY_STATUS_LED_PIN, OUTPUT);
-        writeStatusLed(false);
-    }
-    commandQueue = xQueueCreate(8, sizeof(Command));
-    responseQueue = xQueueCreate(8, sizeof(Response));
-    if (!commandQueue || !responseQueue) {
-        Serial.println("Bridge: queue allocation failed");
+#if FY_STATUS_LED_PIN >= 0
+    pinMode(FY_STATUS_LED_PIN, OUTPUT);
+    setLed(false);
+#endif
+    commands = xQueueCreate(8, sizeof(CommandMessage));
+    events = xQueueCreate(8, sizeof(MotorEvent));
+    if (!commands || !events) {
+        Serial.println("FY_TEST: failed to create queues");
         return;
     }
-    const BaseType_t motorOk = xTaskCreatePinnedToCore(
-        motorTask, "FY_Motor", 4096, nullptr, 3, nullptr, 1);
-    const BaseType_t commOk = xTaskCreatePinnedToCore(
-        communicationTask, "FY_Comm", 4096, nullptr, 2, nullptr, 0);
-    if (motorOk != pdPASS || commOk != pdPASS) {
-        Serial.println("Bridge: task creation failed");
+    if (xTaskCreatePinnedToCore(motorTask, "FY_MotorMock", 4096,
+                                nullptr, 3, nullptr, 1) != pdPASS ||
+        xTaskCreatePinnedToCore(uartTask, "FY_UART", 6144,
+                                nullptr, 2, nullptr, 0) != pdPASS) {
+        Serial.println("FY_TEST: failed to create tasks");
     }
 }
-
-void loop() {
-    vTaskDelay(pdMS_TO_TICKS(1000));
-}
+void loop() { vTaskDelay(pdMS_TO_TICKS(1000)); }
