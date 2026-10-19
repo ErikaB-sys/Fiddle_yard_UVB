@@ -22,7 +22,7 @@ flowchart TD
 - `lookup()`, `crc8()` sind derzeit private Modulhelfer.
 
 ## Nano-Referenz
-Siehe `../../docs/Nano_Reference/UART/`, insbesondere `SetCommandFlow.md` und `ReceiveFlow.md`. Der Nano-Spickzettel liegt in `../../src/UART_Command_Spickzettel.md`; ESP32-Besonderheiten stehen dort am Anfang.
+Die aus dem Nano übernommenen Arbeitsdiagramme `ClassDiagram.md`, `InformationFlow.md`, `ReceiveFlow.md`, `SetCommandFlow.md` und `SignalFlow_VModel.md` liegen **in diesem Modulordner** und werden schrittweise auf Huginn/FreeRTOS umgestellt. Der ESP32-Spickzettel liegt in `../../src/UART_Command_Spickzettel.md`. Das unveränderte Nano-Original bleibt in `FY_Controller_Motor/docs/UART/`.
 
 ## Nächste Änderungen
 Die Nano-`UART.cpp`-Handler portieren, `SetCommand()` mit `MotorJob_t` über FreeRTOS anbinden, Response-TX zentralisieren. Unterschiedliche Antwortzeitpunkte, STOP-Priorisierung und Queue-Fehler explizit testen.
