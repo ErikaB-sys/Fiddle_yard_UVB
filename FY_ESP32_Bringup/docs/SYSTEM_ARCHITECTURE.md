@@ -4,8 +4,8 @@
 
 ## Benennung der Kerne
 
-- **Huginn = Core 0:** Kommunikation, UART/BabelFish, Keyboard, optional WLAN.
-- **Muninn = Core 1:** Motor, Position, Referenzierung, Sicherheitszustand.
+- **Huginn = Core 0:** Kommunikation, UART/BabelFish, Keyboard, **zentrale Error-Verwaltung**, optional WLAN.
+- **Muninn = Core 1:** Motor, Switches/Sensoren, Position, Referenzierung, **unmittelbare Schutzreaktionen**.
 - Die Namen sind Rollenbezeichnungen; Core-IDs bleiben 0 und 1. FreeRTOS-Tasks im Bring-up: `Huginn_UART`, `Muninn_Motor`.
 
 ## Leitentscheidungen
@@ -28,6 +28,8 @@ flowchart LR
         W["WiFi Task – optional"]
         K["Keyboard Task: Tasten + OLED + PCF8574"]
         R["Command Router / Protokollzuordnung"]
+        E["Error: zentrale Fehlerverwaltung"]
+        E --> U
         U --> R
         W -.-> R
         K --> R
@@ -41,6 +43,7 @@ flowchart LR
         S --> M
     end
     Q <--> M
+    Q -->|"Fehlerereignisse / Zustandsmeldungen"| E
 ```
 
 Die Core-Zuordnung meint **unsere Tasks**, nicht die ausschließliche Nutzung der CPU. Der ESP32 führt weitere System-/WLAN-Aufgaben aus.
@@ -87,11 +90,13 @@ sequenceDiagram
 ## D. Eigentum und Schutz
 
 - **Motor-Task:** einziger schreibender Besitzer von Motorzustand, Referenzstatus und Motor-GPIO.
+- **Error-Modul auf Huginn:** einziger schreibender Besitzer des zentralen Fehlerzustands (bestehendes Nano-Fehlerformat beibehalten). UART-/Keyboard-Fehler und Meldungen aus Muninn gelangen zur gleichen Fehlerverwaltung. Ein eigener Error-Task ist nicht zwingend; Aufrufe müssen im Huginn-Kontext serialisiert werden.
 - **Keyboard-Modul:** einziger Besitzer von I²C und Geräten, soweit keine weiteren I²C-Clients existieren; dadurch aktuell kein I²C-Mutex erforderlich.
 - **UART-Modul:** einzige Stelle für UART-RX/TX; keine direkte Ausgabe anderer Tasks auf dieselbe Leitung.
 - **Command Router:** einheitlicher Nachrichtenvertrag, keine konkurrierende Motoransteuerung.
 - **Queues:** Begrenzung, Timeout, Queue-voll und Antwortkorrelation spezifizieren. STOP darf bei voller Normal-Queue nicht verloren gehen.
 - **Harte Endlagen/Notabschaltung:** lokale sicherheitsrelevante Behandlung auf Core 1 beziehungsweise geeigneter Hardware; niemals nur von WLAN/UART/Queue abhängig.
+- **Fehlerkommunikation:** Muninn führt zuerst die notwendige Schutzreaktion aus und meldet danach asynchron Fehlerort und Fehlerart über eine Queue an Huginn. Fehlerübertragung ist **keine** Voraussetzung für Abschalten, Stoppen oder Verriegeln. Queue-Überlauf und Wiederabgleich (z. B. Status-Snapshot) vor der echten Integration definieren.
 - **Boot/Reset:** ENABLE-Ausgang muss schon vor Firmwareinitialisierung einen sicheren Ruhezustand haben; elektrische Polarität/Schaltung am A4988-Shield vor Test verifizieren.
 
 ## E. Implementierungsreihenfolge
@@ -109,5 +114,5 @@ sequenceDiagram
 - UART-Baudrate, binärer Frame und genaue BabelFish-Befehle aus bestehenden Quellen übernehmen.
 - Konkrete Task-Prioritäten und Stackgrößen nach Messung.
 - Motor-Hardware-Timer bzw. RMT/MCPWM/GPTimer nach Pulsbreiten-/Frequenztests auswählen.
-- Hard-Stop-Signal, Sensor-Debounce und Fehlermeldungswege festlegen.
+- Hard-Stop-Signal, Sensor-Debounce sowie Queue-Überlauf-/Wiederabgleich für Error-Meldungen konkretisieren; die Zuständigkeiten sind festgelegt: unmittelbarer Schutz auf Muninn, zentrale Fehlerablage auf Huginn.
 - Die bisherigen Portierungsdokumente liegen zunächst in `FY_ESP32_Bringup/docs`; beim Übergang in die produktive Ordnerstruktur gezielt migrieren.
