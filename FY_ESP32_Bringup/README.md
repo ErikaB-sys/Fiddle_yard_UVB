@@ -1,30 +1,41 @@
-# FY ESP32 – vorbereitender Bring-up
+# FY ESP32-WROOM – Dual-Core-Bring-up
 
-Dieser Ordner ist ein **isolierter Testaufbau** und ersetzt keine produktive FY-Firmware.
+Isolierter Testaufbau im Branch `feature/FY_ESP32`, **kein Ersatz** für die produktive Nano-Firmware.
 
-## Ausgangspunkt
-- Branch `feature/FY_ESP32` von `main`.
-- PlatformIO + Espressif32 + Arduino (C++).
-- `esp32dev` dient nur als generisches Build-Ziel; vor Hardwaretests den tatsächlichen ESP32-Boardtyp und dessen Pinbelegung prüfen.
+## Plattform
+- Klassischer Dual-Core ESP32-WROOM (kein S3); PlatformIO `esp32dev` als vorläufiges generisches Board-Profil.
+- Arduino-Framework/C++ mit ESP-IDF FreeRTOS.
+- Bei abweichendem konkretem WROOM-Entwicklungsboard Board-Konfiguration und USB-UART-Port prüfen.
 
-## Erster Test
-1. Ordner `FY_ESP32_Bringup` separat mit PlatformIO öffnen.
-2. Build durchführen; bei passender Hardware anschließend hochladen.
-3. Seriellen Monitor mit 115200 Baud öffnen und die Startmeldung prüfen.
+## Verbindliche Aufgabentrennung
 
-Der Test erzeugt **keine STEP-, DIR- oder EN-Signale**. Motor und Sensoren werden nicht angesprochen.
+| Core | Aufgabe | Besitzer |
+|---|---|---|
+| 1 (APP_CPU) | Motor/Bewegungsablauf, Referenzierung, Sensoren, Motor-GPIO, harte Abschaltbedingungen | `FY_Motor` |
+| 0 (PRO_CPU) | UART-Protokoll, Antworten/NACKs, spätere externe Kommunikation und Diagnoseschnittstellen | `FY_Comm` |
 
-## Portierungsprinzip
-- Nano-Firmware und Main bleiben unverändert.
-- FY-UART-Protokoll einschließlich Fehler-/NACK-Codierung bleibt kompatibel.
-- Bewegungsalgorithmus von Timer-/GPIO-Zugriffen trennen.
-- AVR Timer1 ISR nicht direkt portieren: ESP32-spezifische Timer-Lösung mit reproduzierbarem Pulsverhalten entwickeln.
-- I2C (Display/Portexpander), Referenzsensoren und Endschalter schrittweise testen.
-- Pinmapping und elektrische Pegel (ESP32: 3,3 V GPIO) vor Anschluss an bestehende Hardware prüfen.
-- Keine zusätzliche Weboberfläche/WLAN-Abhängigkeit im ersten Bring-up.
+**Wichtig:** Core 0 ist bei aktivem Wi-Fi/Bluetooth zusätzlich mit ESP32-Systemaufgaben belegt. Die Zuordnung reserviert nicht physikalisch einen ganzen Core exklusiv für unsere Anwendung. Motorpulse daher **hardwaregestützt** (Timer-/Peripherie) erzeugen, nicht durch Task-Delay oder Busy-Wait.
 
-## Offen
-- Exakter ESP32-Boardtyp und verfügbare GPIOs.
-- Geeignete STEP-Impulserzeugung und Timingmessung.
-- Mapping der bestehenden Module auf HAL/Adapter.
-- Hardware-in-the-loop-Testplan für Referenzierung und Fahrwege.
+## Kern-zu-Kern-Schnittstelle
+- Zwei typisierte FreeRTOS-Queues: `Command` (Kommunikation → Motor) und `Response` (Motor → Kommunikation).
+- Ein *einziger Besitzer* für Bewegungszustand, Motor-GPIO und Sensorzugriff: Motor-Task.
+- Kommunikations-Task wartet nicht blockierend auf Motor-Hardware; kein direkter Zugriff auf interne Bewegungsvariablen.
+- Später definierte Befehle: Referenzieren, Gleis anfahren, Position setzen, Stopp, Status. Das **bestehende binäre FY-UART-Protokoll** einschließlich NACK bleibt an der Außengrenze erhalten.
+- Priorisierung von Not-Stopp, Überlaufverhalten, asynchronen Ereignissen und Sequenz-/Korrelations-IDs vor echter Motoransteuerung spezifizieren.
+- Externe STOP-Befehle müssen auch bei voller Normal-Queue sicher funktionieren; physische Endschalter dürfen nicht allein von Kommunikations-Queues abhängen.
+- Keine dynamischen Allokationen im regulären Bewegungsablauf.
+
+## Erster isolierter Test
+1. Ordner `FY_ESP32_Bringup` in PlatformIO öffnen und Build starten.
+2. Geeignetes ESP32-WROOM-Board anschließen, hochladen.
+3. Seriellen Monitor (115200 Baud) öffnen.
+4. Sekündliche Meldungen `comm core=0, motor core=1` bestätigen den Nachrichtenaustausch über Queues.
+
+**Noch keine Motor-, Sensor-, UART-Protokoll- oder Timingtests.** Das Programm schaltet **keine** STEP/DIR/ENABLE-Ausgänge.
+
+## Nächste Schritte
+1. Reale ESP32-WROOM-Pinbelegung und 3,3-V-Pegel zu TB6600, I²C und Sensoren prüfen.
+2. Hardware-Abstraktion für Motorpulse, GPIO und Zeitbasis definieren.
+3. Reales FY-Binärprotokoll nur in Core 0 integrieren; Core 1 empfängt typisierte Kommandos.
+4. Motorpulse per ESP32-Peripherie und Messung unter Kommunikationslast validieren.
+5. Schutz-/Not-Stopp- und Timeout-Fälle testen. Main/Nano bleiben davon unberührt.
