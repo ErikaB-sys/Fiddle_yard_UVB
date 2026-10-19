@@ -10,8 +10,10 @@
  * echoes the complete input line, and converts recognized commands
  * into the binary command representation used by the controller.
  *
- * The adapter does not execute commands. It translates the ASCII input
- * into a complete command telegram including its CRC.
+ * The adapter resolves the ASCII command name and converts each following
+ * two-digit hexadecimal token into one DATA byte. It does not validate
+ * command-specific DATA lengths or interpret DATA semantics; UART performs
+ * protocol validation. BabelFish calculates the CRC over the bytes received.
  */
 struct BabelFishCommand_t
 {
@@ -54,12 +56,9 @@ private:
     static void trim(char* text);
     static bool equalsIgnoreCase(const char* left, const char* right);
     static bool parseHexByte(const char* text, uint8_t& value);
-    static bool parseUInt8(const char* text, uint8_t& value);
-    static bool parseUInt16(const char* text, uint16_t& value);
-    static bool parseUInt24(const char* text, uint32_t& value);
     static uint8_t calcCRC(uint8_t cmd, const uint8_t* data, uint8_t length);
 
-    bool makeSimpleCommand(uint8_t cmd);
+    bool finalizeCommand(uint8_t cmd, uint8_t dataLength);
     void reportInvalid() const;
     void reportBinaryCommand() const;
 };
