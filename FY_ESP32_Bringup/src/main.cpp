@@ -3,7 +3,22 @@
 #include <freertos/queue.h>
 #include <freertos/task.h>
 
-// ESP32-WROOM dual-core bring-up. No FY outputs are driven.
+// ESP32-WROOM dual-core bring-up. No FY motor outputs are driven.
+#ifndef FY_STATUS_LED_PIN
+#define FY_STATUS_LED_PIN 2  // Typical on-board LED, depends on dev board. -1 disables.
+#endif
+#ifndef FY_STATUS_LED_ACTIVE_HIGH
+#define FY_STATUS_LED_ACTIVE_HIGH 1
+#endif
+
+constexpr bool statusLedEnabled = FY_STATUS_LED_PIN >= 0;
+bool ledOn = false;
+void writeStatusLed(bool on) {
+    if (statusLedEnabled) {
+        digitalWrite(FY_STATUS_LED_PIN, (on == (FY_STATUS_LED_ACTIVE_HIGH != 0)) ? HIGH : LOW);
+    }
+}
+
 namespace {
 enum class Op : uint8_t { Heartbeat };
 struct Command { Op op; uint32_t sequence; };
@@ -34,6 +49,8 @@ void communicationTask(void *) {
         }
         Response response{};
         if (xQueueReceive(responseQueue, &response, pdMS_TO_TICKS(100)) == pdTRUE) {
+            ledOn = !ledOn;
+            writeStatusLed(ledOn);
             Serial.printf("Bridge seq=%lu: comm core=%d, motor core=%u\n",
                           static_cast<unsigned long>(response.sequence),
                           xPortGetCoreID(), response.motorCore);
@@ -46,6 +63,11 @@ void communicationTask(void *) {
 
 void setup() {
     Serial.begin(115200);
+    if (statusLedEnabled) {
+        // GPIO 2 is a boot strapping pin: only use the board's own LED.
+        pinMode(FY_STATUS_LED_PIN, OUTPUT);
+        writeStatusLed(false);
+    }
     commandQueue = xQueueCreate(8, sizeof(Command));
     responseQueue = xQueueCreate(8, sizeof(Response));
     if (!commandQueue || !responseQueue) {
