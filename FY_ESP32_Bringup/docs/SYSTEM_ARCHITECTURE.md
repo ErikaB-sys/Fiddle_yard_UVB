@@ -3,11 +3,13 @@
 **Stand:** 19.10.2026 · **Dokumentations-Issue:** #162 · **Head:** #150
 
 ## Benennung der Kerne
+
 - **Huginn = Core 0:** Kommunikation, UART/BabelFish, Keyboard, optional WLAN.
 - **Muninn = Core 1:** Motor, Position, Referenzierung, Sicherheitszustand.
 - Die Namen sind Rollenbezeichnungen; Core-IDs bleiben 0 und 1. FreeRTOS-Tasks im Bring-up: `Huginn_UART`, `Muninn_Motor`.
 
 ## Leitentscheidungen
+
 - Plattform: klassischer ESP32-WROOM, Arduino-Framework unter PlatformIO mit FreeRTOS.
 - Motor und Sicherheitszustand haben **einen Eigentümer** auf Core 1.
 - Core 0: UART und BabelFish, Command-Router, Keyboard inklusive OLED/PCF8574, später optional WLAN.
@@ -46,7 +48,7 @@ Die Core-Zuordnung meint **unsere Tasks**, nicht die ausschließliche Nutzung de
 ## B. Task- und Funktionskatalog (Entwurf)
 
 | Task / Komponente | Core | Auslösung | Zuständigkeit | Richtwert / Priorität |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | FY_Motor | 1 | Kommandos, Sensorereignisse, interne Bewegungsereignisse | exklusiv Motorzustand, Grenzen, Referenzierung, Start/Stop, STEP-Backend | höher als unsere Kommunikation; final messen |
 | FY_UART | 0 | empfangene Bytes / RX-Puffer | Telegramme, BabelFish, serielle Responses; kein Zugriff auf Motor-GPIO | ereignisgetrieben |
 | FY_Keyboard | 0 | zyklisch / Button-Events | PCF8574, OLED, LEDs, Entprellung und lokale Befehle | ca. 10–20 ms Polling als Ausgangswert |
@@ -83,6 +85,7 @@ sequenceDiagram
 **Noch zu designen:** Welche ACK/BUSY/DONE-/NACK-Semantik exakt dem bestehenden Protokoll entspricht, welche Komponenten mehrere gleichzeitige Requests akzeptieren dürfen, und wie die Antworten an UART/UI/WLAN zugestellt werden. Den Bestandsvertrag vor Implementierung aus #58/#114–#145 und Code/Spickzettel übernehmen, **nicht** aus diesem Entwurf ableiten.
 
 ## D. Eigentum und Schutz
+
 - **Motor-Task:** einziger schreibender Besitzer von Motorzustand, Referenzstatus und Motor-GPIO.
 - **Keyboard-Modul:** einziger Besitzer von I²C und Geräten, soweit keine weiteren I²C-Clients existieren; dadurch aktuell kein I²C-Mutex erforderlich.
 - **UART-Modul:** einzige Stelle für UART-RX/TX; keine direkte Ausgabe anderer Tasks auf dieselbe Leitung.
@@ -92,6 +95,7 @@ sequenceDiagram
 - **Boot/Reset:** ENABLE-Ausgang muss schon vor Firmwareinitialisierung einen sicheren Ruhezustand haben; elektrische Polarität/Schaltung am A4988-Shield vor Test verifizieren.
 
 ## E. Implementierungsreihenfolge
+
 1. **Ist:** Dual-Core-Bring-up, serielle Sequenzausgabe, Onboard-LED erfolgreich auf realem WROOM.
 2. **#162:** Architektur, Taskvertrag und Nachrichtenformate reviewen.
 3. **#156:** BabelFish + UART-Parser auf Core 0 – zunächst rein diagnostisch ohne Motorsignale. Gültige, fehlerhafte und unvollständige Befehle testen.
@@ -101,6 +105,7 @@ sequenceDiagram
 7. **#160/#161:** Netzwerk und weitere Treiberoptionen erst nach funktionaler Portierung.
 
 ## Offene Architekturentscheidungen
+
 - UART-Baudrate, binärer Frame und genaue BabelFish-Befehle aus bestehenden Quellen übernehmen.
 - Konkrete Task-Prioritäten und Stackgrößen nach Messung.
 - Motor-Hardware-Timer bzw. RMT/MCPWM/GPTimer nach Pulsbreiten-/Frequenztests auswählen.
