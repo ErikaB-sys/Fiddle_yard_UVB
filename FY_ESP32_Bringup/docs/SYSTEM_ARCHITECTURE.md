@@ -38,7 +38,7 @@ flowchart LR
     subgraph C1["Muninn / Core 1 – Bewegungsführung"]
         M["Motor Task + Zustandsautomat"]
         H["Motor HAL / STEP-Hardware"]
-        S["Referenzsensoren / Endschalter"]
+        S["Switches: Referenzsensoren / Endschalter"]
         M --> H
         S --> M
     end
@@ -48,14 +48,39 @@ flowchart LR
 
 Die Core-Zuordnung meint **unsere Tasks**, nicht die ausschließliche Nutzung der CPU. Der ESP32 führt weitere System-/WLAN-Aufgaben aus.
 
+## Switches / Error: Trennung von Echtzeit und Anzeige (#155, #162)
+
+```mermaid
+flowchart LR
+    subgraph M["Muninn / Core 1"]
+      GPIO["GPIO REF / TRIM / BELT"] --> ISR["Motor-ISR: Endlagen sofort prüfen"]
+      GPIO --> SW["Switches: Snapshot bilden"]
+      ISR --> STOP["Direkter Bewegungsstopp"]
+      SW --> SNAP["2 Byte: info + error"]
+    end
+    SNAP --> MAIL["FreeRTOS Queue: 1 Slot, xQueueOverwrite"]
+    subgraph H["Huginn / Core 0"]
+      MAIL --> CACHE["Letzter gültiger Snapshot"]
+      CACHE --> UART["UART STATUS_Switches: 1 Datenbyte"]
+      CACHE --> OLED["Keyboard / Display"]
+      CACHE --> ERR["Zentrale Fehlerdarstellung"]
+    end
+```
+
+**Sicherheitsgrenze:** Der direkte ISR-Sensorpfad stoppt unabhängig von Taskplanung, Queue und Anzeige. Die geplante Snapshot-Mailbox transportiert nur Diagnose- und Statusdaten. Das Bitbild übernimmt die Nano-Belegung (REF=0, TRIM_LEFT=1, TRIM_RIGHT=2, TIMING_BELT=3); HIGH/LOW-Semantik bleibt unverändert. Das zweite interne Byte ist ein Fehlercode nach dem vorhandenen Ort/Typ-Schema. Ein Sensoranschlag ist nicht automatisch ein Fehler.
+
+Die Ein-Platz-Mailbox liefert den neuesten Zustand; bei Änderungen sofort, andernfalls als periodische Auffrischung (Intervall in #155 festlegen). Huginn unterscheidet **noch kein Snapshot empfangen** von einem gültigen Nullwert. Die systemweite `Error`-Verwaltung bekommt kontrollierte Modulmeldungen; es gibt keine ungeschützten Schreibzugriffe von beiden Kernen.
+
+**Status:** Entwurf. Noch kein aktiver Switches-Code oder Motor-ISR im ESP32.
+
 ## B. Task- und Funktionskatalog (Entwurf)
 
 | Task / Komponente | Core | Auslösung | Zuständigkeit | Richtwert / Priorität |
 | --- | --- | --- | --- | --- |
-| FY_Motor | 1 | Kommandos, Sensorereignisse, interne Bewegungsereignisse | exklusiv Motorzustand, Grenzen, Referenzierung, Start/Stop, STEP-Backend | höher als unsere Kommunikation; final messen |
-| FY_UART | 0 | empfangene Bytes / RX-Puffer | Telegramme, BabelFish, serielle Responses; kein Zugriff auf Motor-GPIO | ereignisgetrieben |
-| FY_Keyboard | 0 | zyklisch / Button-Events | PCF8574, OLED, LEDs, Entprellung und lokale Befehle | ca. 10–20 ms Polling als Ausgangswert |
-| FY_WiFi (optional) | 0 | Netzwerkereignisse | TCP oder MQTT-Adapter, Verbindungsstatus | nach Motor/UART |
+| Muninn_Motor | 1 | Kommandos, Sensorereignisse, interne Bewegungsereignisse | exklusiv Motorzustand, Grenzen, Referenzierung, Start/Stop, STEP-Backend | höher als unsere Kommunikation; final messen |
+| Huginn_UART | 0 | empfangene Bytes / RX-Puffer | Telegramme, BabelFish, serielle Responses; kein Zugriff auf Motor-GPIO | ereignisgetrieben |
+| Huginn_Keyboard (geplant) | 0 | zyklisch / Button-Events | PCF8574, OLED, LEDs, Entprellung und lokale Befehle | ca. 10–20 ms Polling als Ausgangswert |
+| Huginn_WiFi (optional) | 0 | Netzwerkereignisse | TCP oder MQTT-Adapter, Verbindungsstatus | nach Motor/UART |
 | FY_CommandRouter | 0 | eingehende lokale oder externe Requests | Validierung, Quelle/Request-ID, Weiterleitung; kein eigener Task nötig, falls deterministisch im Kommunikationskontext | funktionsorientiert |
 | STEP-Pulsgeber | Hardware/ISR | Timer-/Peripheral-Ereignis | gleichmäßige Schrittimpulse, minimale ISR | keine normale RTOS-Task |
 
