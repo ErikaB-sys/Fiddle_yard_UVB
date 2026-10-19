@@ -25,3 +25,17 @@
 - Kompilier- und Linktest nach jeder Verschiebung von Dateien. Danach Smoke-Test mit `GO AA 55`.
 - Der aktuelle Motor ist ein Dummy und erzeugt **keine** STEP-Impulse und keine echten Nano-Responses.
 - Änderungen per Commit einem konkreten Issue zuordnen: #152 RTOS/Queues, #156 UART, #153 ISR/Hardware, #154 Motorlogik, #162 Architektur.
+
+## Dokumentation als Modulbestandteil (verbindlich)
+- Nano-Dokumente dienen als **Ausgangsstand**, nicht als dauerhaft doppelt gepflegte Referenz im ESP32-Baum.
+- Ein funktionales Modul erhält seine `.md`-Datenmodelle, Abläufe und Zustandsdiagramme direkt **neben** den C++-Quellen in `lib/<Modul>/`; systemweite Diagramme liegen in `docs/System/`.
+- Nano-Ausgangsdiagramme bei Übernahme als solche kennzeichnen und **schrittweise am echten ESP32-Code fortschreiben**. Der Nano-Originalstand bleibt unter `FY_Controller_Motor/` verfügbar.
+- Änderungen an Verhalten, Queue-Schnittstellen und Modulzuständigkeiten erfordern die Prüfung und bei Bedarf Aktualisierung der zugehörigen MD-Datei **im selben Commit**.
+- Die Quellen von `Keyboard`, `Error` und `Switches` werden erst nach Prüfung der AVR-Abhängigkeiten, Task-Besitzer und Thread-Sicherheit als ausführbare ESP32-Module portiert; reine Moduldokumentation darf bereits vorher angelegt werden.
+
+## Sensor- und Sicherheitsregel (Entwurf; #155)
+- `Switches` gehört **Muninn**, nicht Huginn. Der sicherheitskritische Eingangspfad bleibt direkt bei Motor/ISR; die Queue ist **kein Teil der Stopp-Kette**.
+- `SwitchesSnapshot` ist intern zweibyteig geplant: `info` (REF, TRIM_LEFT, TRIM_RIGHT, TIMING_BELT: Bits 0–3) und `error` (Fehlercode nach bestehendem Ort/Typ-Schema).
+- Muninn veröffentlicht Statusänderungen sowie zeitlich begrenzte Aktualisierungen über eine Ein-Platz-Mailbox (`xQueueOverwrite`); Huginn verwaltet ein gültiges, frisches Abbild für UART und Keyboard.
+- `STATUS_Switches` bleibt auf der externen UART-Schnittstelle **ein Datenbyte**. Das zweite Byte ist ausschließlich ein interner Fehlertransport; zentrale Fehlerantwort `STATUS_Error` bleibt unverändert.
+- Der `Error`-Modulzustand darf nicht ungeschützt auf beiden Kernen geschrieben werden. Fehlererkennung bleibt beim Modul; die systemweite Diagnose führt Meldungen kontrolliert zusammen.
