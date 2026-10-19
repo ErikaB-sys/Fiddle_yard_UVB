@@ -2,6 +2,11 @@
 
 **Stand:** 19.10.2026 · **Dokumentations-Issue:** #162 · **Head:** #150
 
+## Benennung der Kerne
+- **Huginn = Core 0:** Kommunikation, UART/BabelFish, Keyboard, optional WLAN.
+- **Muninn = Core 1:** Motor, Position, Referenzierung, Sicherheitszustand.
+- Die Namen sind Rollenbezeichnungen; Core-IDs bleiben 0 und 1. FreeRTOS-Tasks im Bring-up: `Huginn_UART`, `Muninn_Motor`.
+
 ## Leitentscheidungen
 - Plattform: klassischer ESP32-WROOM, Arduino-Framework unter PlatformIO mit FreeRTOS.
 - Motor und Sicherheitszustand haben **einen Eigentümer** auf Core 1.
@@ -16,7 +21,7 @@
 flowchart LR
     P[PC / serielles Terminal] --> U
     N[JMRI / WLAN später] -.-> W
-    subgraph C0["Core 0 – Kommunikation und Bedienung"]
+    subgraph C0["Huginn / Core 0 – Kommunikation und Bedienung"]
         U["UART Task + BabelFish"]
         W["WiFi Task – optional"]
         K["Keyboard Task: Tasten + OLED + PCF8574"]
@@ -26,7 +31,7 @@ flowchart LR
         K --> R
     end
     R <-->|"Commands / Responses / Events"| Q["FreeRTOS Queues + STOP-Signal"]
-    subgraph C1["Core 1 – Bewegungsführung"]
+    subgraph C1["Muninn / Core 1 – Bewegungsführung"]
         M["Motor Task + Zustandsautomat"]
         H["Motor HAL / STEP-Hardware"]
         S["Referenzsensoren / Endschalter"]
