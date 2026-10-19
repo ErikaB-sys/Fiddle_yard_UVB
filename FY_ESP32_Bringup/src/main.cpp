@@ -15,6 +15,13 @@
 #endif
 
 namespace {
+// Huginn (thought): communications and command interpretation on Core 0.
+// Muninn (memory): motor state and motion handling on Core 1.
+constexpr BaseType_t CORE_HUGINN = 0;
+constexpr BaseType_t CORE_MUNINN = 1;
+constexpr char TASK_HUGINN_UART[] = "Huginn_UART";
+constexpr char TASK_MUNINN_MOTOR[] = "Muninn_Motor";
+
 struct CommandMessage {
     uint8_t id;
     uint8_t data[MAX_COMMAND_LENGTH - 1];
@@ -78,7 +85,7 @@ void motorTask(void*) {
 
 void uartTask(void*) {
     babelFish.begin(115200); // Original Nano behavior: echo and ASCII translation.
-    Serial.println("FY ESP32 UART + Nano BabelFish: simulated motor, NO MOTION");
+    Serial.println("FY ESP32: Huginn (UART) <-> Muninn (motor mock), NO MOTION");
     for (;;) {
         while (Serial.available() > 0) {
             BabelFishCommand_t decoded{};
@@ -113,7 +120,7 @@ void uartTask(void*) {
 
         MotorEvent event{};
         while (xQueueReceive(events, &event, 0) == pdTRUE) {
-            Serial.printf("FY_TEST: seq=%lu cmd=0x%02X mock_core=%u accepted=%u\n",
+            Serial.printf("FY_TEST: seq=%lu cmd=0x%02X Muninn_core=%u accepted=%u\n",
                 static_cast<unsigned long>(event.sequence), event.commandId,
                 event.core, event.accepted ? 1U : 0U);
         }
@@ -134,10 +141,10 @@ void setup() {
         Serial.println("FY_TEST: failed to create queues");
         return;
     }
-    if (xTaskCreatePinnedToCore(motorTask, "FY_MotorMock", 4096,
-                                nullptr, 3, nullptr, 1) != pdPASS ||
-        xTaskCreatePinnedToCore(uartTask, "FY_UART", 6144,
-                                nullptr, 2, nullptr, 0) != pdPASS) {
+    if (xTaskCreatePinnedToCore(motorTask, TASK_MUNINN_MOTOR, 4096,
+                                nullptr, 3, nullptr, CORE_MUNINN) != pdPASS ||
+        xTaskCreatePinnedToCore(uartTask, TASK_HUGINN_UART, 6144,
+                                nullptr, 2, nullptr, CORE_HUGINN) != pdPASS) {
         Serial.println("FY_TEST: failed to create tasks");
     }
 }
