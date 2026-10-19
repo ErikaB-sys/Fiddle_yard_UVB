@@ -1,0 +1,172 @@
+# UART – Command-Spickzettel
+
+Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Terminalbetrieb.
+
+## Commands
+
+| Command | ID | Daten | ASCII-Eingabe |
+|---|---:|---|---|
+| GET_STATUS | `0x19` | 1 Byte Selektor (Hex) | `STATUS 10`, `STATUS 20`, `STATUS 40`, `STATUS 50` |
+| GET_ERROR | `0x1A` | – | `ERROR` |
+| REFERENCE | `0x16` | – | `REFERENCE` |
+| SET_PARAM | `0x2B` | Parameter-ID + 24-Bit-Rohwert (4 DATA-Byte) | `SET_PARAM <ID> <Rohwert>` |
+| STOPP | `0x01` | 2 Byte: `55 AA` = STOPP aktivieren, `AA 55` = STOPP aufheben | `STOPP 55AA` / `STOPP AA55` (auch `STOP` als Alias) |
+| LEFT | `0x0B` | – | `LEFT` |
+| RIGHT | `0x0D` | – | `RIGHT` |
+| SET_POSITION | `0x13` | uint16 | `SET_POSITION 3200` |
+| GET_POSITION | `0x15` | – | `GET_POSITION` |
+| SET_TRACK | `0x1C` | uint8 | `SET_TRACK 3` |
+| GET_TRACK | `0x23` | 1 Byte Option (`00` = Standardabfrage) | `GET_TRACK` |
+| HELP | `0x25` | – | `HELP` |
+| GET_FIRMWARE | `0x27` | – | `FIRMWARE` |
+| SET_MODE | `0x26` | 2 Byte: `55 AA` = LOCAL, `AA 55` = REMOTE | `SET_MODE LOCAL` / `SET_MODE REMOTE` |
+| GO | `0x07` | 2 Byte: `55 AA` = Treiber AUS, `AA 55` = Treiber EIN | `GO 55AA` / `GO AA55` |
+
+> `GO` schaltet nur den Motortreiber ein oder aus; es startet keine Bewegung. Die STOPP-Sperre hat Vorrang vor `GO AA55`.
+
+## Status-Selektoren
+
+| Selektor | Abfrage | Antwort-ID |
+|---:|---|---:|
+| `10` | System / Initialisierung | `0x10` |
+| `20` | Motor (Bit 0 Treiber aktiv, Bit 1 Bewegung) | `0x50` |
+| `40` | Digitale Eingänge REF, TRIM_LEFT, TRIM_RIGHT, TIMING_BELT in Bit 0–3 | `0x41` |
+| `50` | Tastatur verbunden (Bit 0) | `0x51` |
+
+Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
+
+## Datenformat
+
+- `uint8`: 1 Byte
+- `uint16`: 2 Byte, **Little Endian**
+- Beispiel: `SET_POSITION 3200` → `0x13 0x80 0x0C`
+- Beispiel: `SET_TRACK 3` → `0x1C 0x03`
+- Beispiel: `GO AA55` → Command `0x07`, DATA `AA 55`; auf der seriellen Diagnose erscheint `LEN=3` (Command plus zwei DATA-Byte).
+- Beispiel: `SET_PARAM 1 80` → `0x2B 0x01 0x50 0x00 0x00` (Beispiel-ID; Rohwert 80, Semantik gemäß Issue #145)
+
+## Responses
+
+| Response | ID | Daten |
+|---|---:|---|
+| Alive | `0x03` | – |
+| Error | `0xF0` | 4 Byte |
+| System | `0x10` | 2 Byte |
+| CMD | `0x15` | 1 Byte |
+| Position | `0x20` | 4 Byte |
+| Reference | `0x30` | 1 Byte |
+| Track | `0x40` | 3 Byte: Zielgleis, zuletzt bestätigtes Gleis, Bewegungsstatus |
+| Motor | `0x50` | 3 Byte |
+| ACK | `0x60` | 1 Byte: bestätigte Command-ID |
+| NACK | `0x70` | 1 Byte: Fehlerort/Modul (oberes Nibble) + Ablehnungsgrund (unteres Nibble) |
+| DEV_RESPONSE | `0xFF` | 2 Byte: Modulkennung, Entwicklungsfehlercode (unerwarteter Implementierungszustand) |
+| Help | `0x18` | Hilfetext auf Norwegisch + GitHub-Spickzettel-Link (variabel) |
+| Firmware | `0x28` | Automatisch generierte Firmware-Identität: Name, Version, Build-Zeit, Git-Commit |
+
+## NACK – Codierung
+
+`STATUS_NACK (0x70)` enthält genau ein DATA-Byte:
+
+- **DATA[0], Bits 7..4:** Fehlerort bzw. zuständiges Modul; dafür werden die vorhandenen Fehlerort-/Modulkonstanten aus `Error.h` wiederverwendet.
+- **DATA[0], Bits 3..0:** Ablehnungsgrund.
+
+Die Command-ID wird **nicht** in der NACK-DATA übertragen. Sie ergibt sich aus dem vorausgegangenen Request. Damit unterscheiden sich ACK und NACK bewusst: ACK enthält die bestätigte Command-ID, NACK den Fehlerort und Ablehnungsgrund.
+
+Die zentralen Werte sind in `Protokoll.h` als `NackReason` definiert:
+
+| Wert | Name | Bedeutung |
+|---:|---|---|
+| `0x0` | `NONE` | reserviert; nicht für tatsächliche NACKs verwenden |
+| `0x1` | `BUSY` | Controller/Ressource ist beschäftigt |
+| `0x2` | `NOT_READY` | erforderliche Voraussetzung oder Modul ist nicht bereit |
+| `0x3` | `INVALID_COMMAND` | unbekannte oder nicht unterstützte Command-ID |
+| `0x4` | `INVALID_PARAMETER` | ungültige DATA-Länge, ungültiger Selektor oder Parameterwert |
+| `0x5` | `EXECUTION_ERROR` | unmittelbarer Ausführungsversuch ist fehlgeschlagen |
+| `0x6` | `INVALID_TELEGRAM` | Telegramm ist syntaktisch ungültig oder CRC fehlerhaft |
+| `0x7..0xF` | reserviert | für spätere Erweiterungen |
+
+Der UART setzt das obere Nibble aus der vorhandenen Fehlerortkonstante und das untere Nibble aus `NackReason` zusammen. Die NACK-DATA wird separat durch `encodeNackData()` codiert. Der jeweilige Aufrufer stellt sie anschließend mit `setResponse()` in den normalen Response-Puffer; übertragen wird sie ausschließlich über `sendResponse()`. Die Codierung selbst stellt keine Response ein.
+
+NACK ist für eine unmittelbare, erwartbare Ablehnung eines Requests vorgesehen. Unerwartete interne Implementierungszustände werden weiterhin über `DEV_RESPONSE` gemeldet; Fehler, die erst während einer bereits gestarteten asynchronen Bewegung auftreten, sind keine nachträgliche NACK-Antwort.
+
+## GO und STOPP – Motortreibersteuerung
+
+Beide Befehle sind Execute-Commands mit zwei DATA-Byte. Die Hex-Werte werden ohne `0x` eingegeben; BabelFish prüft die Eingabe auf vier Hex-Zeichen, wandelt sie in zwei Bytes um und berechnet die CRC. Ob das Datenmuster für den Befehl zulässig ist, entscheidet der Motorhandler.
+
+| ASCII-Eingabe | Erwartete Wirkung | Erwartete Antwort |
+|---|---|---|
+| `GO 55AA` | Motortreiber ausschalten; laufende Bewegung wird abgebrochen und der Positionszustand invalidiert | ACK `0x60`, wenn angenommen |
+| `GO AA55` | Motortreiber einschalten, aber keine Bewegung starten | ACK `0x60`, sofern STOPP nicht aktiv ist; andernfalls NACK `NOT_READY` |
+| `STOPP 55AA` | STOPP-Sperre setzen und Treiber sofort ausschalten | ACK `0x60`, wenn angenommen |
+| `STOPP AA55` | STOPP-Sperre aufheben; Treiber bleibt ausgeschaltet | ACK `0x60`, wenn angenommen |
+| `GO 1234` / `STOPP 1234` | Ungültiges Datenmuster | NACK `INVALID_PARAMETER` |
+
+**Wichtig:** Nach `STOPP 55AA` wird `GO AA55` abgewiesen. Nach `STOPP AA55` läuft der Motor nicht automatisch wieder an; erst ein neuer `GO AA55` schaltet den Treiber ein. `GO` schaltet den Treiber, startet aber selbst keine Fahrt und stellt keine Referenz wieder her.
+
+## HELP und GET_FIRMWARE
+
+- `HELP` liefert `STATUS_Help (0x18)` mit einem kurzen norwegischen Gimmick und dem Link zu diesem Spickzettel.
+- `FIRMWARE` liefert `STATUS_Firmware (0x28)` mit denselben automatisch erzeugten Angaben wie die Firmware-Ausgabe beim Start: Name, Version, Build-Datum/-Zeit und Git-Commit.
+
+## GET_TRACK – Antwortformat (Issue #58)
+
+Request DATA:
+- `DATA[0] = 0x00`: Standardabfrage (einzige aktuell gültige Option)
+
+Response `STATUS_Track (0x40)`:
+- `DATA[0]`: Zielgleis BG1–BG5
+- `DATA[1]`: zuletzt bestätigtes aktuelles Gleis BG1–BG5
+- `DATA[2]`: Bewegungsstatus: `0x00` = REACHED, `0x01` = MOVING, `0x02` = ERROR
+
+Während der Bewegung bleibt das aktuelle Gleis das zuletzt bestätigte Gleis. Die Gleiszustandsführung selbst muss vom Motor-/Sensorpfad aktualisiert werden; GET_TRACK liest diesen Zustand nur aus.
+
+## Terminal-Test
+
+Die Eingabe im Terminal erfolgt als lesbarer ASCII-Command:
+
+\`\`\`text
+STATUS 10
+GET_POSITION
+SET_TRACK 3
+SET_POSITION 3200
+SET_PARAM 1 80
+SET_MODE LOCAL
+SET_MODE REMOTE
+GO 55AA
+GO AA55
+STOPP 55AA
+GO AA55
+STOPP AA55
+GO AA55
+FIRMWARE
+\`\`\`
+
+BabelFish wandelt diese Eingaben in die binären Commands um.
+
+
+## SET_MODE – Verweis auf Issue #58
+
+`CMD_SET_MODE` ist ein Execute-Command. Die bisher getrennten `CMD_SET_LOCAL` und `CMD_SET_REMOTE` entfallen. Da Issue #58 die gemeinsame Command-ID nicht separat nennt, wird `0x26` (die bisherige SET_LOCAL-ID) als gemeinsame `CMD_SET_MODE`-ID weiterverwendet; `0x2A` entfällt.
+
+- DATA-Länge: 2 Byte
+- `55 AA`: LOCAL
+- `AA 55`: REMOTE
+- Betriebsartenwechsel nur im Stillstand
+- Antwort: ACK (`0x60`) mit Command-ID oder NACK (`0x70`) mit NACK-Code (oberes Nibble: Fehlerort/Modul, unteres Nibble: Ablehnungsgrund)
+- Bei ungültigem Datenmuster, fehlendem erforderlichem Modul oder laufender Bewegung erfolgt NACK; die Betriebsart bleibt unverändert.
+- Der Befehl schaltet den Motor nicht ein und startet keine Bewegung.
+
+Siehe [Issue #58](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/58).
+
+
+## DEV_RESPONSE – Entwicklungsfehler
+
+`DEV_RESPONSE` (`0xFF`) ist für Zustände reserviert, die im normalen Betrieb nicht auftreten dürfen, aber erst später durch einen bislang nicht durchlaufenen Codepfad entdeckt werden könnten.
+
+- DATA[0]: oberes Nibble = Fehlerort/Modul, unteres Nibble = Fehlercode; aktuell `0x10 | 0x01 = 0x11` für UART / NULL_POINTER.
+- DATA[1]: Debug-Reserve; im Release-Code immer `0x00`. Lokale Diagnosewerte dürfen hier nur temporär während der Entwicklung eingetragen und müssen vor einem Release zurückgesetzt werden.
+- Beispiel: `FF 11 00` = UART meldet einen unerwarteten Nullpointer-Zustand; CRC folgt gemäß Telegrammformat.
+- Modulkennung, Fehlercode und Release-Standardwert sind zentral in `Protokoll.h` definiert.
+- Die Antwort ist keine normale Betriebsantwort. Bei einem solchen Fehler wird der betroffene Handler kontrolliert abgebrochen; es dürfen keine erfundenen oder ungültigen Nutzdaten gesendet werden.
+- Weitere Modul- und Fehlercodes werden bei Bedarf ergänzt.
+
+Siehe [Issue #58](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/58).
