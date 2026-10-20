@@ -6,7 +6,7 @@
 #include "HW_Config.h"
 
 namespace {
-fy::BringupContext bridge{nullptr, nullptr};
+fy::BringupContext bridge{nullptr, nullptr, nullptr};
 
 void blinkHw2Outputs() {
     // Setup-only visual wiring check; never used for motor stepping.
@@ -30,8 +30,9 @@ void setup() {
     pinMode(MOTOR_DIR_PIN, OUTPUT);
     pinMode(MOTOR_ENABLE_PIN, OUTPUT);
     bridge.commands = xQueueCreate(8, sizeof(fy::CommandMessage));
-    bridge.events = xQueueCreate(8, sizeof(fy::MotorEvent));
-    if (!bridge.commands || !bridge.events) {
+    bridge.events = xQueueCreate(12, sizeof(fy::MotorEvent));
+    bridge.priorityCommands = xQueueCreate(4, sizeof(fy::CommandMessage));
+    if (!bridge.commands || !bridge.events || !bridge.priorityCommands) {
         Serial.println("FY_TEST: failed to create queues");
         return;
     }
