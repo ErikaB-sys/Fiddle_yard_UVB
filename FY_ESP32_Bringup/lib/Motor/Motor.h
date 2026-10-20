@@ -42,8 +42,8 @@ private:
     Profilelement_t Motor_profil[6]{{100,-2},{100,-1},{200,0},{100,+1},{100,+2},{10,0}};
 };
 
-// Bring-up still uses the motor mock; real Nano setJob(), prepare...(),
-// calcProfile() and ISR require the ESP32 motor state / timer HAL port.
+// Bring-up still uses the motor mock: GO/STOP drive ENABLE, and calcProfile()
+// is ported, but Nano setJob(), prepare...() and the motor timer/ISR are pending.
 // Thread-safe driver-enable snapshot, published by Muninn (core 1).
 // GPIO27/A4988 ENABLE is active LOW. This is not a movement status.
 bool Muninn_isDriverEnabled();
