@@ -1,5 +1,6 @@
 #include "Motor.h"
 #include "StepTimer.h"
+#include "FY_BenchPosition.h"
 #include "HW_Config.h"
 #include "Error.h"
 #include <freertos/task.h>
@@ -112,8 +113,15 @@ void Motor::onGoEnabled() {
 }
 void Motor::onStop(bool latched) {
     _StopActive = latched;
-    _ReferenceValid = false; // Disable invalidates calibration.
+    _ReferenceValid = false; // Disable invalidates the *real* reference.
     _State = MotorState_t::STOPPED;
+#if FY_MOTOR_BENCH_TEST
+    // Only a disconnected table motor: deliberate synthetic re-anchor.
+    // Neither the electronics nor any real machinery has been homed!
+    resetBenchPosition();
+#else
+    _BenchPositionValid = false;
+#endif
 }
 void Motor::onMoveStarted() {
     if (!_StopActive && _State == MotorState_t::IDLE)
@@ -132,14 +140,83 @@ MotorCommandResult_t Motor::prepareReference(uint8_t mode) {
     // REFRUN is a defined state, but no sensors connected -> do not enter it.
     return MotorCommandResult_t::STOP_ACTIVE;
 }
-MotorCommandResult_t Motor::prepareSetPosition(uint16_t target) {
-    (void)target;
-    // Absolute position is meaningful only after a completed real REFRUN.
-    if (!_ReferenceValid) return MotorCommandResult_t::STOP_ACTIVE;
+void Motor::resetBenchPosition() {
+#if FY_MOTOR_BENCH_TEST
+    _BenchPosition = FY_BENCH_POSITION_START; // 32767
+    _BenchPositionValid = true;
+    _MotionPositionTracked = false;
+    _MotionStartPosition = _BenchPosition;
+    _MotionStepCount = 0U;
+#else
+    _BenchPositionValid = false;
+#endif
+}
+
+MotorCommandResult_t Motor::prepareSetPosition(uint16_t target,
+                                                MoveRequest& request) {
     if (_StopActive || _State != MotorState_t::IDLE)
-        return MotorCommandResult_t::BUSY;
-    // Position boundaries, sensor stop and actual executor are still missing.
-    return MotorCommandResult_t::INVALID_DATA;
+        return MotorCommandResult_t::STOP_ACTIVE;
+#if FY_MOTOR_BENCH_TEST
+    // A synthetic position is intentionally DISTINCT from real REFRUN.
+    if (!_BenchPositionValid)
+        return MotorCommandResult_t::STOP_ACTIVE;
+    if (target < FY_BENCH_MIN_POSITION ||
+        target > FY_BENCH_MAX_POSITION)
+        return MotorCommandResult_t::INVALID_DATA;
+    const uint16_t steps = benchAbsoluteDistance(_BenchPosition, target);
+    if (steps > FY_BENCH_MAX_ABSOLUTE_MOVE)
+        return MotorCommandResult_t::INVALID_DATA;
+    if (steps != 0U &&
+        !benchCanMove(_BenchPosition, steps, target > _BenchPosition))
+        return MotorCommandResult_t::INVALID_DATA;
+    request.mode = MoveMicrostep::QUARTER;
+    request.directionRight = target > _BenchPosition;
+    request.steps = steps;
+    if (steps > 0U &&
+        (!calcProfile(steps) || !isProfileValid(steps)))
+        return MotorCommandResult_t::INVALID_DATA;
+    return MotorCommandResult_t::ACCEPTED;
+#else
+    // Real track/FY mode requires physical reference and checked limits.
+    (void)target;
+    (void)request;
+    return MotorCommandResult_t::STOP_ACTIVE;
+#endif
+}
+
+void Motor::onMotionAccepted(const MoveRequest& request) {
+#if FY_MOTOR_BENCH_TEST
+    // Quarter-step positions are meaningful only while resolution stays 1/4.
+    _MotionPositionTracked =
+        _BenchPositionValid && request.mode == MoveMicrostep::QUARTER &&
+        benchCanMove(_BenchPosition, request.steps, request.directionRight);
+    _MotionStartPosition = _BenchPosition;
+    _MotionStepCount = request.steps;
+    _MotionRight = request.directionRight;
+    if (!_MotionPositionTracked)
+        _BenchPositionValid = false;
+#else
+    (void)request;
+#endif
+}
+
+void Motor::onMotionProgress(uint32_t completedSteps) {
+#if FY_MOTOR_BENCH_TEST
+    if (!_MotionPositionTracked || !_BenchPositionValid) return;
+    const uint32_t done = completedSteps > _MotionStepCount
+        ? _MotionStepCount : completedSteps;
+    const int32_t pos = static_cast<int32_t>(_MotionStartPosition) +
+        (_MotionRight ? static_cast<int32_t>(done)
+                      : -static_cast<int32_t>(done));
+    if (pos < FY_BENCH_MIN_POSITION ||
+        pos > FY_BENCH_MAX_POSITION) {
+        _BenchPositionValid = false;
+        return;
+    }
+    _BenchPosition = static_cast<uint16_t>(pos);
+#else
+    (void)completedSteps;
+#endif
 }
 bool Motor::isProfileValid(uint16_t distance) const {
     if (!_TimerValid || distance == 0U) return false;
@@ -153,6 +230,12 @@ MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
                                         MoveRequest& request) {
     if (!decodeMovePayload(data, request))
         return MotorCommandResult_t::INVALID_DATA;
+    // Guard the virtual position against overflow/underflow.
+#if FY_MOTOR_BENCH_TEST
+    if (_BenchPositionValid && request.mode == MoveMicrostep::QUARTER &&
+        !benchCanMove(_BenchPosition, request.steps, request.directionRight))
+        return MotorCommandResult_t::INVALID_DATA;
+#endif
     // Prepare all six Nano phases now. STEP timer remains in proven
     // constant-rate bench mode until the variable-alarm ISR is verified.
     if (!calcProfile(request.steps) || !isProfileValid(request.steps))
