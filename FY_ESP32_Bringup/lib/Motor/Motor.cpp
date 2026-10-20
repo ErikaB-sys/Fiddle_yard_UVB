@@ -236,8 +236,8 @@ MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
         !benchCanMove(_BenchPosition, request.steps, request.directionRight))
         return MotorCommandResult_t::INVALID_DATA;
 #endif
-    // Prepare all six Nano phases now. STEP timer remains in proven
-    // constant-rate bench mode until the variable-alarm ISR is verified.
+    // Prepare all six Nano phases; the STEP ISR now executes those
+    // phases, but the new dynamic hardware timer still needs HW testing.
     if (!calcProfile(request.steps) || !isProfileValid(request.steps))
         return MotorCommandResult_t::INVALID_DATA;
     return MotorCommandResult_t::ACCEPTED;
@@ -513,7 +513,7 @@ void Muninn_motorMockTask(void* arg) {
             }
 #endif
         } else {
-            // Reference/track/position still require the real Motor state.
+            // Real REFERENCE and SET_TRACK require sensors/calibration.
             emit(context, cmd, false, nackData(NackReason::NOT_READY));
         }
 
