@@ -152,6 +152,13 @@ bool stepTimerRunning() {
     return result;
 }
 
+uint32_t stepTimerCompletedSteps() {
+    portENTER_CRITICAL(&stepMux);
+    const uint32_t steps = completed;
+    portEXIT_CRITICAL(&stepMux);
+    return steps;
+}
+
 bool stepTimerTakeDone(uint32_t& completedSteps) {
     portENTER_CRITICAL(&stepMux);
     const bool done = isFinished;
