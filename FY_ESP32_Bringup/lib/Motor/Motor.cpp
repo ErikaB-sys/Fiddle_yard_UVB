@@ -160,6 +160,7 @@ namespace {
 // Only Muninn writes this; Huginn reads through a C++ atomic snapshot.
 std::atomic<bool> driverEnabled{false};
 std::atomic<bool> motorMoving{false};
+std::atomic<uint8_t> motorStateSnapshot{static_cast<uint8_t>(MotorState_t::STOPPED)};
 
 // Bench-only fixed pulse frequency; the number of steps comes from MOVE.
 constexpr uint16_t kBenchStepHz = 120U;
@@ -208,6 +209,10 @@ bool Muninn_isMoving() {
     return motorMoving.load(std::memory_order_acquire);
 }
 
+MotorState_t Muninn_motorState() {
+    return static_cast<MotorState_t>(motorStateSnapshot.load(std::memory_order_acquire));
+}
+
 void Muninn_initMotorMock() {
     // The A4988 microstep inputs are configured while ENABLE is HIGH.
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
@@ -245,6 +250,7 @@ void Muninn_motorMockTask(void* arg) {
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     driverEnabled.store(false, std::memory_order_release);
     motorMoving.store(false, std::memory_order_release);
+    motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
 
     for (;;) {
         // STOP has its own mailbox and is always checked before normal jobs.
@@ -264,6 +270,7 @@ void Muninn_motorMockTask(void* arg) {
             motorMoving.store(false, std::memory_order_release);
             stopActive = activate;
             motor.onStop(activate);
+            motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
 
             // Cancel any old queued movement requests; every dropped request
             // still receives an explicit negative result.
@@ -283,6 +290,7 @@ void Muninn_motorMockTask(void* arg) {
         if (stepTimerTakeDone(pulsesDone)) {
             motorMoving.store(false, std::memory_order_release);
             motor.onMoveFinished();
+            motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
             (void)pulsesDone; // Bench position is intentionally not referenced.
         }
 
@@ -299,6 +307,7 @@ void Muninn_motorMockTask(void* arg) {
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
             motor.onStop(stopActive);
+            motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
             emit(context, cmd, true, cmd.id);
         } else if (cmd.id == CMD_GO &&
                    cmd.data[0] == 0xAAU && cmd.data[1] == 0x55U) {
@@ -313,6 +322,7 @@ void Muninn_motorMockTask(void* arg) {
                     driverEnabled.store(true, std::memory_order_release);
                 }
                 motor.onGoEnabled();
+                motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
                 emit(context, cmd, true, cmd.id);
             }
 #if FY_MOTOR_BENCH_TEST
@@ -344,6 +354,7 @@ void Muninn_motorMockTask(void* arg) {
                 } else {
                     motorMoving.store(true, std::memory_order_release);
                     motor.onMoveStarted();
+                    motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
                     emit(context, cmd, true, cmd.id);
                 }
             }
