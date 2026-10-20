@@ -13,7 +13,7 @@
 | M1 | G14 | MS2 | Neu verdrahtet; 1/16-Konfiguration noch testen |
 | M2 | G4 | MS3 | Neu verdrahtet; 1/16-Konfiguration noch testen |
 
-`Muninn_initMotorMock()` konfiguriert bei deaktiviertem Treiber vor den FreeRTOS-Tasks alle drei Mikroschritt-Ausgaenge. **Normalbetrieb (`FY_MOTOR_BENCH_TEST=0`): HIGH/HIGH/HIGH = 1/16 Mikroschritte. Aktueller Tisch-Test (`FY_MOTOR_BENCH_TEST=1`): HIGH/LOW/LOW = 1/2 Mikroschritte.** Die Aufloesung wird ausschliesslich beim Start gesetzt, nicht waehrend einer Fahrt. Der Bench-Modus ist in `platformio.ini` bewusst aktiviert; vor Anbau an die FY-Mechanik deaktivieren.
+`Muninn_initMotorMock()` konfiguriert bei deaktiviertem Treiber vor den FreeRTOS-Tasks alle drei Mikroschritt-Ausgaenge. **Normalbetrieb (`FY_MOTOR_BENCH_TEST=0`): HIGH/HIGH/HIGH = 1/16 Mikroschritte. Tisch-Test (`FY_MOTOR_BENCH_TEST=1`): Start HIGH/LOW/LOW = 1/2 Mikroschritte.** Im Bench-Modus kann der neue MOVE-Befehl die Aufloesung bei stillstehendem STEP-Timer auswaehlen (0=voll,1=halb,2=viertel,3=achtel,4=sechzehntel); genaue Telegrammbelegung in `docs/MOTOR_TIMER_BENCH.md`. Moduswechsel koennen die absolute Position ungueltig machen. Vor Anbau an die FY-Mechanik Bench-Modus deaktivieren.
 
 **Boot-Hinweis:** G4 wird beim ESP32 als Strap-Status erfasst, ist laut Espressif aber fuer die unterstuetzten Bootmodi nicht entscheidend. Vor Betrieb dennoch Power-on/Reset/Flash mit der realen HW2-Verdrahtung pruefen. Die A4988-MS-Eingaenge haben interne Pulldowns: Vor Initialisierung der Firmware ist die 1/16-Konfiguration nicht garantiert.
 
