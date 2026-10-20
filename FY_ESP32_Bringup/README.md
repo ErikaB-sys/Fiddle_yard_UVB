@@ -5,6 +5,12 @@
 auf HW2 gelaufen; MOVE/STOP an losem Motor getestet; profilvorbereitende Motor-State-Machine
 integriert, noch ohne dynamischen Profil-Executor; **keine produktiv sichere FY-Bewegung**.
 
+## Speicher-Baseline vor dem neuen SET_POSITION-Test
+PlatformIO Release-Build, 20.10.2026 laut HW2-Log:
+RAM 21544 / 327680 B (6,6 %), Flash 281981 / 1310720 B (21,5 %),
+Build 4,05 s. **Nicht der Speicherverbrauch der jetzt weiterentwickelten
+Bench-Positionierungsfirmware; dafuer erneuten Build abwarten.**
+
 ## Wo arbeitet was?
 
 | Bereich | Core | Code | Aufgabe |
@@ -42,19 +48,20 @@ auf HW2 getestet werden.
 `platformio.ini` enthaelt `-D FY_MOTOR_BENCH_TEST=1`.
 
 - Nur fuer **losen, mechanisch nicht an FY angeschlossenen NEMA11**.
-- Mikroschritt-Leitungen: HIGH/LOW/LOW = 1/2 Schritt.
+- Standard-Mikroschritt-Leitungen: LOW/HIGH/LOW = 1/4 Schritt (A4988 MS1/MS2/MS3).
 - **POR/Reset startet mit verriegeltem STOP** und Treiber AUS; keine STEP/DIR-Start-Lichtorgel.
 - `GO AA 55` vor `STOP AA 55` liefert Motor/NOT_READY.
 - `STOP AA 55` hebt die STOP-Sperre auf, laesst den Treiber aber AUS.
 - `GO AA 55` schaltet den A4988 ein, ohne Bewegung.
-- `MOVE 11 32 00`: 50 Halbschritte rechts bei 120 Hz (ca. 0,42 s).
-- `MOVE 10 32 00`: 50 Halbschritte links.
-- `MOVE 11 10 27`: 10000 Halbschritte rechts (pro Auftrag Maximalwert, ca. 83,3 s bei 120 Hz).
+- `MOVE 21 32 00`: 50 Viertelschritte rechts bei 120 Hz (ca. 0,42 s).
+- `MOVE 20 32 00`: 50 Viertelschritte links.
+- `MOVE 21 10 27`: 10000 Viertelschritte rechts (pro Auftrag Maximalwert, ca. 83,3 s bei 120 Hz).
 - `MOVE`-Format: DATA0 oberes Nibble Modus (0=voll,1=halb,2=viertel,3=achtel,4=sechzehntel), unterstes Bit Richtung 0=links/1=rechts; DATA1/2 Schrittzahl uint16 little endian; Restbits reserviert.
 - Die alten Nano-Befehle `LEFT` / `RIGHT` werden von ESP32 nicht mehr ausgefuehrt.
 - `GO 55 AA` bzw. `STOP 55 AA`: Treiber AUS, laufende STEP-Pulse abbrechen.
-- Andere Fahrbefehle, Referenzierung und Gleispositionierung bleiben abgewiesen.
-- Keine frei erfundene Referenzposition; `GET_POSITION` meldet UNKNOWN.
+- **Bench-SET_POSITION** erlaubt absolute Testfahrten in virtuellen Viertelschritten; Start = 32767, Gleisabstand 1600, maximal 10600 je SET_POSITION-Auftrag. Physische Referenz bleibt ungueltig.
+- `GET_POSITION` liefert im Bench die synthetische Position **mit Marker-Bit 16**, z. B. `0x00017FFF` fuer BG3/32767. Keine echte Positionierung der FY-Buehne; REFERENCE/SET_TRACK bleiben abgewiesen.
+- MOVE in anderer Aufloesung als 1/4 invalidiert die synthetische Positionsfuehrung bis zur erneuten Bench-Verankerung (STOP/GO-AUS).
 
 **Vor dem Einsatz an der FY-Buehne Bench-Flag deaktivieren und Motor-,
 Sensor-, Grenz- sowie Referenzlogik vollstaendig portieren.**
@@ -76,8 +83,8 @@ Ein STOP ueber FreeRTOS ist hier noch **kein nachgewiesener Hardware-Not-Halt**.
 
 ## Naechste Schritte
 
-1. Neuen Stand (MotorState-Snapshot und calcProfile im MOVE-Prepare) bauen, Speicherverbrauch vergleichen und mit VMOT AUS flashen.
-2. STATUS 20 nach POR/GO/MOVE/STOP pruefen; DATA[1]: IDLE 0, MOVING 3, STOPPED 4.
+1. Neuen Stand mit Viertelschritt/virtuellem SET_POSITION auf HW2 neu bauen, Speicherverbrauch vergleichen und mit VMOT AUS flashen.
+2. STATUS 20 und GET_POSITION pruefen; BG3 32767, SET_POSITION BG5 35967, Zurueckfahrt BG1 29567.
 3. Sechsphasen-Profil nach der bereits aktiven Vorbereitung mit
    **ISR-sicherer variabler Timerperiode** in der LOW-Halbwelle ausfuehren.
    Nano-`Motor::Update()` und `setJob()` vollstaendig fertigstellen.
