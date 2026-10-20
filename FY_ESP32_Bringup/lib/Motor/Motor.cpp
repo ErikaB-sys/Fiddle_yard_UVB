@@ -104,6 +104,50 @@ bool Motor::calcProfile(uint16_t distance)
     return true;
 }
 
+// Motor state transitions run only in Muninn (core 1). ISR status is
+// consumed in the task, never used for unsolicited UART telegrams.
+void Motor::onGoEnabled() {
+    if (!_StopActive && _State == MotorState_t::STOPPED)
+        _State = MotorState_t::IDLE;
+}
+void Motor::onStop(bool latched) {
+    _StopActive = latched;
+    _ReferenceValid = false; // Disable invalidates calibration.
+    _State = MotorState_t::STOPPED;
+}
+void Motor::onMoveStarted() {
+    if (!_StopActive && _State == MotorState_t::IDLE)
+        _State = MotorState_t::MOVING;
+}
+void Motor::onMoveFinished() {
+    if (_State == MotorState_t::MOVING)
+        _State = MotorState_t::IDLE;
+}
+void Motor::onProfileError() {
+    _ReferenceValid = false;
+    _State = MotorState_t::ERROR;
+}
+MotorCommandResult_t Motor::prepareReference(uint8_t mode) {
+    if (mode > 1U) return MotorCommandResult_t::INVALID_DATA;
+    // REFRUN is a defined state, but no sensors connected -> do not enter it.
+    return MotorCommandResult_t::STOP_ACTIVE;
+}
+MotorCommandResult_t Motor::prepareSetPosition(uint16_t target) {
+    (void)target;
+    // Absolute position is meaningful only after a completed real REFRUN.
+    if (!_ReferenceValid) return MotorCommandResult_t::STOP_ACTIVE;
+    if (_StopActive || _State != MotorState_t::IDLE)
+        return MotorCommandResult_t::BUSY;
+    // Position boundaries, sensor stop and actual executor are still missing.
+    return MotorCommandResult_t::INVALID_DATA;
+}
+bool Motor::isProfileValid(uint16_t distance) const {
+    if (!_TimerValid || distance == 0U) return false;
+    uint32_t sum = 0U;
+    for (const auto& phase : Motor_profil) sum += phase.Steps;
+    return sum == distance;
+}
+
 // Parameter validation is kept in Motor (prepare path), not in the ISR.
 MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
                                         MoveRequest& request) const {
@@ -190,7 +234,7 @@ void Muninn_motorMockTask(void* arg) {
     Motor motor{};
     bool ledState = false;
     // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
-    bool stopActive = true;
+    bool stopActive = true; // Mirrors Motor state for the existing STOP path.
 #if FY_MOTOR_BENCH_TEST
     MoveMicrostep activeMicrostepMode = MoveMicrostep::HALF;
 #endif
@@ -219,6 +263,7 @@ void Muninn_motorMockTask(void* arg) {
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
             stopActive = activate;
+            motor.onStop(activate);
 
             // Cancel any old queued movement requests; every dropped request
             // still receives an explicit negative result.
@@ -237,6 +282,7 @@ void Muninn_motorMockTask(void* arg) {
         uint32_t pulsesDone = 0U;
         if (stepTimerTakeDone(pulsesDone)) {
             motorMoving.store(false, std::memory_order_release);
+            motor.onMoveFinished();
             (void)pulsesDone; // Bench position is intentionally not referenced.
         }
 
@@ -252,6 +298,7 @@ void Muninn_motorMockTask(void* arg) {
             driverEnabled.store(false, std::memory_order_release);
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
+            motor.onStop(stopActive);
             emit(context, cmd, true, cmd.id);
         } else if (cmd.id == CMD_GO &&
                    cmd.data[0] == 0xAAU && cmd.data[1] == 0x55U) {
@@ -265,6 +312,7 @@ void Muninn_motorMockTask(void* arg) {
                     digitalWrite(MOTOR_ENABLE_PIN, LOW); // active LOW
                     driverEnabled.store(true, std::memory_order_release);
                 }
+                motor.onGoEnabled();
                 emit(context, cmd, true, cmd.id);
             }
 #if FY_MOTOR_BENCH_TEST
@@ -295,6 +343,7 @@ void Muninn_motorMockTask(void* arg) {
                     emit(context, cmd, false, nackData(NackReason::BUSY));
                 } else {
                     motorMoving.store(true, std::memory_order_release);
+                    motor.onMoveStarted();
                     emit(context, cmd, true, cmd.id);
                 }
             }
