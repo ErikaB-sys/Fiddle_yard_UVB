@@ -28,6 +28,9 @@ private:
     ResponseBuffer_t _response{};
     Error _errors;
     uint32_t _nextSequence = 0;
+    // Internal event correlation. Wire protocol itself has no sequence field.
+    struct PendingCommand { uint32_t sequence = 0; uint8_t id = 0; bool active = false; };
+    PendingCommand _pending[16]{};
 
     void receive();
     bool validateCommand(const CommandDefinition*& definition);
