@@ -11,6 +11,7 @@ Branch: `feature/FY_ESP32_Port`. Scope: issue #156.
 - For firmware/help, `DATA` is the ASCII text (ESP32 flash mapped to address space; no AVR PROGMEM calls).
 - The original Nano Error module is reused for `GET_ERROR`.
 - Core 1 receives normal motor commands in `commands` queue and STOP in the independent `priorityCommands` queue. Events include sequence ID, command ID, result ID, and one-byte result data.
+- Huginn matches every motor response to an outstanding sequence and command ID; no sequence byte is added to the public UART frame.
 - The current motor backend is **still a mock**. Driver is kept disabled. No movement or reference run is simulated as successful.
 
 ## Pre-motor integration response policy
@@ -56,7 +57,7 @@ Firmware and HELP return `28 | ASCII | CRC` and `18 | ASCII | CRC`, respectively
 ## Build and hardware checks still required
 
 1. PlatformIO build `FY_ESP32_Bringup`.
-2. Flash to HW2 with motor **supply disconnected**. Confirm GPIO27 (A4988 EN) remains HIGH and GPIO25 (STEP) LOW after boot test.
+2. Flash to HW2 with motor **supply disconnected**. Confirm GPIO27 (A4988 EN) remains HIGH throughout the boot test; only STEP and DIR are blink-tested. GPIO25 (STEP) is LOW after the test.
 3. Exercise all IMMEDIATE cases including invalid selectors and bad lengths, observe binary CRC.
 4. Exercise priority STOP while normal command traffic exists and check every response.
 5. Verify both UART and Muninn still run on their assigned cores; check event queue capacity and worst-case latency.
