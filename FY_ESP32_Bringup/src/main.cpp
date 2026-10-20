@@ -7,8 +7,7 @@
 
 namespace {
 fy::BringupContext bridge{nullptr, nullptr, nullptr};
-
-
+} // anonymous namespace
 
 void setup() {
     Serial.begin(115200);
