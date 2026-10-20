@@ -1,4 +1,5 @@
 #include "BabelFish.h"
+#include "FY_Move.h"
 
 namespace
 {
@@ -191,10 +192,12 @@ bool BabelFish::decodeLine()
         cmd = CMD_SET_PARAM;
     else if (equalsIgnoreCase(commandName, "GO"))
         cmd = CMD_GO;
+    else if (equalsIgnoreCase(commandName, "MOVE"))
+        cmd = fy::CMD_MOVE;
     else if (equalsIgnoreCase(commandName, "LEFT"))
-        cmd = CMD_LEFT;
+        cmd = CMD_LEFT;  // Legacy Nano command; rejected by ESP32 motor router.
     else if (equalsIgnoreCase(commandName, "RIGHT"))
-        cmd = CMD_RIGHT;
+        cmd = CMD_RIGHT; // Legacy Nano command; rejected by ESP32 motor router.
     else if (equalsIgnoreCase(commandName, "SET_POSITION"))
         cmd = CMD_SET_POSITION;
     else if (equalsIgnoreCase(commandName, "SET_TRACK"))
