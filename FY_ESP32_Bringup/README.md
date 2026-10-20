@@ -2,7 +2,8 @@
 
 **Branch:** `feature/FY_ESP32_Port` · **Stand:** 20.10.2026  
 **Status:** Funktionsfaehiger Dual-Core- und UART-Port; STEP-Tischmotor erstmals
-auf HW2 gelaufen; MOVE-Steuerung in Vorbereitung; **keine produktiv sichere FY-Bewegung**.
+auf HW2 gelaufen; MOVE/STOP an losem Motor getestet; profilvorbereitende Motor-State-Machine
+integriert, noch ohne dynamischen Profil-Executor; **keine produktiv sichere FY-Bewegung**.
 
 ## Wo arbeitet was?
 
@@ -65,6 +66,7 @@ Ein STOP ueber FreeRTOS ist hier noch **kein nachgewiesener Hardware-Not-Halt**.
 
 ## Dateien zur Orientierung
 
+- [Portierungsstatus UART/Motor 20.10.2026](docs/MOTOR_PORT_STATUS_2026-10-20.md)
 - [Erster Motor-Timer, ISR und Schritt-fuer-Schritt-Test](docs/MOTOR_TIMER_BENCH.md)
 - [UART-Protokoll und Hex-Testfolgen](docs/UART_PORT_STEP2.md)
 - [WROOM-Pinout / HW2](docs/PINOUT_ESP32.md)
@@ -74,10 +76,11 @@ Ein STOP ueber FreeRTOS ist hier noch **kein nachgewiesener Hardware-Not-Halt**.
 
 ## Naechste Schritte
 
-1. POR-STOP-Verriegelung erneut bauen und mit VMOT AUS flashen.
-2. Nach POR pruefen: `GO AA 55` wird abgewiesen; erst `STOP AA 55`, dann `GO AA 55` erlauben eine Bewegung.
-3. Nano-`Motor::Update()`, `setJob()`, `prepare...()`, Rampenprofile
-   sowie Motorstatus fuer pollendes GET_STATUS in Muninn uebernehmen.
+1. Neuen Stand (MotorState-Snapshot und calcProfile im MOVE-Prepare) bauen, Speicherverbrauch vergleichen und mit VMOT AUS flashen.
+2. STATUS 20 nach POR/GO/MOVE/STOP pruefen; DATA[1]: IDLE 0, MOVING 3, STOPPED 4.
+3. Sechsphasen-Profil nach der bereits aktiven Vorbereitung mit
+   **ISR-sicherer variabler Timerperiode** in der LOW-Halbwelle ausfuehren.
+   Nano-`Motor::Update()` und `setJob()` vollstaendig fertigstellen.
    **Keine spontanen DONE-UART-Antworten**; Request/Response bleibt verbindlich.
 4. Endschalter/Lichtschranken und Referenzlauf samt unmittelbarer
    Motor-Abschaltung integrieren.
