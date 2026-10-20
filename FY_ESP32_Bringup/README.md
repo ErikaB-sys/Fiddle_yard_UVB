@@ -31,7 +31,7 @@ veraendert ausschliesslich private Motor-HAL-Werte und den STEP-Pin.
 
 **HW2-Meilenstein:** Der lose NEMA11 dreht ueber den neuen STEP-Timer und
 GO/LEFT/RIGHT, Richtungsumkehr bestaetigt. Die Nachfolge-Firmware mit
-MOVE/prepareMove/1000-Schritte-Grenze ist **noch nicht auf HW2 gebaut/getestet**.
+MOVE/prepareMove/10000-Schritte-Grenze ist **noch nicht auf HW2 gebaut/getestet**.
 
 ## Motor-Bench-Test (ausdruecklich aktiviert)
 
@@ -43,7 +43,7 @@ MOVE/prepareMove/1000-Schritte-Grenze ist **noch nicht auf HW2 gebaut/getestet**
 - `GO AA 55` schaltet den A4988 ein, ohne Bewegung.
 - `MOVE 11 32 00`: 50 Halbschritte rechts bei 120 Hz (ca. 0,42 s).
 - `MOVE 10 32 00`: 50 Halbschritte links.
-- `MOVE 11 E8 03`: 1000 Halbschritte rechts (pro Auftrag Maximalwert).
+- `MOVE 11 10 27`: 10000 Halbschritte rechts (pro Auftrag Maximalwert, ca. 83,3 s bei 120 Hz).
 - `MOVE`-Format: DATA0 oberes Nibble Modus (0=voll,1=halb,2=viertel,3=achtel,4=sechzehntel), unterstes Bit Richtung 0=links/1=rechts; DATA1/2 Schrittzahl uint16 little endian; Restbits reserviert.
 - Die alten Nano-Befehle `LEFT` / `RIGHT` werden von ESP32 nicht mehr ausgefuehrt.
 - `GO 55 AA` bzw. `STOP 55 AA`: Treiber AUS, laufende STEP-Pulse abbrechen.
