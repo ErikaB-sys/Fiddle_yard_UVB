@@ -21,7 +21,7 @@ MotorState-IDs aus `Motor.h` in STATUS_Motor (`0x50`):
 Testtelegramme nach Neu-Flash (noch nicht HW-bestaetigt):
 - Direkt nach POR: `STATUS 20` -> `50 00 04 00 70` (STOPPED).
 - Nach `STOP AA 55` und `GO AA 55`: `50 01 00 00 4F` (IDLE, ENABLED).
-- Waehrend `MOVE 11 10 27`: `50 03 03 00 A6` (MOVING, ENABLED).
+- Waehrend `MOVE 21 10 27`: `50 03 03 00 A6` (MOVING, ENABLED).
 - Nach `STOP 55 AA`: `50 00 04 00 70` (STOPPED, DISABLED).
 
 **Achtung:** DATA[1] war im Nano-Spickzettel reserviert.
@@ -62,9 +62,9 @@ ACC1, ACC2, KONST, BRE1, BRE2, POSI. `prepareMove()` berechnet ab jetzt
 das Profil und prüft die exakte Schrittsumme. Für 1..10000 Schritte
 rechnerisch auf Schrittsumme geprüft; **nicht auf HW mit Rampen geprüft**.
 
-**Der StepTimer fährt gegenwärtig nur 120Hz Konstantgeschwindigkeit.**
-Die variable Halbperioden-Nachladung aus der LOW-Halbwelle, Profilphasen,
-Sensorprüfungen und Min/Max-Rate sind noch zu integrieren und zu messen.
+**Aktualisiert:** Die variable Halbperioden-Nachladung in der LOW-Flanke
+und die sechs Profilphasen sind jetzt implementiert. HW-/Timermessung
+steht noch aus; Sensorpruefungen sind nur kommentierte ISR-Hooks.
 
 MotorState-Grundgerüst in Muninn: POR/STOP -> STOPPED;
 STOP-Freigabe (Treiber bleibt AUS); GO EIN -> IDLE;
@@ -123,7 +123,8 @@ gilt NUR bei `FY_MOTOR_BENCH_TEST=1`; `_ReferenceValid=false` bleibt
   Viertelschritt-Koordinate ihre Gültigkeit bis zur Neuverankerung.
 - `SET_POSITION` veranlasst ebenfalls `calcProfile()`, startet aber
   derzeit weiterhin einen **konstanten 120-Hz-STEP-Pulszug**. Die
-  Echtzeit-Rampen bleiben ein separates, offenes #153-Thema.
+  Die jetzt implementierten Echtzeit-Rampen sind noch zu bauen und auf
+  HW2 zu verifizieren (#153).
 
 **Gemeldete Speicher-Baseline des unmittelbar vorangegangenen Release-Builds:**
 RAM 21544 von 327680 Byte = 6,6 %; Flash 281981 von 1310720 Byte =
