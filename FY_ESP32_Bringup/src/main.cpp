@@ -8,19 +8,7 @@
 namespace {
 fy::BringupContext bridge{nullptr, nullptr, nullptr};
 
-void blinkHw2Outputs() {
-    // Setup-only visual wiring check; never used for motor stepping.
-    // Do not pulse the active-LOW A4988 enable during normal boot.
-    // That would energize the motor as soon as motor supply is attached.
-    const uint8_t pins[] = {MOTOR_PWM_PIN, MOTOR_DIR_PIN};
-    for (const uint8_t pin : pins) {
-        digitalWrite(pin, pin == MOTOR_ENABLE_PIN ? LOW : HIGH);
-        delay(650);  // Deliberately visible to the human eye.
-        digitalWrite(pin, pin == MOTOR_ENABLE_PIN ? HIGH : LOW);
-        delay(350);
-    }
-}
-}
+
 
 void setup() {
     Serial.begin(115200);
@@ -31,13 +19,12 @@ void setup() {
     pinMode(MOTOR_PWM_PIN, OUTPUT);
     pinMode(MOTOR_DIR_PIN, OUTPUT);
     pinMode(MOTOR_ENABLE_PIN, OUTPUT);
-    // Muninn owns the A4988 microstep lines: configure them while EN is OFF,
-    // before the startup GPIO check and before either FreeRTOS task starts.
+    // Muninn owns the microstep lines, configured while EN is OFF.
     fy::Muninn_initMotorMock();
-    // Do the STEP/DIR LED check BEFORE UART and Muninn can accept GO.
-    // Otherwise a concurrent GO could enable the A4988 during test pulses.
-    blinkHw2Outputs();
+    // Never generate artificial STEP/DIR pulses on power-on/reset.
+    // STOP starts latched in Muninn until an explicit STOP AA 55.
     digitalWrite(MOTOR_PWM_PIN, LOW);
+    digitalWrite(MOTOR_DIR_PIN, LOW);
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
 
     bridge.commands = xQueueCreate(8, sizeof(fy::CommandMessage));
