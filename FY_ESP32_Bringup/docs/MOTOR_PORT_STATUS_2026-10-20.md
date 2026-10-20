@@ -131,3 +131,34 @@ RAM 21544 von 327680 Byte = 6,6 %; Flash 281981 von 1310720 Byte =
 der neuen SET_POSITION-Änderung; noch kein neuer Build-Bericht.
 
 Vollständige Hex-Testfolge in `docs/MOTOR_TIMER_BENCH.md`.
+
+
+## Neuester Stand: ISR-Profil-Executor eingebaut (20.10.2026, noch ungeprueft)
+
+Die zuvor nur berechneten sechs Phasen werden jetzt auch an die
+STEP-Hardwaretimer-ISR uebergeben. `Motor::prepareSetPosition()` und
+`Motor::prepareMove()` rechnen Distanz und Phase, Muninn baut aus
+`MotorProfile_t` sechs `StepProfileSegment`, dann startet
+`stepTimerStartProfile()`. Die ISR aendert die naechste Timerperiode
+in der LOW-Flanke mit der vom Nano bekannten Rampenregel und den
+**effektiven** Intervallen 1/2/2/1 (ACC1/ACC2/BRE1/BRE2).
+
+Die Zeitbasis ist AVR /256 bei 16 MHz -> 16 us pro OCR-Schritt. Ein
+ESP32 1-MHz-Timer bekommt deshalb die Halbperiode
+`(NanoReload + 1) * 16 us`. Fuer das eingesetzte WROOM unter
+Arduino-ESP32 2.x ist `timerBegin(1,80,true)` **TIMG1 Timer0**;
+die ISR schreibt direkt `TIMERG1.hw_timer[0].alarm_low`.
+Framework 3.x quittiert Profile bis zur ISR-sicheren API-Portierung
+ausdruecklich mit NOT_READY; es wird kein konstantes Profil
+faelschlich als erfolgreiche Profilfahrt quittiert.
+
+Berechnete Beispielprofile: BG3->BG1 3200 Viertelschritte
+`100/100/2640/100/100/160` ~6,1 s; danach BG1->BG5 6400
+`100/100/5840/100/100/160` ~10,1 s. Beide Strecken liegen
+innerhalb der virtuell erlaubten 10600 Viertelschritte pro Auftrag.
+
+**Wichtig:** Noch KEIN PlatformIO-Build oder physischer Motor-/Timer-Test
+dieses neuen ISR-Codes. Alte Speicher-Baseline 21.544 B RAM /
+281.981 B Flash darf nicht als neuer Profilstand ausgegeben werden.
+Das vollständige Erklaerdokument steht in
+`docs/PROFILE_PORT_WALKTHROUGH.md`.
