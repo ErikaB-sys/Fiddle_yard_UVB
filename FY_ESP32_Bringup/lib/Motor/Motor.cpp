@@ -9,6 +9,95 @@
 #endif
 
 namespace fy {
+
+// Taken from the verified Nano Motor::calcProfile(), unchanged calculation.
+bool Motor::calcProfile(uint16_t distance)
+{
+    // Sehr kurze Strecke:
+    // Kein vollstaendiges Profil moeglich.
+    // Die gesamte Strecke wird mit V_MIN gefahren.
+    if (distance <= (_ProfileParam.PosiMin + _ProfileParam.KonstMin))
+    {
+        for (uint8_t i = 0; i < 6; ++i)
+        {
+            Motor_profil[i].Steps = 0;
+            Motor_profil[i].Accel = 0;
+        }
+
+        Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps =
+            distance;
+
+        _TimerValid = true;
+        return true;
+    }
+
+    for (uint8_t i = 0; i < 6; ++i)
+    {
+        Motor_profil[i].Steps = 0;
+        Motor_profil[i].Accel = 0;
+    }
+
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::POSI)].Steps =
+        _ProfileParam.PosiMin;
+
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps =
+        _ProfileParam.KonstMin;
+
+    uint16_t remaining =
+        distance
+        - _ProfileParam.PosiMin
+        - _ProfileParam.KonstMin;
+
+    uint16_t outer = remaining / 2;
+
+    if (outer > _ProfileParam.Acc1Steps)
+        outer = _ProfileParam.Acc1Steps;
+
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Steps = outer;
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Accel =
+        _ProfileParam.Acc1Accel;
+
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Steps = outer;
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Accel =
+        _ProfileParam.Bre2Accel;
+
+    remaining -= outer * 2;
+
+    uint16_t inner = remaining / 2;
+
+    if (inner > _ProfileParam.Acc2Steps)
+        inner = _ProfileParam.Acc2Steps;
+
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Steps = inner;
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Accel =
+        _ProfileParam.Acc2Accel;
+
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Steps = inner;
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Accel =
+        _ProfileParam.Bre1Accel;
+
+    remaining -= inner * 2;
+
+    Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps +=
+        remaining;
+
+    uint16_t sum = 0;
+
+    for (uint8_t i = 0; i < 6; ++i)
+        sum += Motor_profil[i].Steps;
+
+    if (sum < distance)
+    {
+        Motor_profil[static_cast<uint8_t>(MotorProfile_t::POSI)].Steps +=
+            distance - sum;
+    }
+
+    _TimerValid = true;
+    return true;
+}
+
+
+
 namespace {
 void setLed(bool on) {
 #if FY_STATUS_LED_PIN >= 0
