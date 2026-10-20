@@ -69,6 +69,8 @@ private:
 bool Muninn_isDriverEnabled();
 // Atomic movement snapshot; true while the bounded STEP train is running.
 bool Muninn_isMoving();
+// Atomic status snapshot: IDLE=0, CONF=1, REFRUN=2, MOVING=3, STOPPED=4, ERROR=5.
+MotorState_t Muninn_motorState();
 
 void Muninn_initMotorMock();
 BaseType_t Muninn_startMotorMock(BringupContext* context);
