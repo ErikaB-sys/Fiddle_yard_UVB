@@ -72,7 +72,8 @@ private:
     bool _MotionRight = false;
     bool _StopActive = true;
     bool _TimerValid = false;
-    MotorProfileParam_t _ProfileParam{160,400,100,100,-2,-1,+1,+2,1,1,1,1};
+    // Effective intervals of Nano current_profile_ramp_interval(): 1,2,2,1.
+    MotorProfileParam_t _ProfileParam{160,400,100,100,-2,-1,+1,+2,1,2,2,1};
     Profilelement_t Motor_profil[6]{{100,-2},{100,-1},{200,0},{100,+1},{100,+2},{10,0}};
 };
 
