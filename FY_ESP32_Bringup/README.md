@@ -1,8 +1,8 @@
 # FY – ESP32-WROOM / Huginn und Muninn
 
 **Branch:** `feature/FY_ESP32_Port` · **Stand:** 20.10.2026  
-**Status:** Funktionsfaehiger Dual-Core- und UART-Port, begrenzter
-Schreibtisch-Motortest in Vorbereitung; **keine produktiv sichere FY-Bewegung**.
+**Status:** Funktionsfaehiger Dual-Core- und UART-Port; STEP-Tischmotor erstmals
+auf HW2 gelaufen; MOVE-Steuerung in Vorbereitung; **keine produktiv sichere FY-Bewegung**.
 
 ## Wo arbeitet was?
 
@@ -22,16 +22,16 @@ veraendert ausschliesslich private Motor-HAL-Werte und den STEP-Pin.
 ## Bisher geprueft
 
 - PlatformIO auf echter ESP32-WROOM-HW2 gebaut und geflasht (UART/GO/STOP).
-- Nano-`Protokoll.h`, `BabelFish` und `Error` inhaltlich unveraendert uebernommen.
+- Nano-`Protokoll.h` und `Error` weiterhin inhaltlich unveraendert; ESP32-BabelFish jetzt mit separatem MOVE-Kommando (ID 0x0F) erweitert.
 - `HELP`, `FIRMWARE`, mehrere `GET`-Responses und NACKs binär getestet.
 - STOP-Sperre / GO-Treiberfreigabe und GPIO27-Pegel auf HW2 erfolgreich gemessen.
 - GPIO13/14/4 als A4988-MS1/MS2/MS3 im bisherigen 1/16-Stand auf HIGH
   gemessen; mit der aktuellen **neuen Bench-Firmware** gehen MS2/MS3 auf LOW.
 - Core-Dump-Fehlermeldung nach Flash-Erase aus dem Bootprotokoll verschwunden.
 
-**Noch nicht auf HW2 gebaut/geprueft:** der neue `StepTimer.cpp` und
-der voruebergehende Halb-Schritt-Bench-Modus. STEP-Pulse und Motorbewegung
-sind daher noch kein bestaetigter Funktionsnachweis.
+**HW2-Meilenstein:** Der lose NEMA11 dreht ueber den neuen STEP-Timer und
+GO/LEFT/RIGHT, Richtungsumkehr bestaetigt. Die Nachfolge-Firmware mit
+MOVE/prepareMove/1000-Schritte-Grenze ist **noch nicht auf HW2 gebaut/getestet**.
 
 ## Motor-Bench-Test (ausdruecklich aktiviert)
 
@@ -41,7 +41,11 @@ sind daher noch kein bestaetigter Funktionsnachweis.
 - Mikroschritt-Leitungen: HIGH/LOW/LOW = 1/2 Schritt.
 - `STOP AA 55` hebt die STOP-Sperre auf.
 - `GO AA 55` schaltet den A4988 ein, ohne Bewegung.
-- `LEFT` / `RIGHT`: jeweils **64 Halbschritte bei 120 Hz** (ca. 0,53 s).
+- `MOVE 11 32 00`: 50 Halbschritte rechts bei 120 Hz (ca. 0,42 s).
+- `MOVE 10 32 00`: 50 Halbschritte links.
+- `MOVE 11 E8 03`: 1000 Halbschritte rechts (pro Auftrag Maximalwert).
+- `MOVE`-Format: DATA0 oberes Nibble Modus (0=voll,1=halb,2=viertel,3=achtel,4=sechzehntel), unterstes Bit Richtung 0=links/1=rechts; DATA1/2 Schrittzahl uint16 little endian; Restbits reserviert.
+- Die alten Nano-Befehle `LEFT` / `RIGHT` werden von ESP32 nicht mehr ausgefuehrt.
 - `GO 55 AA` bzw. `STOP 55 AA`: Treiber AUS, laufende STEP-Pulse abbrechen.
 - Andere Fahrbefehle, Referenzierung und Gleispositionierung bleiben abgewiesen.
 - Keine frei erfundene Referenzposition; `GET_POSITION` meldet UNKNOWN.
@@ -61,12 +65,12 @@ Ein STOP ueber FreeRTOS ist hier noch **kein nachgewiesener Hardware-Not-Halt**.
 - [WROOM-Pinout / HW2](docs/PINOUT_ESP32.md)
 - [Systemarchitektur und Task-Modell](docs/SYSTEM_ARCHITECTURE.md)
 - [Coding-Regeln](docs/CODING_RULES.md)
-- [UART-Spickzettel](src/UART_Command_Spickzettel.md)
+- [Original Nano UART-Spickzettel](../FY_Controller_Motor/src/UART_Command_Spickzettel.md) (MOVE-Erweiterung siehe Motor-Timer-Doku)
 
 ## Naechste Schritte
 
-1. Build und GPIO-/Schritt-Timing pruefen, zunaechst mit VMOT AUS.
-2. Kurze, strombegrenzte Drehtests am losen NEMA11.
+1. MOVE-Implementierung bauen und Payload-/GPIO-Test zunaechst mit VMOT AUS.
+2. MOVE (Richtung, Anzahl und Mikroschrittmodus) am losen NEMA11 pruefen.
 3. Nano-`Motor::Update()`, `setJob()`, `prepare...()`, Rampenprofile
    sowie asynchrone Fahrabschluss-Ereignisse in Muninn uebernehmen.
 4. Endschalter/Lichtschranken und Referenzlauf samt unmittelbarer
