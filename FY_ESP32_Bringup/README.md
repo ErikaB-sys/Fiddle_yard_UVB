@@ -3,7 +3,7 @@
 **Branch:** `feature/FY_ESP32_Port` · **Stand:** 20.10.2026  
 **Status:** Funktionsfaehiger Dual-Core- und UART-Port; STEP-Tischmotor erstmals
 auf HW2 gelaufen; MOVE/STOP an losem Motor getestet; profilvorbereitende Motor-State-Machine
-integriert, noch ohne dynamischen Profil-Executor; **keine produktiv sichere FY-Bewegung**.
+integriert, sechsphasiger Profil-Executor in der ISR geschrieben (Build/HW-Test offen); **keine produktiv sichere FY-Bewegung**.
 
 ## Speicher-Baseline vor dem neuen SET_POSITION-Test
 PlatformIO Release-Build, 20.10.2026 laut HW2-Log:
@@ -18,7 +18,7 @@ Bench-Positionierungsfirmware; dafuer erneuten Build abwarten.**
 | Huginn | 0 | `lib/UART/UART.cpp` | BabelFish, Nano-Protokoll, ACK/NACK, Status |
 | Transport | FreeRTOS | `include/FY_Bringup.h` | Kommandos, STOP-Prioritaet, Antworten mit Sequenznummern |
 | Muninn | 1 | `lib/Motor/Motor.cpp` | GO/STOP, ENABLE, Mikroschritt-Aufloesung, begrenzte Bench-Auftraege |
-| Motor-Timer | ISR | `lib/Motor/StepTimer.cpp` | Hardwaretimer -> STEP HIGH/LOW, Zaehlen auf fallender Flanke |
+| Motor-Timer | ISR | `lib/Motor/StepTimer.cpp` | STEP HIGH/LOW; fallende Flanke zaehlt und aktualisiert sechs Profilphasen, Timergruppe 1/Timer 0 |
 | Hauptinitialisierung | Arduino | `src/main.cpp` | GPIO-Defaults, Boot-GPIO-Test, Queues, Tasks |
 | Hardware | HW2 | `include/HW_Config.h` | Konkrete ESP32-Pinbelegung |
 
@@ -32,16 +32,16 @@ veraendert ausschliesslich private Motor-HAL-Werte und den STEP-Pin.
 - Nano-`Protokoll.h` und `Error` weiterhin inhaltlich unveraendert; ESP32-BabelFish jetzt mit separatem MOVE-Kommando (ID 0x0F) erweitert.
 - `HELP`, `FIRMWARE`, mehrere `GET`-Responses und NACKs binär getestet.
 - STOP-Sperre / GO-Treiberfreigabe und GPIO27-Pegel auf HW2 erfolgreich gemessen.
-- GPIO13/14/4 als A4988-MS1/MS2/MS3 im bisherigen 1/16-Stand auf HIGH
-  gemessen; mit der aktuellen **neuen Bench-Firmware** gehen MS2/MS3 auf LOW.
+- GPIO13/14/4 als A4988-MS1/MS2/MS3 zuvor am 1/16-Stand gemessen;
+  neuer **Bench-Default 1/4: LOW/HIGH/LOW** muss noch auf HW2 nachgemessen werden.
 - Core-Dump-Fehlermeldung nach Flash-Erase aus dem Bootprotokoll verschwunden.
 
 **HW2-Meilenstein:** Der lose NEMA11 dreht ueber den neuen STEP-Timer und
 GO/LEFT/RIGHT, Richtungsumkehr bestaetigt. Die Nachfolge-Firmware mit
 MOVE/prepareMove sowie die 10000-Schritte-Langfahrt mit STOP wurden
 am losen NEMA11 bestaetigt: Motor steht nach STOP sofort, gemessener
-Versorgungsstrom faellt auf 0. Der nun neue POR-STOP-Default muss noch
-auf HW2 getestet werden.
+Versorgungsstrom faellt auf 0. POR-STOP-Sperre wurde am HW2
+anschliessend ebenfalls ueber GO/NACK, STOP-Freigabe und MOVE bestaetigt.
 
 ## Motor-Bench-Test (ausdruecklich aktiviert)
 
@@ -55,7 +55,7 @@ auf HW2 getestet werden.
 - `GO AA 55` schaltet den A4988 ein, ohne Bewegung.
 - `MOVE 21 32 00`: 50 Viertelschritte rechts bei 120 Hz (ca. 0,42 s).
 - `MOVE 20 32 00`: 50 Viertelschritte links.
-- `MOVE 21 10 27`: 10000 Viertelschritte rechts (pro Auftrag Maximalwert, ca. 83,3 s bei 120 Hz).
+- `MOVE 21 10 27`: 10000 Viertelschritte rechts; neue Nano-Rampe rechnerisch ca. 14,6 s, auf HW2 noch nicht getestet.
 - `MOVE`-Format: DATA0 oberes Nibble Modus (0=voll,1=halb,2=viertel,3=achtel,4=sechzehntel), unterstes Bit Richtung 0=links/1=rechts; DATA1/2 Schrittzahl uint16 little endian; Restbits reserviert.
 - Die alten Nano-Befehle `LEFT` / `RIGHT` werden von ESP32 nicht mehr ausgefuehrt.
 - `GO 55 AA` bzw. `STOP 55 AA`: Treiber AUS, laufende STEP-Pulse abbrechen.
@@ -83,11 +83,10 @@ Ein STOP ueber FreeRTOS ist hier noch **kein nachgewiesener Hardware-Not-Halt**.
 
 ## Naechste Schritte
 
-1. Neuen Stand mit Viertelschritt/virtuellem SET_POSITION auf HW2 neu bauen, Speicherverbrauch vergleichen und mit VMOT AUS flashen.
-2. STATUS 20 und GET_POSITION pruefen; BG3 32767, SET_POSITION BG5 35967, Zurueckfahrt BG1 29567.
-3. Sechsphasen-Profil nach der bereits aktiven Vorbereitung mit
-   **ISR-sicherer variabler Timerperiode** in der LOW-Halbwelle ausfuehren.
-   Nano-`Motor::Update()` und `setJob()` vollstaendig fertigstellen.
+1. Neuen sechsphasigen ISR-Executor mit Viertelschritt/virtuellem SET_POSITION auf HW2 bauen; Speicherverbrauch vergleichen; mit VMOT AUS flashen.
+2. Bei losem Motor BG3 -> BG1 (`SET_POSITION 7F 73`) -> BG5 (`SET_POSITION 7F 8C`) fahren, Ramping/STOP/STATUS 20 und GET_POSITION pruefen.
+3. Anschliessend Nano-`Motor::Update()` und `setJob()` vervollstaendigen;
+   GPIO-Endschalter/Referenzlauf gesondert abnehmen.
    **Keine spontanen DONE-UART-Antworten**; Request/Response bleibt verbindlich.
 4. Endschalter/Lichtschranken und Referenzlauf samt unmittelbarer
    Motor-Abschaltung integrieren.
