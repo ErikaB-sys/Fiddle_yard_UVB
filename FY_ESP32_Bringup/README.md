@@ -74,6 +74,7 @@ Ein STOP ueber FreeRTOS ist hier noch **kein nachgewiesener Hardware-Not-Halt**.
 ## Dateien zur Orientierung
 
 - [Portierungsstatus UART/Motor 20.10.2026](docs/MOTOR_PORT_STATUS_2026-10-20.md)
+- [Nano-zu-ESP32 Walkthrough: Profil, LOW-ISR, Zustandsmaschine](docs/PROFILE_PORT_WALKTHROUGH.md)
 - [Erster Motor-Timer, ISR und Schritt-fuer-Schritt-Test](docs/MOTOR_TIMER_BENCH.md)
 - [UART-Protokoll und Hex-Testfolgen](docs/UART_PORT_STEP2.md)
 - [WROOM-Pinout / HW2](docs/PINOUT_ESP32.md)
