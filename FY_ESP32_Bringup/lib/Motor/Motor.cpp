@@ -1,4 +1,5 @@
 #include "Motor.h"
+#include "HW_Config.h"
 #include <freertos/task.h>
 
 #ifndef FY_STATUS_LED_PIN
