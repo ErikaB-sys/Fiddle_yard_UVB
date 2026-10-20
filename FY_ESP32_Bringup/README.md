@@ -1,15 +1,24 @@
 # FY – ESP32-WROOM / Huginn und Muninn
 
 **Branch:** `feature/FY_ESP32_Port` · **Stand:** 20.10.2026  
-**Status:** Funktionsfaehiger Dual-Core- und UART-Port; STEP-Tischmotor erstmals
-auf HW2 gelaufen; MOVE/STOP an losem Motor getestet; profilvorbereitende Motor-State-Machine
-integriert, sechsphasiger Profil-Executor in der ISR geschrieben (Build/HW-Test offen); **keine produktiv sichere FY-Bewegung**.
+**Status:** Dual-Core-UART/Queues, A4988-NEMA11 und sechsphasiger Profil-Executor
+**auf HW2 mit losem Testmotor gebaut und erfolgreich gefahren**: virtuelle Fahrten
+BG3 -> BG1 -> BG5 inklusive ACK, STATUS und GET_POSITION. Weitere Timer-,
+Sicherheits- und Sensor-HW-Tests offen; **keine produktive FY-Freigabe**.
 
-## Speicher-Baseline vor dem neuen SET_POSITION-Test
+## Aktuelle Projektuebersichten
+
+- **[Technische Roadmap mit Rot/Orange/Gelb/Violett/Gruen-Ampel](../Documents/FY_Productivsoftware_Roadmap.md)**: Module, Prepare-Funktionen, Issues, Test-Gates und naechste Schritte.
+- **[ESP32-UART-Spickzettel mit Ampel je Kommando](src/UART_Command_Spickzettel.md)**: echte Eingaben, ACK/NACK, durchgefuehrte Testfahrten.
+- **[Nano-zu-ESP32-Profil-Walkthrough](docs/PROFILE_PORT_WALKTHROUGH.md)**: sechs Phasen und Timer-Backend.
+
+## Aktueller Build nach Profilport und Bench-SET_POSITION
+
 PlatformIO Release-Build, 20.10.2026 laut HW2-Log:
-RAM 21544 / 327680 B (6,6 %), Flash 281981 / 1310720 B (21,5 %),
-Build 4,05 s. **Nicht der Speicherverbrauch der jetzt weiterentwickelten
-Bench-Positionierungsfirmware; dafuer erneuten Build abwarten.**
+RAM **21584 / 327680 B (6,6 %)**, Flash **283917 / 1310720 B (21,7 %)**,
+Build **8,95 s**. Vorherige Baseline: RAM 21544 B / Flash 281981 B.
+Delta: **+40 B RAM / +1936 B Flash**. Erfolgreicher Tischtest und
+virtuelle BG3/BG1/BG5-Positionsantworten dokumentiert im Spickzettel.
 
 ## Wo arbeitet was?
 
