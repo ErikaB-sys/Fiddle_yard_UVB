@@ -180,7 +180,7 @@ void Muninn_motorMockTask(void* arg) {
     bool ledState = false;
     bool stopActive = false;
 
-    // Motor is NOT initialized. Keep A4988 disabled in this transport test.
+    // Begin with the motor driver OFF; no STEP train starts automatically.
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     driverEnabled.store(false, std::memory_order_release);
@@ -227,8 +227,8 @@ void Muninn_motorMockTask(void* arg) {
         if (xQueueReceive(context->commands, &cmd, pdMS_TO_TICKS(2)) != pdTRUE)
             continue;
 
-        // Port the tested Nano prepareGo() enable/disable semantics without
-        // starting a timer or claiming a motor movement was executed.
+        // Nano GO/STOP enable semantics remain; only the explicit bench
+        // LEFT/RIGHT handlers below may start a bounded STEP train.
         if (cmd.id == CMD_GO &&
             cmd.data[0] == 0x55U && cmd.data[1] == 0xAAU) {
             // GO 55 AA: de-energize the driver; do NOT clear the STOP latch.
@@ -239,14 +239,16 @@ void Muninn_motorMockTask(void* arg) {
             emit(context, cmd, true, cmd.id);
         } else if (cmd.id == CMD_GO &&
                    cmd.data[0] == 0xAAU && cmd.data[1] == 0x55U) {
-            // GO AA 55: enable coils, but only when STOP is released.
-            // STEP stays LOW; no movement ISR is installed yet.
+            // GO AA 55: idempotent enable, without generating any STEP.
+            // Never overwrite STEP while an already-accepted train is running.
             if (stopActive) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else {
-                digitalWrite(MOTOR_PWM_PIN, LOW);
-                digitalWrite(MOTOR_ENABLE_PIN, LOW); // A4988 EN active LOW
-                driverEnabled.store(true, std::memory_order_release);
+                if (!driverEnabled.load(std::memory_order_acquire)) {
+                    digitalWrite(MOTOR_PWM_PIN, LOW);
+                    digitalWrite(MOTOR_ENABLE_PIN, LOW); // active LOW
+                    driverEnabled.store(true, std::memory_order_release);
+                }
                 emit(context, cmd, true, cmd.id);
             }
 #if FY_MOTOR_BENCH_TEST
