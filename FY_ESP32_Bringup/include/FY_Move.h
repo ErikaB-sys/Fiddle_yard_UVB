@@ -8,8 +8,8 @@ namespace fy {
 constexpr uint8_t CMD_MOVE = 0x0FU;
 
 // Maximum displacement PER command without a valid reference.
-// This is NOT an accumulated travel limit or an end-stop replacement.
-constexpr uint16_t FY_MOVE_MAX_UNREFERENCED_STEPS = 1000U;
+// BENCH ONLY: no cumulative limit, end-stop protection or FY mechanics.
+constexpr uint16_t FY_MOVE_MAX_UNREFERENCED_STEPS = 10000U;
 
 // Byte 0: high nibble = microstep mode, bit 0 = direction,
 //         bits 3..1 reserved and must be zero.
