@@ -44,6 +44,10 @@ private:
 
 // Bring-up still uses the motor mock; real Nano setJob(), prepare...(),
 // calcProfile() and ISR require the ESP32 motor state / timer HAL port.
+// Thread-safe driver-enable snapshot, published by Muninn (core 1).
+// GPIO27/A4988 ENABLE is active LOW. This is not a movement status.
+bool Muninn_isDriverEnabled();
+
 void Muninn_initMotorMock();
 BaseType_t Muninn_startMotorMock(BringupContext* context);
 }
