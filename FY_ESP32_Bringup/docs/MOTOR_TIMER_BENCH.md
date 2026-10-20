@@ -18,7 +18,7 @@ wird MOVE nicht ausgeführt. Original-Nano-Protokoll bleibt unverändert.
 - Beispiel: `MOVE 11 32 00` = 50 Halbschritte rechts;
   `MOVE 10 32 00` = 50 Halbschritte links;
   `MOVE 11 10 27` = 10000 Halbschritte rechts (ca. 83,3 s, STOP-Test).
-- Abweisung: `MOVE 11 E9 03` (1001), `MOVE 11 00 00` (0),
+- Abweisung: `MOVE 11 11 27` (10001), `MOVE 11 00 00` (0),
   `MOVE 12 32 00` (reservierte Bits),
   `MOVE 50 32 00` (ungültiger Modus).
 - Hexbyte-Eingabe über BabelFish: `MOVE 50` ist **kein**
@@ -27,6 +27,11 @@ wird MOVE nicht ausgeführt. Original-Nano-Protokoll bleibt unverändert.
   Nano-IDs 0x0B/0x0D bleiben im originalen Nano erhalten.
 - Erfolgreiches MOVE antwortet ACK mit DATA=0F: Auftrag **angenommen**,
   nicht abgeschlossen; NACK folgt den Nano-Regeln.
+- **Request/Response-Prinzip:** Kein aktives DONE-/Ende-Telegramm. Die
+  uebergeordnete Steuerung fragt per `GET_STATUS 20` nach dem Motor.
+  Bereits vorhanden: Bit 1 = MOVING (1 faehrt, 0 steht); ein explizit
+  codiertes `MotorState_t::IDLE` ist noch nicht implementiert. Das
+  spaetere Zustands-Polling ersetzt aktive Meldungen ohne Anfrage.
 
 ## Pipeline
 
@@ -59,7 +64,12 @@ unreferenzierten losen Motor testen; nicht an der FY-Mechanik.
    Motor nie unter Spannung ab- oder anstecken.
 5. Mit losem Motor: `STOP AA 55`, `GO AA 55`,
    `MOVE 11 32 00`, `MOVE 10 32 00`, `GO 55 AA`.
-6. 50 Halbschritte @120 Hz brauchen ca. 0,42 s; 10000 ca. 83,33 s.
+6. STOP-Test am frei liegenden, ungekoppelten Motor: `GO AA 55`,
+   `MOVE 11 10 27` (10000 Schritte), dann **waehrend der Fahrt**
+   `STOP 55 AA` per Paste senden, danach `STATUS 20` abfragen.
+   Erwartet: Pulszug wird beendet, ENABLE HIGH, MOVING-Bit 0; MOVE
+   ist nach STOP verriegelt, bis `STOP AA 55` die Sperre loest.
+   50 Halbschritte @120 Hz brauchen ca. 0,42 s; 10000 ca. 83,33 s.
    Pulslänge, Schrittzahl und STOP-Latenz sind **noch nicht gemessen**.
 7. STOP/GO OFF deaktivieren ENABLE und stoppen STEP;
    GO ON startet **keine** Bewegung. Keine gültige Referenz-/Position,
