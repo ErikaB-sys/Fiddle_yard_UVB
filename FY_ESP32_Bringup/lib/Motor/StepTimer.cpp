@@ -21,10 +21,14 @@ constexpr uint16_t kMaxStepHz = 800U;
 constexpr uint32_t kNanoTickUs = 16U;
 constexpr uint16_t kProfileVMin = 120U;
 constexpr uint16_t kProfileVMax = 800U;
+// Single-expression constexpr functions also compile in Arduino's GNU++11.
+constexpr uint32_t nanoDenominator(uint16_t hz) {
+    return 2UL * 256UL * static_cast<uint32_t>(hz);
+}
 constexpr uint16_t nanoReload(uint16_t hz) {
-    const uint32_t denominator = 2UL * 256UL * static_cast<uint32_t>(hz);
     return static_cast<uint16_t>(
-        ((16000000UL + denominator / 2UL) / denominator) - 1UL);
+        ((16000000UL + nanoDenominator(hz) / 2UL) /
+         nanoDenominator(hz)) - 1UL);
 }
 constexpr uint16_t kSlowReload = nanoReload(kProfileVMin);
 constexpr uint16_t kFastReload = nanoReload(kProfileVMax);
