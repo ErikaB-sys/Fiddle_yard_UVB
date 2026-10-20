@@ -31,6 +31,9 @@ void setup() {
     pinMode(MOTOR_PWM_PIN, OUTPUT);
     pinMode(MOTOR_DIR_PIN, OUTPUT);
     pinMode(MOTOR_ENABLE_PIN, OUTPUT);
+    // Muninn owns the A4988 microstep lines: configure them while EN is OFF,
+    // before the startup GPIO check and before either FreeRTOS task starts.
+    fy::Muninn_initMotorMock();
     // Do the STEP/DIR LED check BEFORE UART and Muninn can accept GO.
     // Otherwise a concurrent GO could enable the A4988 during test pulses.
     blinkHw2Outputs();
@@ -46,7 +49,6 @@ void setup() {
     }
 
     // Module owners create their own FreeRTOS tasks on assigned cores.
-    fy::Muninn_initMotorMock();
     const BaseType_t muninn = fy::Muninn_startMotorMock(&bridge);
     const BaseType_t huginn = fy::Huginn_startUART(&bridge);
     if (muninn != pdPASS || huginn != pdPASS) {
