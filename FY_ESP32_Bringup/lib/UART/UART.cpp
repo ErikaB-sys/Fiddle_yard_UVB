@@ -179,12 +179,23 @@ bool UART::queueMotorCommand(bool priority) {
     message.sequence = ++_nextSequence;
     memcpy(message.data, _command.data, sizeof(message.data));
 
+    // Reserve an in-flight slot before handing the request to Muninn.
+    PendingCommand* slot = nullptr;
+    for (auto& pending : _pending)
+        if (!pending.active) { slot = &pending; break; }
+    if (slot == nullptr) {
+        nack(FY_ERROR_LOCATION_UART, NackReason::BUSY);
+        return false;
+    }
     // STOP never waits behind the normal motor queue.
     QueueHandle_t queue = priority ? _context->priorityCommands : _context->commands;
     if (xQueueSend(queue, &message, 0) != pdTRUE) {
         nack(FY_ERROR_LOCATION_UART, NackReason::BUSY);
         return false;
     }
+    slot->sequence = message.sequence;
+    slot->id = message.id;
+    slot->active = true;
     // ACK/NACK is emitted only after Muninn reports the result.
     return true;
 }
@@ -193,8 +204,21 @@ void UART::collectMotorResponses() {
     if (_context == nullptr || _context->events == nullptr) return;
     MotorEvent event{};
     while (xQueueReceive(_context->events, &event, 0) == pdTRUE) {
-        // Motor events have the response ID and one-byte payload defined
-        // by Protokoll.h. The sequence is retained internally for correlation.
+        // Correlate back to the accepted request before sending any wire reply.
+        PendingCommand* slot = nullptr;
+        for (auto& pending : _pending) {
+            if (pending.active && pending.sequence == event.sequence &&
+                pending.id == event.commandId) {
+                slot = &pending;
+                break;
+            }
+        }
+        if (slot == nullptr) continue; // Stale or unsolicited motor event.
+        if (event.responseId != STATUS_ACK && event.responseId != STATUS_NACK)
+            continue; // Invalid event: retain slot, do not fabricate a reply.
+        if (event.responseId == STATUS_ACK && event.responseData != event.commandId)
+            continue;
+        slot->active = false;
         setResponse(event.responseId, &event.responseData, 1U);
         sendResponse();
     }
