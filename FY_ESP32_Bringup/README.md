@@ -31,7 +31,8 @@ veraendert ausschliesslich private Motor-HAL-Werte und den STEP-Pin.
 
 **HW2-Meilenstein:** Der lose NEMA11 dreht ueber den neuen STEP-Timer und
 GO/LEFT/RIGHT, Richtungsumkehr bestaetigt. Die Nachfolge-Firmware mit
-MOVE/prepareMove/10000-Schritte-Grenze ist **noch nicht auf HW2 gebaut/getestet**.
+MOVE/prepareMove wurde inzwischen am losen Motor bestaetigt; die neue
+10000-Schritte-Grenze und STOP waehrend der Langfahrt sind **noch nicht auf HW2 getestet**.
 
 ## Motor-Bench-Test (ausdruecklich aktiviert)
 
@@ -69,10 +70,11 @@ Ein STOP ueber FreeRTOS ist hier noch **kein nachgewiesener Hardware-Not-Halt**.
 
 ## Naechste Schritte
 
-1. MOVE-Implementierung bauen und Payload-/GPIO-Test zunaechst mit VMOT AUS.
-2. MOVE (Richtung, Anzahl und Mikroschrittmodus) am losen NEMA11 pruefen.
+1. Nach Anheben des Bench-MOVE-Limits auf 10000: erneut bauen und mit VMOT AUS flashen.
+2. Lange MOVE-Fahrt und STOP-Abbruch per UART am losen NEMA11 pruefen.
 3. Nano-`Motor::Update()`, `setJob()`, `prepare...()`, Rampenprofile
-   sowie asynchrone Fahrabschluss-Ereignisse in Muninn uebernehmen.
+   sowie Motorstatus fuer pollendes GET_STATUS in Muninn uebernehmen.
+   **Keine spontanen DONE-UART-Antworten**; Request/Response bleibt verbindlich.
 4. Endschalter/Lichtschranken und Referenzlauf samt unmittelbarer
    Motor-Abschaltung integrieren.
 5. Keyboard/OLED, Parameter, MISRA/Cppcheck und Gesamt-HW-Abnahme.
