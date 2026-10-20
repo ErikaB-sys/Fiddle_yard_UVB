@@ -2,6 +2,7 @@
 #include "HW_Config.h"
 #include "Error.h"
 #include <freertos/task.h>
+#include <atomic>
 
 #ifndef FY_STATUS_LED_PIN
 #define FY_STATUS_LED_PIN 2
@@ -101,6 +102,9 @@ bool Motor::calcProfile(uint16_t distance)
 
 
 namespace {
+// Only Muninn writes this; Huginn reads through a C++ atomic snapshot.
+std::atomic<bool> driverEnabled{false};
+
 void setLed(bool on) {
 #if FY_STATUS_LED_PIN >= 0
     digitalWrite(FY_STATUS_LED_PIN,
@@ -127,6 +131,10 @@ void emit(BringupContext* context, const CommandMessage& cmd,
 }
 } // anonymous namespace
 
+bool Muninn_isDriverEnabled() {
+    return driverEnabled.load(std::memory_order_acquire);
+}
+
 void Muninn_initMotorMock() {
 #if FY_STATUS_LED_PIN >= 0
     pinMode(FY_STATUS_LED_PIN, OUTPUT);
@@ -143,6 +151,7 @@ void Muninn_motorMockTask(void* arg) {
     // Motor is NOT initialized. Keep A4988 disabled in this transport test.
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
+    driverEnabled.store(false, std::memory_order_release);
 
     for (;;) {
         // STOP has its own mailbox and is always checked before normal jobs.
@@ -158,6 +167,7 @@ void Muninn_motorMockTask(void* arg) {
             // can start the motor or restore a reference (Nano semantics).
             digitalWrite(MOTOR_PWM_PIN, LOW);
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
+            driverEnabled.store(false, std::memory_order_release);
             stopActive = activate;
 
             // Cancel any old queued movement requests; every dropped request
@@ -175,18 +185,29 @@ void Muninn_motorMockTask(void* arg) {
         if (xQueueReceive(context->commands, &cmd, pdMS_TO_TICKS(2)) != pdTRUE)
             continue;
 
-        // Once the timer ISR and Motor::prepareGo() are ported, these
-        // simulations will be replaced by real Motor command results.
+        // Port the tested Nano prepareGo() enable/disable semantics without
+        // starting a timer or claiming a motor movement was executed.
         if (cmd.id == CMD_GO &&
             cmd.data[0] == 0x55U && cmd.data[1] == 0xAAU) {
+            // GO 55 AA: de-energize the driver; do NOT clear the STOP latch.
             digitalWrite(MOTOR_PWM_PIN, LOW);
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
-            stopActive = false;
-            emit(context, cmd, true, cmd.id); // Safe driver disable.
+            driverEnabled.store(false, std::memory_order_release);
+            emit(context, cmd, true, cmd.id);
+        } else if (cmd.id == CMD_GO &&
+                   cmd.data[0] == 0xAAU && cmd.data[1] == 0x55U) {
+            // GO AA 55: enable coils, but only when STOP is released.
+            // STEP stays LOW; no movement ISR is installed yet.
+            if (stopActive) {
+                emit(context, cmd, false, nackData(NackReason::NOT_READY));
+            } else {
+                digitalWrite(MOTOR_PWM_PIN, LOW);
+                digitalWrite(MOTOR_ENABLE_PIN, LOW); // A4988 EN active LOW
+                driverEnabled.store(true, std::memory_order_release);
+                emit(context, cmd, true, cmd.id);
+            }
         } else {
-            // All actions requiring a live motor/backend are rejected.
-            // Do not announce a successful move/reference/driver enable.
-            (void)stopActive;
+            // MOVE/REFERENCE remain blocked until the real Motor/ISR exists.
             emit(context, cmd, false, nackData(NackReason::NOT_READY));
         }
 
