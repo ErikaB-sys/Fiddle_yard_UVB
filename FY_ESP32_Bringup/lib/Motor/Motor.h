@@ -1,5 +1,6 @@
 #pragma once
 #include "FY_Bringup.h"
+#include "FY_Move.h"
 
 namespace fy {
 // Ported verbatim in meaning from Nano Motor.h: motor-owned job/payload.
@@ -35,6 +36,10 @@ enum class MotorJobResult_t { NONE, DONE, ENDSTOP_LEFT, ENDSTOP_RIGHT };
 class Motor {
 public:
     bool calcProfile(uint16_t distance);
+    // Parameter preparation for unreferenced commissioning moves.
+    // Motor operational state (GO, STOP, MOVING) is still owned by Muninn.
+    MotorCommandResult_t prepareMove(const uint8_t* data,
+                                     MoveRequest& request) const;
     const Profilelement_t* profile() const { return Motor_profil; }
 private:
     bool _TimerValid = false;
@@ -42,8 +47,9 @@ private:
     Profilelement_t Motor_profil[6]{{100,-2},{100,-1},{200,0},{100,+1},{100,+2},{10,0}};
 };
 
-// Bring-up still uses the motor mock: GO/STOP drive ENABLE, and calcProfile()
-// is ported, but Nano setJob(), prepare...() and the motor timer/ISR are pending.
+// Bring-up uses the motor task with an initial bounded STEP ISR.
+// prepareMove() checks the MOVE payload; Nano setJob(), prepareGo/Stop(),
+// the full six-phase profile and motor state machine are not yet ported.
 // Thread-safe driver-enable snapshot, published by Muninn (core 1).
 // GPIO27/A4988 ENABLE is active LOW. This is not a movement status.
 bool Muninn_isDriverEnabled();
