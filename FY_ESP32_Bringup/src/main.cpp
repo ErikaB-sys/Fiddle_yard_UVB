@@ -10,7 +10,9 @@ fy::BringupContext bridge{nullptr, nullptr, nullptr};
 
 void blinkHw2Outputs() {
     // Setup-only visual wiring check; never used for motor stepping.
-    const uint8_t pins[] = {MOTOR_PWM_PIN, MOTOR_DIR_PIN, MOTOR_ENABLE_PIN};
+    // Do not pulse the active-LOW A4988 enable during normal boot.
+    // That would energize the motor as soon as motor supply is attached.
+    const uint8_t pins[] = {MOTOR_PWM_PIN, MOTOR_DIR_PIN};
     for (const uint8_t pin : pins) {
         digitalWrite(pin, pin == MOTOR_ENABLE_PIN ? LOW : HIGH);
         delay(650);  // Deliberately visible to the human eye.
