@@ -47,7 +47,7 @@ void UART::begin(BringupContext* context) {
     _babelFish.begin(115200); // ASCII input and local echo retained.
     Serial.println(F("Hello my friend"));
 #if defined(FY_MOTOR_BENCH_TEST) && FY_MOTOR_BENCH_TEST
-    Serial.println(F("FY ESP32: Huginn ready, Muninn MOVE BENCH (max 1000 steps / 120 Hz)"));
+    Serial.println(F("FY ESP32: Huginn ready, Muninn MOVE BENCH (max 10000 steps / 120 Hz)"));
 #else
     Serial.println(F("FY ESP32: Huginn UART ready, motor backend not ready"));
 #endif
@@ -155,7 +155,7 @@ void UART::decodeExecute() {
     case CMD_MOVE: {
         MoveRequest request{};
         // Length and CRC were already validated. Reject reserved flag bits,
-        // illegal microstep modes and 0 / >1000 steps before queueing.
+        // illegal microstep modes and 0 / >10000 steps before queueing.
         if (!decodeMovePayload(_command.data, request)) {
             _errors.setError(kErrorInvalidData);
             nack(FY_ERROR_LOCATION_MOTOR, NackReason::INVALID_PARAMETER);
