@@ -12,12 +12,12 @@ wird MOVE nicht ausgeführt. Original-Nano-Protokoll bleibt unverändert.
   3=achtel, 4=sechzehntel.
 - Byte 0, Bits 3..1: reserviert, müssen 0 sein.
 - Byte 0, Bit 0: 0=links / 1=rechts.
-- Byte 1/2: uint16 Schrittzahl little-endian, **1 bis 1000 pro Auftrag**.
-- Konstante: `FY_MOVE_MAX_UNREFERENCED_STEPS = 1000U` in
+- Byte 1/2: uint16 Schrittzahl little-endian, **1 bis 10000 pro Auftrag**.
+- Konstante: `FY_MOVE_MAX_UNREFERENCED_STEPS = 10000U` in
   `include/FY_Move.h`. Dies begrenzt NICHT die kumulierte Wegstrecke.
 - Beispiel: `MOVE 11 32 00` = 50 Halbschritte rechts;
   `MOVE 10 32 00` = 50 Halbschritte links;
-  `MOVE 11 E8 03` = 1000 Halbschritte rechts.
+  `MOVE 11 10 27` = 10000 Halbschritte rechts (ca. 83,3 s, STOP-Test).
 - Abweisung: `MOVE 11 E9 03` (1001), `MOVE 11 00 00` (0),
   `MOVE 12 32 00` (reservierte Bits),
   `MOVE 50 32 00` (ungültiger Modus).
@@ -51,7 +51,7 @@ unreferenzierten losen Motor testen; nicht an der FY-Mechanik.
 1. **VMOT AUS** beim Umstecken, Reset und Flash. GPIO-ENABLE hat
    vor dem Boot noch kein vollständig nachgewiesenes Hardware-Failsafe.
 2. Neuen Stand bauen und flashen; Bootmeldung:
-   `FY ESP32: Huginn ready, Muninn MOVE BENCH (max 1000 steps / 120 Hz)`.
+   `FY ESP32: Huginn ready, Muninn MOVE BENCH (max 10000 steps / 120 Hz)`.
 3. MS0 G13 HIGH, MS1 G14 LOW, MS2 G4 LOW (Default: Halbschritt);
    G27 ENABLE HIGH bis zu GO.
 4. Vor Motorversorgung A4988 VREF/Stromgrenze, Wicklungspaare,
@@ -59,7 +59,7 @@ unreferenzierten losen Motor testen; nicht an der FY-Mechanik.
    Motor nie unter Spannung ab- oder anstecken.
 5. Mit losem Motor: `STOP AA 55`, `GO AA 55`,
    `MOVE 11 32 00`, `MOVE 10 32 00`, `GO 55 AA`.
-6. 50 Halbschritte @120 Hz brauchen ca. 0,42 s; 1000 ca. 8,33 s.
+6. 50 Halbschritte @120 Hz brauchen ca. 0,42 s; 10000 ca. 83,33 s.
    Pulslänge, Schrittzahl und STOP-Latenz sind **noch nicht gemessen**.
 7. STOP/GO OFF deaktivieren ENABLE und stoppen STEP;
    GO ON startet **keine** Bewegung. Keine gültige Referenz-/Position,
