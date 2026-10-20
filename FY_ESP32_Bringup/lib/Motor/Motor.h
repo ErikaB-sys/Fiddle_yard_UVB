@@ -30,6 +30,18 @@ struct MotorProfileParam_t {
 enum class MotorCommandResult_t : uint8_t { ACCEPTED, INVALID_DATA, STOP_ACTIVE, BUSY };
 enum class MotorJobResult_t { NONE, DONE, ENDSTOP_LEFT, ENDSTOP_RIGHT };
 
+// Ported six-phase Nano motor profile calculation, no timer dependency.
+// Other Motor state and ISR functions will be integrated in the next step.
+class Motor {
+public:
+    bool calcProfile(uint16_t distance);
+    const Profilelement_t* profile() const { return Motor_profil; }
+private:
+    bool _TimerValid = false;
+    MotorProfileParam_t _ProfileParam{160,400,100,100,-2,-1,+1,+2,1,1,1,1};
+    Profilelement_t Motor_profil[6]{{100,-2},{100,-1},{200,0},{100,+1},{100,+2},{10,0}};
+};
+
 // Bring-up still uses the motor mock; real Nano setJob(), prepare...(),
 // calcProfile() and ISR require the ESP32 motor state / timer HAL port.
 void Muninn_initMotorMock();
