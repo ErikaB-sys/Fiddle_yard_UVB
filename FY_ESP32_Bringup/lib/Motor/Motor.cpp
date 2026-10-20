@@ -1,8 +1,13 @@
 #include "Motor.h"
+#include "StepTimer.h"
 #include "HW_Config.h"
 #include "Error.h"
 #include <freertos/task.h>
 #include <atomic>
+
+#ifndef FY_MOTOR_BENCH_TEST
+#define FY_MOTOR_BENCH_TEST 0
+#endif
 
 #ifndef FY_STATUS_LED_PIN
 #define FY_STATUS_LED_PIN 2
@@ -104,6 +109,10 @@ bool Motor::calcProfile(uint16_t distance)
 namespace {
 // Only Muninn writes this; Huginn reads through a C++ atomic snapshot.
 std::atomic<bool> driverEnabled{false};
+std::atomic<bool> motorMoving{false};
+
+constexpr uint16_t kBenchSteps = 64U;
+constexpr uint16_t kBenchStepHz = 120U;
 
 void setLed(bool on) {
 #if FY_STATUS_LED_PIN >= 0
@@ -135,19 +144,30 @@ bool Muninn_isDriverEnabled() {
     return driverEnabled.load(std::memory_order_acquire);
 }
 
+bool Muninn_isMoving() {
+    return motorMoving.load(std::memory_order_acquire);
+}
+
 void Muninn_initMotorMock() {
-    // Configure the A4988 microstep lines BEFORE the motor task and any GO
-    // request can run. ENABLE remains HIGH (driver disabled) throughout.
-    // Set the output latch first to avoid a short LOW pulse on pinMode().
+    // The A4988 microstep inputs are configured while ENABLE is HIGH.
+    // Bench: half-step (MS1 HIGH, MS2 LOW, MS3 LOW) to see rotation.
+    // Normal mode: 1/16 microstep (HIGH/HIGH/HIGH) for FY hardware.
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     digitalWrite(MOTOR_PWM_PIN, LOW);
-    constexpr uint8_t microstepPins[] = {
+    const uint8_t microstepPins[] = {
         MOTOR_MS0_PIN, MOTOR_MS1_PIN, MOTOR_MS2_PIN
     };
-    for (const uint8_t pin : microstepPins) {
-        digitalWrite(pin, HIGH);
-        pinMode(pin, OUTPUT);
+#if FY_MOTOR_BENCH_TEST
+    const uint8_t microstepLevels[] = {HIGH, LOW, LOW};
+#else
+    const uint8_t microstepLevels[] = {HIGH, HIGH, HIGH};
+#endif
+    for (size_t i = 0; i < 3U; ++i) {
+        digitalWrite(microstepPins[i], microstepLevels[i]);
+        pinMode(microstepPins[i], OUTPUT);
     }
+    // Timer is armed ONLY when a bounded motion test is accepted.
+    (void)stepTimerBegin();
 #if FY_STATUS_LED_PIN >= 0
     pinMode(FY_STATUS_LED_PIN, OUTPUT);
     setLed(false);
@@ -164,6 +184,7 @@ void Muninn_motorMockTask(void* arg) {
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     driverEnabled.store(false, std::memory_order_release);
+    motorMoving.store(false, std::memory_order_release);
 
     for (;;) {
         // STOP has its own mailbox and is always checked before normal jobs.
@@ -175,11 +196,12 @@ void Muninn_motorMockTask(void* arg) {
                      nackData(NackReason::INVALID_PARAMETER));
                 continue;
             }
-            // Both STOP and its release force the driver OFF. Neither
-            // can start the motor or restore a reference (Nano semantics).
-            digitalWrite(MOTOR_PWM_PIN, LOW);
+            // First disable the driver, THEN stop STEP generation.
+            // STOP and release both remain non-resuming, Nano semantics.
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
+            stepTimerStop();
+            motorMoving.store(false, std::memory_order_release);
             stopActive = activate;
 
             // Cancel any old queued movement requests; every dropped request
@@ -194,6 +216,14 @@ void Muninn_motorMockTask(void* arg) {
             continue;
         }
 
+        // A completed pulse train is a motor event, not a new UART ACK.
+        // Completion retains coil holding torque until explicit GO off.
+        uint32_t pulsesDone = 0U;
+        if (stepTimerTakeDone(pulsesDone)) {
+            motorMoving.store(false, std::memory_order_release);
+            (void)pulsesDone; // Bench position is intentionally not referenced.
+        }
+
         if (xQueueReceive(context->commands, &cmd, pdMS_TO_TICKS(2)) != pdTRUE)
             continue;
 
@@ -202,9 +232,10 @@ void Muninn_motorMockTask(void* arg) {
         if (cmd.id == CMD_GO &&
             cmd.data[0] == 0x55U && cmd.data[1] == 0xAAU) {
             // GO 55 AA: de-energize the driver; do NOT clear the STOP latch.
-            digitalWrite(MOTOR_PWM_PIN, LOW);
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
+            stepTimerStop();
+            motorMoving.store(false, std::memory_order_release);
             emit(context, cmd, true, cmd.id);
         } else if (cmd.id == CMD_GO &&
                    cmd.data[0] == 0xAAU && cmd.data[1] == 0x55U) {
@@ -218,8 +249,26 @@ void Muninn_motorMockTask(void* arg) {
                 driverEnabled.store(true, std::memory_order_release);
                 emit(context, cmd, true, cmd.id);
             }
+#if FY_MOTOR_BENCH_TEST
+        } else if (cmd.id == CMD_LEFT || cmd.id == CMD_RIGHT) {
+            // TEMPORARY BENCH MODE ONLY: no fake reference, no track movement.
+            // Each command gives exactly 64 half-steps at 120 steps/s.
+            // A loose, disconnected NEMA11 is required for this test!
+            if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
+                emit(context, cmd, false, nackData(NackReason::NOT_READY));
+            } else if (stepTimerRunning()) {
+                emit(context, cmd, false, nackData(NackReason::BUSY));
+            } else if (!stepTimerStart(kBenchSteps,
+                                       cmd.id == CMD_RIGHT,
+                                       kBenchStepHz)) {
+                emit(context, cmd, false, nackData(NackReason::NOT_READY));
+            } else {
+                motorMoving.store(true, std::memory_order_release);
+                emit(context, cmd, true, cmd.id);
+            }
+#endif
         } else {
-            // MOVE/REFERENCE remain blocked until the real Motor/ISR exists.
+            // Reference/track/position still require the real Motor state.
             emit(context, cmd, false, nackData(NackReason::NOT_READY));
         }
 
