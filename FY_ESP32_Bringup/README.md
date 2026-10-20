@@ -1,55 +1,78 @@
 # FY – ESP32-WROOM / Huginn und Muninn
 
-**Portierungsbranch:** `feature/FY_ESP32_Port`  
-**Status:** ESP32-Bring-up; **kein produktiver Motorbetrieb**.
+**Branch:** `feature/FY_ESP32_Port` · **Stand:** 20.10.2026  
+**Status:** Funktionsfaehiger Dual-Core- und UART-Port, begrenzter
+Schreibtisch-Motortest in Vorbereitung; **keine produktiv sichere FY-Bewegung**.
 
-## Aufbau
+## Wo arbeitet was?
 
-| Besitzer | ESP32-Core | Aufgaben |
-| --- | --- | --- |
-| **Huginn** | Core 0 | UART, BabelFish, Kommandoprüfung, später Keyboard/OLED/WLAN und Response-Versand |
-| **Muninn** | Core 1 | Motor-Dummy; später Motor, ISR, Referenzierung, Switches und Sicherheit |
+| Bereich | Core | Code | Aufgabe |
+|---|---|---|---|
+| Huginn | 0 | `lib/UART/UART.cpp` | BabelFish, Nano-Protokoll, ACK/NACK, Status |
+| Transport | FreeRTOS | `include/FY_Bringup.h` | Kommandos, STOP-Prioritaet, Antworten mit Sequenznummern |
+| Muninn | 1 | `lib/Motor/Motor.cpp` | GO/STOP, ENABLE, Mikroschritt-Aufloesung, begrenzte Bench-Auftraege |
+| Motor-Timer | ISR | `lib/Motor/StepTimer.cpp` | Hardwaretimer -> STEP HIGH/LOW, Zaehlen auf fallender Flanke |
+| Hauptinitialisierung | Arduino | `src/main.cpp` | GPIO-Defaults, Boot-GPIO-Test, Queues, Tasks |
+| Hardware | HW2 | `include/HW_Config.h` | Konkrete ESP32-Pinbelegung |
 
-**Stand im Code:** Die `main.cpp` erstellt Queue-Handles und startet die im jeweiligen Modul definierten Tasks. UART und Motor-Dummy laufen in `lib/UART/` bzw. `lib/Motor/`. Die Originale der Nano-Firmware bleiben im benachbarten `FY_Controller_Motor/`-Baum.
+Huginn und Muninn kommunizieren ueber FreeRTOS-Queues. Muninn ist
+alleiniger Besitzer von Motorfreigabe und STEP-Ausgabe. Die Timer-ISR
+veraendert ausschliesslich private Motor-HAL-Werte und den STEP-Pin.
 
-## Bereits übernommen / untersucht
-- Nano-`Protokoll.h` und `BabelFish`; ASCII-zu-Kommando und CRC/Tabellenvalidierung getestet.
-- FreeRTOS-Queues zwischen Huginn und Muninn (Bring-up-Nachrichten).
-- LED-getriebener Motor-Dummy auf Muninn, **keine** STEP-, DIR- oder ENABLE-Ausgabe.
-- Nano-Command-Spickzettel als Ausgangspunkt mit Portierungshinweis.
-- Modulnahe Diagramme als Nano-Ausgangsstand; diese werden während der Portierung auf die tatsächliche ESP32-Implementierung angepasst.
+## Bisher geprueft
 
-**Noch nicht implementiert:** Originale Nano-UART-Handler/ACK/NACK, `MotorJob_t`-Übergabe, Response-Task, Motorzustandsautomat, `prepareStop()`/`prepareGo()`, Timer/ISR, echte Sensoren, Fehlerverwaltung und Keyboard.
+- PlatformIO auf echter ESP32-WROOM-HW2 gebaut und geflasht (UART/GO/STOP).
+- Nano-`Protokoll.h`, `BabelFish` und `Error` inhaltlich unveraendert uebernommen.
+- `HELP`, `FIRMWARE`, mehrere `GET`-Responses und NACKs binär getestet.
+- STOP-Sperre / GO-Treiberfreigabe und GPIO27-Pegel auf HW2 erfolgreich gemessen.
+- GPIO13/14/4 als A4988-MS1/MS2/MS3 im bisherigen 1/16-Stand auf HIGH
+  gemessen; mit der aktuellen **neuen Bench-Firmware** gehen MS2/MS3 auf LOW.
+- Core-Dump-Fehlermeldung nach Flash-Erase aus dem Bootprotokoll verschwunden.
 
-## Plattform und erster Funktionstest
-PlatformIO-Projektordner `FY_ESP32_Bringup`; `board = esp32dev`, Arduino-Framework, Monitor 115200 Baud.
+**Noch nicht auf HW2 gebaut/geprueft:** der neue `StepTimer.cpp` und
+der voruebergehende Halb-Schritt-Bench-Modus. STEP-Pulse und Motorbewegung
+sind daher noch kein bestaetigter Funktionsnachweis.
 
-1. `git pull`, Projekt in PlatformIO öffnen, bauen und hochladen.
-2. UART-Monitor öffnen. Erwartete Startmeldung: `FY ESP32: Huginn (UART) <-> Muninn (motor mock), NO MOTION`.
-3. Als derzeit getestetes Beispiel `GO AA 55` eingeben. BabelFish akzeptiert Hex-DATA-Bytes als **separate Tokens**.
-4. Erwartete Bring-up-Rückmeldung: `FY_TEST: seq=... cmd=0x07 Muninn_core=1 accepted=1`.
+## Motor-Bench-Test (ausdruecklich aktiviert)
 
-Dies ist eine **simulierte Testantwort**, kein echtes Nano-ACK; sie bestätigt weder die GO-Verriegelung noch Motorbewegung. Der zuletzt umgebaute Modulschnitt muss lokal erneut kompiliert und getestet werden.
+`platformio.ini` enthaelt `-D FY_MOTOR_BENCH_TEST=1`.
 
-**GPIO2** wird ausschließlich als optionale Test-LED verwendet (Konfiguration in `platformio.ini`). Keine zusätzlichen Lasten ohne Boardprüfung anschließen.
+- Nur fuer **losen, mechanisch nicht an FY angeschlossenen NEMA11**.
+- Mikroschritt-Leitungen: HIGH/LOW/LOW = 1/2 Schritt.
+- `STOP AA 55` hebt die STOP-Sperre auf.
+- `GO AA 55` schaltet den A4988 ein, ohne Bewegung.
+- `LEFT` / `RIGHT`: jeweils **64 Halbschritte bei 120 Hz** (ca. 0,53 s).
+- `GO 55 AA` bzw. `STOP 55 AA`: Treiber AUS, laufende STEP-Pulse abbrechen.
+- Andere Fahrbefehle, Referenzierung und Gleispositionierung bleiben abgewiesen.
+- Keine frei erfundene Referenzposition; `GET_POSITION` meldet UNKNOWN.
 
-## Dokumentation – lebende ESP32-Arbeitsstände
-- [Coding Rules](docs/CODING_RULES.md) und [Systemarchitektur](docs/SYSTEM_ARCHITECTURE.md)
-- [Systemdiagramme](docs/System/)
-- [UART-Datenmodell und Ablauf](lib/UART/UART.md) und [UART-Command-Spickzettel](src/UART_Command_Spickzettel.md)
-- [Motor, ISR, Referenzierung](lib/Motor/Motor.md)
-- [Switches: Sensor- und Sicherheitspfad](lib/Switches/Switches.md)
-- [Error: Fehlerverwaltung](lib/Error/Error.md)
-- [Keyboard: Tasten und OLED](lib/Keyboard/Keyboard.md)
-- [BabelFish: ASCII-Adapter](lib/BabelFish/BabelFish.md)
+**Vor dem Einsatz an der FY-Buehne Bench-Flag deaktivieren und Motor-,
+Sensor-, Grenz- sowie Referenzlogik vollstaendig portieren.**
 
-Die Moduldiagramme stammen zunächst aus dem Nano und werden **an Ort und Stelle** angepasst. Es gibt keine zweite dauerhafte Nano-Referenzablage im ESP32-Baum. Der unveränderte Nano-Stand bleibt in `FY_Controller_Motor/` im selben Repository.
+Wichtig: Motorversorgung beim Upload/Reset/Umstecken AUS,
+Treiber-Hardware-ENABLE-Failsafe noch pruefen, vor Strom einschalten
+A4988-VREF, Versorgungspegel, VMOT-Kondensator und Motorverkabelung pruefen.
+Ein STOP ueber FreeRTOS ist hier noch **kein nachgewiesener Hardware-Not-Halt**.
 
-## Weiteres Vorgehen
-1. #152: `MotorJob_t` über FreeRTOS-Queues und simulierte Motorantworten.
-2. #156: Nano-UART-Handler und Response-Sendeweg unverändert in der Befehlssemantik portieren.
-3. #163: Cppcheck/MISRA früh einbauen und prüfen.
-4. #154/#153/#155: Motorzustand, Hardware-STEP/ISR sowie Sensoren mit direkten Abschaltpfaden auf Muninn.
-5. #157: Keyboard auf Huginn; I²C-Hardware prüfen.
+## Dateien zur Orientierung
 
-Jeweilige Codeänderungen und passende Moduldiagramme gehören in denselben Issue-bezogenen Commit (#162 für übergreifende Architektur).
+- [Erster Motor-Timer, ISR und Schritt-fuer-Schritt-Test](docs/MOTOR_TIMER_BENCH.md)
+- [UART-Protokoll und Hex-Testfolgen](docs/UART_PORT_STEP2.md)
+- [WROOM-Pinout / HW2](docs/PINOUT_ESP32.md)
+- [Systemarchitektur und Task-Modell](docs/SYSTEM_ARCHITECTURE.md)
+- [Coding-Regeln](docs/CODING_RULES.md)
+- [UART-Spickzettel](src/UART_Command_Spickzettel.md)
+
+## Naechste Schritte
+
+1. Build und GPIO-/Schritt-Timing pruefen, zunaechst mit VMOT AUS.
+2. Kurze, strombegrenzte Drehtests am losen NEMA11.
+3. Nano-`Motor::Update()`, `setJob()`, `prepare...()`, Rampenprofile
+   sowie asynchrone Fahrabschluss-Ereignisse in Muninn uebernehmen.
+4. Endschalter/Lichtschranken und Referenzlauf samt unmittelbarer
+   Motor-Abschaltung integrieren.
+5. Keyboard/OLED, Parameter, MISRA/Cppcheck und Gesamt-HW-Abnahme.
+
+Verbindliche Koordinierung: [ESP32 Roadmap #150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150),
+[Motor #153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153),
+[Motorlogik #154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154).
