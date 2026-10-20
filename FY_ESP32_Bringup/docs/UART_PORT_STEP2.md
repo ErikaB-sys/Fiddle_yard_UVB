@@ -61,7 +61,7 @@ Firmware and HELP return `28 | ASCII | CRC` and `18 | ASCII | CRC`, respectively
 ## Build and hardware checks still required
 
 1. PlatformIO build `FY_ESP32_Bringup`.
-2. Flash to HW2 with motor **supply disconnected**. Confirm GPIO27 (A4988 EN) remains HIGH throughout the boot test; only STEP and DIR are blink-tested. GPIO25 (STEP) is LOW after the test.
+2. Flash to HW2 with motor **supply disconnected**. Confirm GPIO27 (A4988 EN) remains HIGH throughout the boot test; only STEP and DIR are blink-tested **before either FreeRTOS task is started**. GPIO25 (STEP) is LOW after the test. This sequencing prevents UART GO from enabling the driver during boot pulses.
 3. With **motor supply disconnected**, check G27 (ENABLE): HIGH after boot, LOW after `GO AA 55`, HIGH after `GO 55 AA` and after both STOP variants; G25 (STEP) stays LOW outside boot LED test.
 4. Test sequence: `GO AA 55` -> `GET_STATUS 20` (bit 0=1) -> `STOP 55 AA` -> `GET_STATUS 20` (bit 0=0) -> `GO AA 55` (NACK NOT_READY) -> `STOP AA 55` -> `GO AA 55` (ACK and enabled) -> `GO 55 AA` (ACK and disabled).
 5. Exercise all IMMEDIATE cases including invalid selectors and bad lengths, observe binary CRC.
