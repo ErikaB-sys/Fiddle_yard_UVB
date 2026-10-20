@@ -108,34 +108,94 @@ void setLed(bool on) {
 #endif
 }
 
-
+uint8_t nackData(NackReason reason) {
+    return static_cast<uint8_t>(
+        FY_ERROR_LOCATION_MOTOR | static_cast<uint8_t>(reason));
 }
+
+void emit(BringupContext* context, const CommandMessage& cmd,
+          bool accepted, uint8_t data) {
+    const MotorEvent event{
+        cmd.sequence, cmd.id,
+        static_cast<uint8_t>(xPortGetCoreID()),
+        accepted ? STATUS_ACK : STATUS_NACK,
+        data
+    };
+    (void)xQueueSend(context->events, &event, pdMS_TO_TICKS(10));
+}
+} // anonymous namespace
+
 void Muninn_initMotorMock() {
 #if FY_STATUS_LED_PIN >= 0
     pinMode(FY_STATUS_LED_PIN, OUTPUT);
     setLed(false);
 #endif
 }
+
 void Muninn_motorMockTask(void* arg) {
     auto* context = static_cast<BringupContext*>(arg);
     CommandMessage cmd{};
     bool ledState = false;
+    bool stopActive = false;
+
+    // Motor is NOT initialized. Keep A4988 disabled in this transport test.
+    digitalWrite(MOTOR_PWM_PIN, LOW);
+    digitalWrite(MOTOR_ENABLE_PIN, HIGH);
+
     for (;;) {
-        if (xQueueReceive(context->commands, &cmd, portMAX_DELAY) == pdTRUE) {
-            // Simulation only: no position, state machine, sensor or movement.
+        // STOP has its own mailbox and is always checked before normal jobs.
+        if (xQueueReceive(context->priorityCommands, &cmd, 0) == pdTRUE) {
+            const bool activate = cmd.data[0] == 0x55U && cmd.data[1] == 0xAAU;
+            const bool release = cmd.data[0] == 0xAAU && cmd.data[1] == 0x55U;
+            if (cmd.id != CMD_STOPP || (!activate && !release)) {
+                emit(context, cmd, false,
+                     nackData(NackReason::INVALID_PARAMETER));
+                continue;
+            }
+            // Both STOP and its release force the driver OFF. Neither
+            // can start the motor or restore a reference (Nano semantics).
+            digitalWrite(MOTOR_PWM_PIN, LOW);
+            digitalWrite(MOTOR_ENABLE_PIN, HIGH);
+            stopActive = activate;
+
+            // Cancel any old queued movement requests; every dropped request
+            // still receives an explicit negative result.
+            CommandMessage pending{};
+            while (xQueueReceive(context->commands, &pending, 0) == pdTRUE)
+                emit(context, pending, false, nackData(NackReason::NOT_READY));
+
+            emit(context, cmd, true, cmd.id);
             ledState = !ledState;
             setLed(ledState);
-            MotorEvent response{cmd.sequence, cmd.id,
-                                static_cast<uint8_t>(xPortGetCoreID()), true};
-            (void)xQueueSend(context->events, &response, pdMS_TO_TICKS(10));
+            continue;
         }
+
+        if (xQueueReceive(context->commands, &cmd, pdMS_TO_TICKS(2)) != pdTRUE)
+            continue;
+
+        // Once the timer ISR and Motor::prepareGo() are ported, these
+        // simulations will be replaced by real Motor command results.
+        if (cmd.id == CMD_GO &&
+            cmd.data[0] == 0x55U && cmd.data[1] == 0xAAU) {
+            digitalWrite(MOTOR_PWM_PIN, LOW);
+            digitalWrite(MOTOR_ENABLE_PIN, HIGH);
+            stopActive = false;
+            emit(context, cmd, true, cmd.id); // Safe driver disable.
+        } else {
+            // All actions requiring a live motor/backend are rejected.
+            // Do not announce a successful move/reference/driver enable.
+            (void)stopActive;
+            emit(context, cmd, false, nackData(NackReason::NOT_READY));
+        }
+
+        ledState = !ledState;
+        setLed(ledState);
     }
 }
-
 
 BaseType_t Muninn_startMotorMock(BringupContext* context) {
     return xTaskCreatePinnedToCore(
         Muninn_motorMockTask, "Muninn_Motor", 4096,
         context, 3, nullptr, CORE_MUNINN);
 }
-}
+} // namespace fy
