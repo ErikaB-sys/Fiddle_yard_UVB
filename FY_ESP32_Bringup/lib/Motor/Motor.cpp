@@ -136,6 +136,18 @@ bool Muninn_isDriverEnabled() {
 }
 
 void Muninn_initMotorMock() {
+    // Configure the A4988 microstep lines BEFORE the motor task and any GO
+    // request can run. ENABLE remains HIGH (driver disabled) throughout.
+    // Set the output latch first to avoid a short LOW pulse on pinMode().
+    digitalWrite(MOTOR_ENABLE_PIN, HIGH);
+    digitalWrite(MOTOR_PWM_PIN, LOW);
+    constexpr uint8_t microstepPins[] = {
+        MOTOR_MS0_PIN, MOTOR_MS1_PIN, MOTOR_MS2_PIN
+    };
+    for (const uint8_t pin : microstepPins) {
+        digitalWrite(pin, HIGH);
+        pinMode(pin, OUTPUT);
+    }
 #if FY_STATUS_LED_PIN >= 0
     pinMode(FY_STATUS_LED_PIN, OUTPUT);
     setLed(false);
