@@ -1,45 +1,29 @@
 #pragma once
-// FY HW2 / ESP32-WROOM wiring. No AVR port or timer-register definitions.
+// HW2: ESP32-WROOM pin allocation and electrical purpose.
+// GPIO numbers refer to the ESP32 board marking Gxx.
+
 #include <Arduino.h>
 
-// Motor driver A4988/TB6600 logic lines (HW2 verified LED sequence).
-constexpr uint8_t MOTOR_PWM_PIN = 25;     // PULS / STEP
-constexpr uint8_t MOTOR_DIR_PIN = 26;
-constexpr uint8_t MOTOR_ENABLE_PIN = 27;  // A4988 active LOW; HIGH = off
+// A4988 driver logic; STEP is intended for hardware-timer-driven pulses.
+constexpr uint8_t MOTOR_PWM_PIN    = 25; // G25 -> PULS / STEP (output)
+constexpr uint8_t MOTOR_DIR_PIN    = 26; // G26 -> DIR (output)
+constexpr uint8_t MOTOR_ENABLE_PIN = 27; // G27 -> ENA (output, LOW enables)
 
-// Planned FY sensor inputs; verify 3.3 V output levels before connection.
-constexpr uint8_t LSREF_PIN = 32;
-constexpr uint8_t LS4_PIN   = 33; // Timing belt / second reference gate
-constexpr uint8_t LSL_PIN   = 16;
-constexpr uint8_t LSR_PIN   = 17;
+// Planned light barriers / switches (inputs, not yet wired on HW2).
+// Confirm every sensor has a 0..3.3 V output BEFORE connecting.
+constexpr uint8_t LSREF_PIN = 32; // G32 -> reference light barrier 1
+constexpr uint8_t LS4_PIN   = 33; // G33 -> reference light barrier 2 / belt
+constexpr uint8_t LSL_PIN   = 16; // G16 -> left end stop
+constexpr uint8_t LSR_PIN   = 17; // G17 -> right end stop
 
-constexpr uint8_t SWITCH_REF_ID         = 0x01;
-constexpr uint8_t SWITCH_TRIM_LEFT_ID   = 0x02;
-constexpr uint8_t SWITCH_TRIM_RIGHT_ID  = 0x03;
-constexpr uint8_t SWITCH_TIMING_BELT_ID = 0x04;
+// Reserved for optional local I2C keyboard / display (not connected).
+constexpr uint8_t I2C_SDA_PIN = 21; // G21 -> I2C SDA
+constexpr uint8_t I2C_SCL_PIN = 22; // G22 -> I2C SCL
 
-constexpr uint8_t DISPLAY_ADDRESS = 0x3C;
-constexpr uint8_t PORT_EXPANDER_ADDRESS = 0x27;
-constexpr uint8_t I2C_SDA_PIN = 21; // Reserved; not wired on HW2
-constexpr uint8_t I2C_SCL_PIN = 22; // Reserved; not wired on HW2
-
-// Nano-compatible PCF8574 assignments (not connected yet).
-constexpr uint8_t BUTTON_STOP_PIN = 7;
-constexpr uint8_t BUTTON_LEFT_PIN = 6;
-constexpr uint8_t BUTTON_GO_PIN = 5;
-constexpr uint8_t BUTTON_RIGHT_PIN = 4;
-constexpr uint8_t LED_STOP_PIN = 3;
-constexpr uint8_t LED_LEFT_PIN = 2;
-constexpr uint8_t LED_GO_PIN = 1;
-constexpr uint8_t LED_RIGHT_PIN = 0;
-
-// OPTIONAL future SPI extension (Issue #165), deliberately not enabled:
-// constexpr uint8_t SPI_SCLK_PIN = 18;
-// constexpr uint8_t SPI_MISO_PIN = 19;
-// constexpr uint8_t SPI_MOSI_PIN = 23;
-// constexpr uint8_t SPI_DISPLAY_CS_PIN = ...; // assign after GPIO review
-// constexpr uint8_t SPI_EXPANDER_CS_PIN = ...;
-// constexpr uint8_t SPI_DISPLAY_DC_PIN = ...;
-// DE-9 connector: 1 GND, 2 3V3, 3 SCLK, 4 MOSI, 5 MISO,
-// 6 CS Display, 7 CS MCP23S17, 8 DC, 9 reserve/CS3.
-// 12 V lighting power separately wired; common GND at defined point.
+// Optional SPI building/display extension: RESERVED, NOT IMPLEMENTED.
+// constexpr uint8_t SPI_SCLK_PIN = 18; // G18 -> SPI clock
+// constexpr uint8_t SPI_MISO_PIN = 19; // G19 -> SPI input
+// constexpr uint8_t SPI_MOSI_PIN = 23; // G23 -> SPI output
+// Display-CS, MCP23S17-CS, and DC GPIOs are not assigned yet.
+// Proposed DE-9: GND, 3V3, SCLK, MOSI, MISO, two CS, DC, reserve.
+// 12 V light power separately wired; common GND at a defined point.
