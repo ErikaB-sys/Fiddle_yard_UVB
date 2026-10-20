@@ -302,12 +302,15 @@ void UART::handleGetError() {
 }
 
 void UART::handleGetPosition() {
-    // Nano 4-byte little-endian wire encoding. No invented position.
+    // Nano 4-byte little-endian response. The ESP32-only *bench* flag is
+    // bit 16 = 1: lower 16 bits are a simulated position, not an LS reference.
+    // If bench tracking is invalid, the original UNKNOWN value is returned.
+    const uint32_t value = Muninn_positionSnapshot();
     const uint8_t data[4]{
-        static_cast<uint8_t>(kPositionUnknown & 0xFFU),
-        static_cast<uint8_t>((kPositionUnknown >> 8U) & 0xFFU),
-        static_cast<uint8_t>((kPositionUnknown >> 16U) & 0xFFU),
-        static_cast<uint8_t>((kPositionUnknown >> 24U) & 0xFFU)
+        static_cast<uint8_t>(value & 0xFFU),
+        static_cast<uint8_t>((value >> 8U) & 0xFFU),
+        static_cast<uint8_t>((value >> 16U) & 0xFFU),
+        static_cast<uint8_t>((value >> 24U) & 0xFFU)
     };
     setResponse(STATUS_Position, data, sizeof(data));
 }
