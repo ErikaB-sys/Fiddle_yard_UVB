@@ -17,10 +17,12 @@ struct MotorEvent {
     uint32_t sequence;
     uint8_t commandId;
     uint8_t core;
-    bool accepted;
+    uint8_t responseId;    // STATUS_ACK or STATUS_NACK
+    uint8_t responseData;  // command ID (ACK) or location|reason (NACK)
 };
 struct BringupContext {
     QueueHandle_t commands;
     QueueHandle_t events;
+    QueueHandle_t priorityCommands; // independent PRIORITY mailbox (STOP)
 };
 }
