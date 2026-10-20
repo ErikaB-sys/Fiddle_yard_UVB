@@ -248,6 +248,23 @@ namespace {
 std::atomic<bool> driverEnabled{false};
 std::atomic<bool> motorMoving{false};
 std::atomic<uint8_t> motorStateSnapshot{static_cast<uint8_t>(MotorState_t::STOPPED)};
+// Wire marker bit 16 denotes BENCH-SIMULATED position; 0x7FFF alone
+// retains its original Nano meaning (POSITION_UNKNOWN).
+constexpr uint32_t kPositionUnknown = 0x00007FFFU;
+constexpr uint32_t kPositionBenchFlag = 0x00010000U;
+std::atomic<uint32_t> positionSnapshot{kPositionUnknown};
+
+void publishPosition(const Motor& motor) {
+#if FY_MOTOR_BENCH_TEST
+    const uint32_t position = motor.benchPositionValid()
+        ? (kPositionBenchFlag | static_cast<uint32_t>(motor.benchPosition()))
+        : kPositionUnknown;
+    positionSnapshot.store(position, std::memory_order_release);
+#else
+    (void)motor;
+    positionSnapshot.store(kPositionUnknown, std::memory_order_release);
+#endif
+}
 
 // Bench-only fixed pulse frequency; the number of steps comes from MOVE.
 constexpr uint16_t kBenchStepHz = 120U;
@@ -296,6 +313,10 @@ bool Muninn_isMoving() {
     return motorMoving.load(std::memory_order_acquire);
 }
 
+uint32_t Muninn_positionSnapshot() {
+    return positionSnapshot.load(std::memory_order_acquire);
+}
+
 MotorState_t Muninn_motorState() {
     return static_cast<MotorState_t>(motorStateSnapshot.load(std::memory_order_acquire));
 }
@@ -308,7 +329,7 @@ void Muninn_initMotorMock() {
     pinMode(MOTOR_MS1_PIN, OUTPUT);
     pinMode(MOTOR_MS2_PIN, OUTPUT);
 #if FY_MOTOR_BENCH_TEST
-    applyMicrostepMode(MoveMicrostep::HALF);
+    applyMicrostepMode(MoveMicrostep::QUARTER);
 #else
     applyMicrostepMode(MoveMicrostep::SIXTEENTH);
 #endif
@@ -328,7 +349,7 @@ void Muninn_motorMockTask(void* arg) {
     // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
     bool stopActive = true; // Mirrors Motor state for the existing STOP path.
 #if FY_MOTOR_BENCH_TEST
-    MoveMicrostep activeMicrostepMode = MoveMicrostep::HALF;
+    MoveMicrostep activeMicrostepMode = MoveMicrostep::QUARTER;
 #endif
 
     // POR: STOP remains locked independently of UART task startup.
@@ -337,6 +358,10 @@ void Muninn_motorMockTask(void* arg) {
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     driverEnabled.store(false, std::memory_order_release);
     motorMoving.store(false, std::memory_order_release);
+#if FY_MOTOR_BENCH_TEST
+    motor.resetBenchPosition();
+#endif
+    publishPosition(motor);
     motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
 
     for (;;) {
@@ -357,6 +382,7 @@ void Muninn_motorMockTask(void* arg) {
             motorMoving.store(false, std::memory_order_release);
             stopActive = activate;
             motor.onStop(activate);
+            publishPosition(motor);
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
 
             // Cancel any old queued movement requests; every dropped request
@@ -375,10 +401,15 @@ void Muninn_motorMockTask(void* arg) {
         // Completion retains coil holding torque until explicit GO off.
         uint32_t pulsesDone = 0U;
         if (stepTimerTakeDone(pulsesDone)) {
+            motor.onMotionProgress(pulsesDone);
             motorMoving.store(false, std::memory_order_release);
             motor.onMoveFinished();
+            publishPosition(motor);
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
-            (void)pulsesDone; // Bench position is intentionally not referenced.
+        } else if (motorMoving.load(std::memory_order_acquire)) {
+            // Position is a core-1 snapshot, never read straight from UART/ISR.
+            motor.onMotionProgress(stepTimerCompletedSteps());
+            publishPosition(motor);
         }
 
         if (xQueueReceive(context->commands, &cmd, pdMS_TO_TICKS(2)) != pdTRUE)
@@ -394,6 +425,7 @@ void Muninn_motorMockTask(void* arg) {
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
             motor.onStop(stopActive);
+            publishPosition(motor);
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
             emit(context, cmd, true, cmd.id);
         } else if (cmd.id == CMD_GO &&
@@ -413,36 +445,49 @@ void Muninn_motorMockTask(void* arg) {
                 emit(context, cmd, true, cmd.id);
             }
 #if FY_MOTOR_BENCH_TEST
-        } else if (cmd.id == CMD_MOVE) {
-            // TEMPORARY BENCH MODE ONLY: no reference or track movement.
-            // STEP count and direction come from MOVE, never from a mock
-            // hardcoded left/right command. No new job while running.
-            MoveRequest request{};
-            if (motor.prepareMove(cmd.data, request) !=
-                MotorCommandResult_t::ACCEPTED) {
-                emit(context, cmd, false,
-                     nackData(NackReason::INVALID_PARAMETER));
-            } else if (stopActive ||
-                       !driverEnabled.load(std::memory_order_acquire)) {
+        } else if (cmd.id == CMD_MOVE || cmd.id == CMD_SET_POSITION) {
+            // Bench-only: simulated uint16 quarter-step position. The
+            // real-reference flag stays false, including for SET_POSITION.
+            if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
-            } else if (stepTimerRunning()) {
+            } else if (stepTimerRunning() ||
+                       motor.state() == MotorState_t::MOVING) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
             } else {
-                // A4988 samples a new MS mode at the NEXT rising STEP edge.
-                // For this loose, unreferenced test motor only: do not assume
-                // position continuity when the microstep mode changes.
-                if (request.mode != activeMicrostepMode) {
-                    applyMicrostepMode(request.mode);
-                    activeMicrostepMode = request.mode;
-                }
-                if (!stepTimerStart(request.steps, request.directionRight,
-                                    kBenchStepHz)) {
-                    emit(context, cmd, false, nackData(NackReason::BUSY));
-                } else {
-                    motorMoving.store(true, std::memory_order_release);
-                    motor.onMoveStarted();
-                    motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
+                MoveRequest request{};
+                const MotorCommandResult_t prep = (cmd.id == CMD_MOVE)
+                    ? motor.prepareMove(cmd.data, request)
+                    : motor.prepareSetPosition(
+                        static_cast<uint16_t>(cmd.data[0]) |
+                        (static_cast<uint16_t>(cmd.data[1]) << 8U), request);
+
+                if (prep != MotorCommandResult_t::ACCEPTED) {
+                    emit(context, cmd, false, nackData(
+                        prep == MotorCommandResult_t::INVALID_DATA
+                        ? NackReason::INVALID_PARAMETER
+                        : NackReason::NOT_READY));
+                } else if (request.steps == 0U) {
+                    // Already at the requested position. No STEP pulses.
                     emit(context, cmd, true, cmd.id);
+                } else {
+                    // Change microstepping only when the STEP timer is idle.
+                    if (request.mode != activeMicrostepMode) {
+                        applyMicrostepMode(request.mode);
+                        activeMicrostepMode = request.mode;
+                    }
+                    if (!stepTimerStart(request.steps, request.directionRight,
+                                        kBenchStepHz)) {
+                        emit(context, cmd, false, nackData(NackReason::BUSY));
+                    } else {
+                        motor.onMotionAccepted(request);
+                        motorMoving.store(true, std::memory_order_release);
+                        motor.onMoveStarted();
+                        publishPosition(motor);
+                        motorStateSnapshot.store(
+                            static_cast<uint8_t>(motor.state()),
+                            std::memory_order_release);
+                        emit(context, cmd, true, cmd.id);
+                    }
                 }
             }
 #endif
