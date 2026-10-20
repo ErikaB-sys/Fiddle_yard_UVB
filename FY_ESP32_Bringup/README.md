@@ -31,8 +31,10 @@ veraendert ausschliesslich private Motor-HAL-Werte und den STEP-Pin.
 
 **HW2-Meilenstein:** Der lose NEMA11 dreht ueber den neuen STEP-Timer und
 GO/LEFT/RIGHT, Richtungsumkehr bestaetigt. Die Nachfolge-Firmware mit
-MOVE/prepareMove wurde inzwischen am losen Motor bestaetigt; die neue
-10000-Schritte-Grenze und STOP waehrend der Langfahrt sind **noch nicht auf HW2 getestet**.
+MOVE/prepareMove sowie die 10000-Schritte-Langfahrt mit STOP wurden
+am losen NEMA11 bestaetigt: Motor steht nach STOP sofort, gemessener
+Versorgungsstrom faellt auf 0. Der nun neue POR-STOP-Default muss noch
+auf HW2 getestet werden.
 
 ## Motor-Bench-Test (ausdruecklich aktiviert)
 
@@ -40,7 +42,9 @@ MOVE/prepareMove wurde inzwischen am losen Motor bestaetigt; die neue
 
 - Nur fuer **losen, mechanisch nicht an FY angeschlossenen NEMA11**.
 - Mikroschritt-Leitungen: HIGH/LOW/LOW = 1/2 Schritt.
-- `STOP AA 55` hebt die STOP-Sperre auf.
+- **POR/Reset startet mit verriegeltem STOP** und Treiber AUS; keine STEP/DIR-Start-Lichtorgel.
+- `GO AA 55` vor `STOP AA 55` liefert Motor/NOT_READY.
+- `STOP AA 55` hebt die STOP-Sperre auf, laesst den Treiber aber AUS.
 - `GO AA 55` schaltet den A4988 ein, ohne Bewegung.
 - `MOVE 11 32 00`: 50 Halbschritte rechts bei 120 Hz (ca. 0,42 s).
 - `MOVE 10 32 00`: 50 Halbschritte links.
@@ -70,8 +74,8 @@ Ein STOP ueber FreeRTOS ist hier noch **kein nachgewiesener Hardware-Not-Halt**.
 
 ## Naechste Schritte
 
-1. Nach Anheben des Bench-MOVE-Limits auf 10000: erneut bauen und mit VMOT AUS flashen.
-2. Lange MOVE-Fahrt und STOP-Abbruch per UART am losen NEMA11 pruefen.
+1. POR-STOP-Verriegelung erneut bauen und mit VMOT AUS flashen.
+2. Nach POR pruefen: `GO AA 55` wird abgewiesen; erst `STOP AA 55`, dann `GO AA 55` erlauben eine Bewegung.
 3. Nano-`Motor::Update()`, `setJob()`, `prepare...()`, Rampenprofile
    sowie Motorstatus fuer pollendes GET_STATUS in Muninn uebernehmen.
    **Keine spontanen DONE-UART-Antworten**; Request/Response bleibt verbindlich.
