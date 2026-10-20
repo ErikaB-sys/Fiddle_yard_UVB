@@ -496,6 +496,7 @@
                 "FY_ESP32_BRINGUP=1",
                 "FY_STATUS_LED_PIN=2",
                 "FY_STATUS_LED_ACTIVE_HIGH=1",
+                "FY_MOTOR_BENCH_TEST=1",
                 "HAVE_CONFIG_H",
                 "MBEDTLS_CONFIG_FILE=\"mbedtls/esp_config.h\"",
                 "UNITY_INCLUDE_CONFIG_H",
