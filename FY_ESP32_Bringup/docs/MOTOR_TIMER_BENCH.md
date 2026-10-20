@@ -51,6 +51,26 @@ A4988-Moduswechsel wirken ab der nächsten steigenden STEP-Flanke
 und können die absolute Position unzuverlässig machen. Nur am
 unreferenzierten losen Motor testen; nicht an der FY-Mechanik.
 
+## Power-On-Reset: STOP verriegelt
+
+**Nach jedem Einschalten oder Reset** startet Muninn mit STOP-Sperre
+(`stopActive=true`), A4988 ENABLE HIGH und STEP LOW. Es gibt beim
+Firmwarestart keine künstlichen STEP/DIR-Testpulse mehr.
+
+- `GO AA 55` direkt nach POR -> `NACK Motor/NOT_READY` (`70 22 B9`).
+- `MOVE 11 32 00` direkt nach POR -> `NACK Motor/NOT_READY`.
+- `STOP AA 55` -> `ACK 01`; STOP freigegeben, Treiber bleibt AUS.
+- `GO AA 55` -> `ACK 07`; Motorstrom wird freigegeben.
+- `MOVE 11 32 00` -> `ACK 0F`; STEP-Pulszug erlaubt.
+- `STOP 55 AA` -> ENABLE HIGH, STEP beendet, STOP wieder verriegelt.
+- Nach erneutem Reset gilt dieselbe Verriegelung, auch wenn der Treiber
+  zuvor eingeschaltet war.
+
+Dies ist eine **Software-Verriegelung ab Start der Anwendung**, **kein
+Hardware-Interlock waehrend ROM-Bootloader/Flash/Reset-Pegelwechseln**.
+VMOT bei Flash/Reset AUS; bevor die FY-Mechanik angeschlossen wird,
+externen ENABLE-Failsafe/VMOT-Trennschalter realisieren und pruefen.
+
 ## Prüfsequenz
 
 1. **VMOT AUS** beim Umstecken, Reset und Flash. GPIO-ENABLE hat
@@ -62,7 +82,7 @@ unreferenzierten losen Motor testen; nicht an der FY-Mechanik.
 4. Vor Motorversorgung A4988 VREF/Stromgrenze, Wicklungspaare,
    3,3-V-VDD, RESET/SLEEP, VMOT-Kondensator und GND prüfen.
    Motor nie unter Spannung ab- oder anstecken.
-5. Mit losem Motor: `STOP AA 55`, `GO AA 55`,
+5. Nach POR zuerst GO ohne STOP-Freigabe testen (NACK); danach mit losem Motor: `STOP AA 55`, `GO AA 55`,
    `MOVE 11 32 00`, `MOVE 10 32 00`, `GO 55 AA`.
 6. STOP-Test am frei liegenden, ungekoppelten Motor: `GO AA 55`,
    `MOVE 11 10 27` (10000 Schritte), dann **waehrend der Fahrt**
