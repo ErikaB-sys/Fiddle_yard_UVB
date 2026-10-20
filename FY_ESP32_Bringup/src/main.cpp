@@ -3,22 +3,18 @@
 #include "FY_Bringup.h"
 #include "UART.h"
 #include "Motor.h"
+#include "HW_Config.h"
 
 namespace {
 fy::BringupContext bridge{nullptr, nullptr};
 
-// HW2: STEP=25, DIR=26, ENA=27 (A4988: ENABLE is active LOW).
-constexpr uint8_t PIN_STEP = 25;
-constexpr uint8_t PIN_DIR = 26;
-constexpr uint8_t PIN_ENA = 27;
-
 void blinkHw2Outputs() {
     // Setup-only visual wiring check; never used for motor stepping.
-    const uint8_t pins[] = {PIN_STEP, PIN_DIR, PIN_ENA};
+    const uint8_t pins[] = {MOTOR_PWM_PIN, MOTOR_DIR_PIN, MOTOR_ENABLE_PIN};
     for (const uint8_t pin : pins) {
-        digitalWrite(pin, pin == PIN_ENA ? LOW : HIGH);
+        digitalWrite(pin, pin == MOTOR_ENABLE_PIN ? LOW : HIGH);
         delay(650);  // Deliberately visible to the human eye.
-        digitalWrite(pin, pin == PIN_ENA ? HIGH : LOW);
+        digitalWrite(pin, pin == MOTOR_ENABLE_PIN ? HIGH : LOW);
         delay(350);
     }
 }
@@ -27,12 +23,12 @@ void blinkHw2Outputs() {
 void setup() {
     Serial.begin(115200);
     // Safe output levels before configuring the pins as outputs.
-    digitalWrite(PIN_STEP, LOW);
-    digitalWrite(PIN_DIR, LOW);
-    digitalWrite(PIN_ENA, HIGH); // Driver disabled.
-    pinMode(PIN_STEP, OUTPUT);
-    pinMode(PIN_DIR, OUTPUT);
-    pinMode(PIN_ENA, OUTPUT);
+    digitalWrite(MOTOR_PWM_PIN, LOW);
+    digitalWrite(MOTOR_DIR_PIN, LOW);
+    digitalWrite(MOTOR_ENABLE_PIN, HIGH); // Driver disabled.
+    pinMode(MOTOR_PWM_PIN, OUTPUT);
+    pinMode(MOTOR_DIR_PIN, OUTPUT);
+    pinMode(MOTOR_ENABLE_PIN, OUTPUT);
     bridge.commands = xQueueCreate(8, sizeof(fy::CommandMessage));
     bridge.events = xQueueCreate(8, sizeof(fy::MotorEvent));
     if (!bridge.commands || !bridge.events) {
