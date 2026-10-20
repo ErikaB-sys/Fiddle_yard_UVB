@@ -35,6 +35,17 @@ void IRAM_ATTR stepTimerIsr() {
         GPIO.out_w1ts = kStepBit;
         stepIsHigh = true;
     } else {
+        // LOW half-wave is the Nano-defined processing point.
+        // FUTURE (not enabled until HW3 sensors are validated):
+        // const bool limitLeft  = readConfiguredLSL();
+        // const bool limitRight = readConfiguredLSR();
+        // const bool reference  = readConfiguredLSREF();
+        // if ((!directionRight && limitLeft) || (directionRight && limitRight))
+        //     abortWithLimitError();
+        // Update phase counter and next timer half-period here once the
+        // ISR-safe Arduino-ESP32 2.x/3.x reload path has been verified.
+        // DO NOT fake inactive switches or enable movements without
+        // real sensor input signals.
         // Count on falling edge just as in FY Nano Timer1_ISR().
         GPIO.out_w1tc = kStepBit;
         stepIsHigh = false;
