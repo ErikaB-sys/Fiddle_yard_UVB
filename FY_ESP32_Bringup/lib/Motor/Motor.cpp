@@ -150,10 +150,14 @@ bool Motor::isProfileValid(uint16_t distance) const {
 
 // Parameter validation is kept in Motor (prepare path), not in the ISR.
 MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
-                                        MoveRequest& request) const {
-    return decodeMovePayload(data, request)
-        ? MotorCommandResult_t::ACCEPTED
-        : MotorCommandResult_t::INVALID_DATA;
+                                        MoveRequest& request) {
+    if (!decodeMovePayload(data, request))
+        return MotorCommandResult_t::INVALID_DATA;
+    // Prepare all six Nano phases now. STEP timer remains in proven
+    // constant-rate bench mode until the variable-alarm ISR is verified.
+    if (!calcProfile(request.steps) || !isProfileValid(request.steps))
+        return MotorCommandResult_t::INVALID_DATA;
+    return MotorCommandResult_t::ACCEPTED;
 }
 
 namespace {
