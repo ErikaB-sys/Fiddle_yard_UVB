@@ -1,5 +1,7 @@
 # FY ESP32 – UART port, phase 2 (Nano protocol)
 
+> **Historischer Stand:** Dieses Dokument beschreibt den früheren UART-/GO-/STOP-Bring-up. Aktuelle MOVE-Kommandos (ID 0x0F), ACK/NACKs und die 1000-Schritte-Grenze stehen in [MOTOR_TIMER_BENCH.md](MOTOR_TIMER_BENCH.md). LEFT/RIGHT sind im ESP32-Bench-Port nicht mehr aktiv; der originale Nano-Quellstand bleibt unverändert.
+
 Branch: `feature/FY_ESP32_Port`. Scope: issue #156.
 
 ## Ported now
