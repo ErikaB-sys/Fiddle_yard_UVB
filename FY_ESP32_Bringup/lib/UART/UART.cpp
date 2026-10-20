@@ -1,6 +1,7 @@
 #include "UART.h"
 #include "Firmware.h"
 #include "Motor.h"
+#include "FY_Move.h"
 #include <freertos/task.h>
 #include <cstring>
 
@@ -27,7 +28,13 @@ constexpr uint8_t kErrorCrc = FY_ERROR_LOCATION_UART | 0x07U;
 constexpr uint32_t kPositionUnknown = 0x00007FFFU; // Nano POSITION_UNKNOWN.
 constexpr uint8_t kSystemInit = 0x00U; // FY_SystemState_t::INIT (motor not ready).
 
+// Keep the proven Nano protocol table byte-for-byte unchanged. MOVE is an
+// explicit ESP32-only extension; legacy LEFT/RIGHT are not repurposed.
+constexpr CommandDefinition kMoveDefinition{
+    CMD_MOVE, CommandType::EXECUTE, 3U, false
+};
 const CommandDefinition* lookup(uint8_t id) {
+    if (id == CMD_MOVE) return &kMoveDefinition;
     for (size_t i = 0; i < COMMAND_COUNT; ++i)
         if (commandDefinitions[i].id == id) return &commandDefinitions[i];
     return nullptr;
@@ -145,9 +152,23 @@ void UART::decodeExecute() {
     case CMD_SET_MODE:
         handleSetMode();
         return;
-    case CMD_SET_PARAM:
+    case CMD_MOVE: {
+        MoveRequest request{};
+        // Length and CRC were already validated. Reject reserved flag bits,
+        // illegal microstep modes and 0 / >1000 steps before queueing.
+        if (!decodeMovePayload(_command.data, request)) {
+            _errors.setError(kErrorInvalidData);
+            nack(FY_ERROR_LOCATION_MOTOR, NackReason::INVALID_PARAMETER);
+            return;
+        }
+        break;
+    }
     case CMD_LEFT:
     case CMD_RIGHT:
+        // ESP32 MOVE replaces these for commissioning. Nano files unchanged.
+        nack(FY_ERROR_LOCATION_UART, NackReason::INVALID_COMMAND);
+        return;
+    case CMD_SET_PARAM:
     case CMD_SET_POSITION:
         break;
     default:
