@@ -1,5 +1,6 @@
 #include "Motor.h"
 #include "HW_Config.h"
+#include "Error.h"
 #include <freertos/task.h>
 
 #ifndef FY_STATUS_LED_PIN
@@ -122,7 +123,7 @@ void emit(BringupContext* context, const CommandMessage& cmd,
         accepted ? STATUS_ACK : STATUS_NACK,
         data
     };
-    (void)xQueueSend(context->events, &event, pdMS_TO_TICKS(10));
+    (void)xQueueSend(context->events, &event, portMAX_DELAY);
 }
 } // anonymous namespace
 
