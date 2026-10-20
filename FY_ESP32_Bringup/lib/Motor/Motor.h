@@ -39,7 +39,7 @@ public:
     // Parameter preparation for unreferenced commissioning moves.
     // Motor operational state (GO, STOP, MOVING) is still owned by Muninn.
     MotorCommandResult_t prepareMove(const uint8_t* data,
-                                     MoveRequest& request) const;
+                                     MoveRequest& request);
     // Staged Motor state machine; ownership remains solely on Muninn/core 1.
     MotorState_t state() const { return _State; }
     bool referenced() const { return _ReferenceValid; }
