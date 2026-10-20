@@ -189,11 +189,13 @@ void Muninn_motorMockTask(void* arg) {
     CommandMessage cmd{};
     Motor motor{};
     bool ledState = false;
-    bool stopActive = false;
+    // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
+    bool stopActive = true;
 #if FY_MOTOR_BENCH_TEST
     MoveMicrostep activeMicrostepMode = MoveMicrostep::HALF;
 #endif
 
+    // POR: STOP remains locked independently of UART task startup.
     // Begin with the motor driver OFF; no STEP train starts automatically.
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
