@@ -47,6 +47,8 @@ private:
 // Thread-safe driver-enable snapshot, published by Muninn (core 1).
 // GPIO27/A4988 ENABLE is active LOW. This is not a movement status.
 bool Muninn_isDriverEnabled();
+// Atomic movement snapshot; true while the bounded STEP train is running.
+bool Muninn_isMoving();
 
 void Muninn_initMotorMock();
 BaseType_t Muninn_startMotorMock(BringupContext* context);
