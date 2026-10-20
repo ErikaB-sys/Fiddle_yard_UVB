@@ -49,13 +49,27 @@ public:
     void onMoveFinished();
     void onProfileError();
     MotorCommandResult_t prepareReference(uint8_t mode);
-    MotorCommandResult_t prepareSetPosition(uint16_t target);
+    // Synthetic quarter-step position used only by the loose motor bench.
+    // Does NOT set the physical _ReferenceValid state.
+    void resetBenchPosition();
+    bool benchPositionValid() const { return _BenchPositionValid; }
+    uint16_t benchPosition() const { return _BenchPosition; }
+    MotorCommandResult_t prepareSetPosition(uint16_t target,
+                                             MoveRequest& request);
+    void onMotionAccepted(const MoveRequest& request);
+    void onMotionProgress(uint32_t completedSteps);
     bool isProfileValid(uint16_t distance) const;
     const Profilelement_t* profile() const { return Motor_profil; }
     const MotorProfileParam_t& profileParams() const { return _ProfileParam; }
 private:
     MotorState_t _State = MotorState_t::STOPPED; // POR/STOP latch.
-    bool _ReferenceValid = false; // NEVER invent a reference in bench mode.
+    bool _ReferenceValid = false; // Real LS reference remains invalid.
+    bool _BenchPositionValid = false;
+    bool _MotionPositionTracked = false;
+    uint16_t _BenchPosition = UINT16_MAX / 2U;
+    uint16_t _MotionStartPosition = UINT16_MAX / 2U;
+    uint16_t _MotionStepCount = 0U;
+    bool _MotionRight = false;
     bool _StopActive = true;
     bool _TimerValid = false;
     MotorProfileParam_t _ProfileParam{160,400,100,100,-2,-1,+1,+2,1,1,1,1};
@@ -69,6 +83,9 @@ private:
 bool Muninn_isDriverEnabled();
 // Atomic movement snapshot; true while the bounded STEP train is running.
 bool Muninn_isMoving();
+// A simulated quarter-step position only in FY_MOTOR_BENCH_TEST.
+// Otherwise returns Nano POSITION_UNKNOWN (0x00007FFF).
+uint32_t Muninn_positionSnapshot();
 // Atomic status snapshot: IDLE=0, CONF=1, REFRUN=2, MOVING=3, STOPPED=4, ERROR=5.
 MotorState_t Muninn_motorState();
 
