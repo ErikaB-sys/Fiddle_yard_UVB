@@ -266,8 +266,7 @@ void publishPosition(const Motor& motor) {
 #endif
 }
 
-// Bench-only fixed pulse frequency; the number of steps comes from MOVE.
-constexpr uint16_t kBenchStepHz = 120U;
+// The six-phase profile now sets the STEP frequency in the timer ISR.
 
 void applyMicrostepMode(MoveMicrostep mode) {
     // A4988 MS1/MS2/MS3 truth table. Apply only while STEP is stopped.
@@ -475,9 +474,31 @@ void Muninn_motorMockTask(void* arg) {
                         applyMicrostepMode(request.mode);
                         activeMicrostepMode = request.mode;
                     }
-                    if (!stepTimerStart(request.steps, request.directionRight,
-                                        kBenchStepHz)) {
-                        emit(context, cmd, false, nackData(NackReason::BUSY));
+                    // Nano ACC1,ACC2,KONST,BRE1,BRE2,POSI prepared in
+                    // Motor::calcProfile(). Timer alone owns the ISR copy.
+                    StepProfileSegment stages[STEP_PROFILE_PHASES]{};
+                    const auto& parameters = motor.profileParams();
+                    const uint16_t rampEvery[STEP_PROFILE_PHASES]{
+                        parameters.Acc1RampInterval,
+                        parameters.Acc2RampInterval,
+                        1U,
+                        parameters.Bre1RampInterval,
+                        parameters.Bre2RampInterval,
+                        1U
+                    };
+                    for (uint8_t i = 0U; i < STEP_PROFILE_PHASES; ++i) {
+                        stages[i].steps = motor.profile()[i].Steps;
+                        stages[i].accel = motor.profile()[i].Accel;
+                        stages[i].rampEvery = rampEvery[i];
+                    }
+                    if (!stepTimerStartProfile(request.steps,
+                                               request.directionRight,
+                                               stages)) {
+                        // Invalid profile / unavailable timer backend.
+                        // Never acknowledge a fixed-speed surrogate as
+                        // successful execution of a ramp command.
+                        emit(context, cmd, false,
+                             nackData(NackReason::NOT_READY));
                     } else {
                         motor.onMotionAccepted(request);
                         motorMoving.store(true, std::memory_order_release);
