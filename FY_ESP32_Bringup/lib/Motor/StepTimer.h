@@ -10,6 +10,8 @@ bool stepTimerBegin();
 bool stepTimerStart(uint16_t steps, bool directionRight, uint16_t stepHz);
 void stepTimerStop();
 bool stepTimerRunning();
+// Snapshot of STEP pulses completed (counted on falling edge).
+uint32_t stepTimerCompletedSteps();
 bool stepTimerTakeDone(uint32_t& completedSteps);
 
 } // namespace fy
