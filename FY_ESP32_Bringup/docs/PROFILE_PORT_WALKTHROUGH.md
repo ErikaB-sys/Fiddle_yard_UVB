@@ -1,6 +1,6 @@
 # FY – Nano zu ESP32: Motorprofile verstehen
 
-Stand: 20.10.2026 · `feature/FY_ESP32_Port` · Entwicklungsstand, **noch nicht auf HW2 geflasht/getestet**.
+Stand: 20.10.2026 · `feature/FY_ESP32_Port` · **Build und Motor-Benchtest auf HW2 mit losem NEMA11 erfolgreich; reale FY-Mechanik/Sensorik weiterhin nicht freigegeben.**
 
 ## 1. Dieselbe Idee, andere Verantwortlichkeiten
 
@@ -45,13 +45,23 @@ als naechste Alarmperiode eingetragen, ohne AVR-Timerregister zu kopieren.
 - Minusbeschleunigung -> Reload wird kleiner -> Motor schneller
 - Positive Beschleunigung -> Reload wird groesser -> Motor langsamer
 
-**ESP32 2.x**: `timerBegin(1, 80, true)` adressiert tatsächlich **Timergruppe 1,
-Timer 0**. Die Änderung wird im IRAM-ISR direkt am Alarmregister
+**Arduino-ESP32 2.x** bezeichnet die Version des Arduino-*Frameworks* fuer den ESP32, **nicht** eine andere ESP32-Hardware. Bei 2.x adressiert
+`timerBegin(1, 80, true)` tatsaechlich **Timergruppe 1, Timer 0**.
+Die Aenderung wird in der IRAM-ISR direkt am Alarmregister
 `TIMERG1.hw_timer[0].alarm_low` vorgenommen. Arduino-`timerAlarmWrite()`
-wird **nicht** in der ISR aufgerufen. Version 3.x verwendet eine andere
-GPTimer-API; die Profilfahrt wird derzeit ausdrücklich abgewiesen, bis
-die ISR-sichere 3.x-Variante getestet ist. Es gibt keinen stillen
-Konstanttakt-Fallback, der eine erfolgreiche Profilfahrt vortäuschen würde.
+wird **nicht** in der ISR aufgerufen. **Dieser Pfad hat den Motor-Benchtest
+am 20.10.2026 bestanden.**
+
+**Arduino-ESP32 3.x** ist dagegen eine neuere, inkompatible Framework-API
+mit GPTimer. Die sechsphasige **Profilfahrt** ist fuer 3.x noch nicht portiert:
+In `stepTimerStartProfile()` liefert der `#if ESP_ARDUINO_VERSION_MAJOR >= 3`-
+Zweig absichtlich `false` statt eine falsche Konstantgeschwindigkeit
+vorzutaeuschen. Diese Sperre betrifft **nicht die erfolgreich getestete
+Firmware** und sagt nichts ueber die ESP32-Hardwareversion aus.
+Ein Update auf Arduino-ESP32 3.x braucht deshalb einen eigenen Timer-Port
+und erneute HW-Messung. `platformio.ini` legt aktuell keine explizite
+Framework-/Plattformversion fest: Bei kuenftigen Neuinstallationen bzw.
+Updates muss die tatsaechlich verwendete Version geprueft werden.
 
 ## 3. Sechs Stufen, wie beim Nano
 
@@ -75,9 +85,14 @@ Beispiele:
   `100/100/5840/100/100/160`, rechnerisch ca. 10,1 s.
 - Kurze Strecken <= 560 STEP: nur KONST mit V_MIN, keine zappelige Minirampe.
 
-Die Zeiten sind mathematisch simuliert und **noch nicht gemessen**.
-Verifiziert wurden fuer die Rechenroutine die exakten Phasensummen fuer
-alle 1..10000 STEP. Das beweist noch keine korrekten ESP32-Alarmflanken.
+Die Zeiten sind mathematisch simuliert und **noch nicht mit einer Uhr oder
+einem Logikanalysator gemessen**. Die Rechenroutine wurde auf exakte
+Phasensummen fuer 1..10000 STEP geprueft. **Inzwischen zusaetzlich bestaetigt:**
+Der reale, lose NEMA11 fuhr BG3 -> BG1 -> BG5, quittierte beide Auftraege
+und erreichte laut internem STEP-Zaehler die erwarteten virtuellen
+Positionen. Die Nutzerin beurteilte die Bewegung/den Klang positiv.
+Die exakten Geschwindigkeitsstufen, Halbperioden und der STEP-Jitter sind
+damit noch **nicht messtechnisch nachgewiesen**.
 
 ## 4. Warum die LOW-Halbwelle?
 
@@ -118,16 +133,28 @@ FY-Fahrt muessen Grenz- und Referenzlogik nachgeruestet und getestet werden.
 
 ## 6. Test und Messpunkte
 
-1. PlatformIO Build: RAM/Flash mit Baseline **21544 B / 281981 B**
-   vergleichen. Neue Werte erst nach einem echten Build.
+1. **Build erfolgreich:** RAM **21584 / 327680 B (6,6 %)**,
+   Flash **283917 / 1310720 B (21,7 %)**; Buildzeit **8,95 s**.
+   Gegenueber Baseline **21544 B RAM / 281981 B Flash**:
+   **+40 B RAM, +1936 B Flash**.
 2. Motorversorgung beim Flashen **physisch abziehen**, wie für den
    Teststand vereinbart. Solange der Boot-Failsafe offen ist, keine
    mechanisch gekoppelte Bewegung.
-3. Mit VMOT getrennt Boot-/POR-STOP, `STATUS 20`, neue Timerfrequenz
-   mit Logikanalysator nachmessen, falls vorhanden.
-4. Nur loser NEMA11: `STOP AA 55`, `GO AA 55`,
-   `SET_POSITION 7F 73`, danach `SET_POSITION 7F 8C`.
-5. Nach beiden Fahrten `STATUS 20` -> `IDLE`, `GET_POSITION` ->
-   virtuelle Bench-Position. Achten auf Richtung, Stufen, Aussetzer
-   und STOP-Reaktionszeit.
-6. Arduino-ESP32 3.x: Profile werden noch bewusst abgewiesen.
+3. **UART/POR erfolgreich:** `STOP AA 55` und `GO AA 55` quittiert;
+   virtuelle Startposition `GET_POSITION` = `20 FF 7F 01 00 2A` (32767/BG3).
+4. **Loser NEMA11 erfolgreich:** `SET_POSITION 7F 73` -> ACK
+   `60 13 5E`, anschliessend Position `20 7F 73 01 00 E1` (29567/BG1).
+   Danach `SET_POSITION 7F 8C` -> ACK `60 13 5E` und Position
+   `20 7F 8C 01 00 CA` (35967/BG5). Motorbewegung und Klang positiv
+   bestaetigt; dies sind interne, keine sensorisch gemessenen Positionen.
+5. **Status bestaetigt:** Nach erster Fahrt `STATUS 20` ->
+   `50 01 00 00 4F` (Treiber aktiv, Zustand IDLE).
+   **Noch offen:** STEP-Halbperioden/Rampenstufen und Jitter messen,
+   STOP-Abbruch waehrend Profilfahrt und Tests unter Core-0-Last.
+6. **Framework-Kompatibilitaet:** Der aktuelle Fahrtest nutzt den
+   **Arduino-ESP32-2.x-Timerpfad**. Bei einem spaeteren Wechsel auf
+   **Arduino-ESP32 3.x** gibt `stepTimerStartProfile()` derzeit absichtlich
+   `false` zurueck. Das ist **keine Fehlfunktion der getesteten
+   ESP32-Firmware**, sondern eine offene Portierungsaufgabe fuer eine
+   andere Framework-Version. Vor einem Upgrade Version fixieren/pruefen
+   und den GPTimer-ISR-Pfad separat implementieren und testen.
