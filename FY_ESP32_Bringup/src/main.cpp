@@ -31,6 +31,12 @@ void setup() {
     pinMode(MOTOR_PWM_PIN, OUTPUT);
     pinMode(MOTOR_DIR_PIN, OUTPUT);
     pinMode(MOTOR_ENABLE_PIN, OUTPUT);
+    // Do the STEP/DIR LED check BEFORE UART and Muninn can accept GO.
+    // Otherwise a concurrent GO could enable the A4988 during test pulses.
+    blinkHw2Outputs();
+    digitalWrite(MOTOR_PWM_PIN, LOW);
+    digitalWrite(MOTOR_ENABLE_PIN, HIGH);
+
     bridge.commands = xQueueCreate(8, sizeof(fy::CommandMessage));
     bridge.events = xQueueCreate(12, sizeof(fy::MotorEvent));
     bridge.priorityCommands = xQueueCreate(4, sizeof(fy::CommandMessage));
@@ -46,7 +52,6 @@ void setup() {
     if (muninn != pdPASS || huginn != pdPASS) {
         Serial.println("FY_TEST: failed to create tasks");
     }
-    blinkHw2Outputs();
 }
 
 void loop() {
