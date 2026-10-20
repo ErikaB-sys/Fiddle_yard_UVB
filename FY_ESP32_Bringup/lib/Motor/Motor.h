@@ -10,7 +10,7 @@ struct MotorJob_t {
     uint8_t data[MAX_COMMAND_LENGTH - 1];
 };
 
-// Nano motion model types. No ESP32 timer/ISR backend is attached yet.
+// Nano motor-state and six-phase profile model; REF remains invalid until sensors are integrated.
 enum class MotorState_t { IDLE, CONF, REFRUN, MOVING, STOPPED, ERROR };
 enum class MotorProfile_t { ACC1, ACC2, KONST, BRE1, BRE2, POSI };
 struct Profilelement_t { uint16_t Steps; int16_t Accel; };
@@ -40,16 +40,30 @@ public:
     // Motor operational state (GO, STOP, MOVING) is still owned by Muninn.
     MotorCommandResult_t prepareMove(const uint8_t* data,
                                      MoveRequest& request) const;
+    // Staged Motor state machine; ownership remains solely on Muninn/core 1.
+    MotorState_t state() const { return _State; }
+    bool referenced() const { return _ReferenceValid; }
+    void onGoEnabled();
+    void onStop(bool latched);
+    void onMoveStarted();
+    void onMoveFinished();
+    void onProfileError();
+    MotorCommandResult_t prepareReference(uint8_t mode);
+    MotorCommandResult_t prepareSetPosition(uint16_t target);
+    bool isProfileValid(uint16_t distance) const;
     const Profilelement_t* profile() const { return Motor_profil; }
+    const MotorProfileParam_t& profileParams() const { return _ProfileParam; }
 private:
+    MotorState_t _State = MotorState_t::STOPPED; // POR/STOP latch.
+    bool _ReferenceValid = false; // NEVER invent a reference in bench mode.
+    bool _StopActive = true;
     bool _TimerValid = false;
     MotorProfileParam_t _ProfileParam{160,400,100,100,-2,-1,+1,+2,1,1,1,1};
     Profilelement_t Motor_profil[6]{{100,-2},{100,-1},{200,0},{100,+1},{100,+2},{10,0}};
 };
 
-// Bring-up uses the motor task with an initial bounded STEP ISR.
-// prepareMove() checks the MOVE payload; Nano setJob(), prepareGo/Stop(),
-// the full six-phase profile and motor state machine are not yet ported.
+// Motor state-machine skeleton is active for MOVE/GO/STOP; complete Nano
+// reference flow and dynamic six-phase timer executor remain pending.
 // Thread-safe driver-enable snapshot, published by Muninn (core 1).
 // GPIO27/A4988 ENABLE is active LOW. This is not a movement status.
 bool Muninn_isDriverEnabled();
