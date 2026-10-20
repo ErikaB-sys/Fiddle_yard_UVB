@@ -34,16 +34,16 @@ werden; ein produktiver Referenzstatus wird dadurch nicht simuliert.
 |---|---|---|
 | GO 0x07 | funktioniert | ENABLE EIN/AUS mit STOP-POR-Sperre, hardwaregetestet |
 | STOPP 0x01 | funktioniert im Bench | Prioritätsqueue; NEMA11 stoppt sofort, Versorgungstrom am Netzteil 0; Worst-Case-Latenz nicht gemessen |
-| MOVE 0x0F | funktioniert im Bench | ESP32-Neubefehl; Richtung, Schrittzahl, A4988-Modus, bis 10000 pro Auftrag; 10000-MOVE und STOP real getestet |
+| MOVE 0x0F | funktioniert im Bench | ESP32-Neubefehl; Richtung, Schrittzahl, A4988-Modus, bis 10000 pro Auftrag; 10000-MOVE und STOP real getestet; neuer 1/4-Default noch nicht auf HW2 geprüft |
 | GET_STATUS 0x19 | teilweise | Alle 4 Selektoren; 20 ENABLE/MOVING und jetzt DATA[1] MotorState; 10/40/50 nur Initial-/Platzhalterdaten |
 | GET_ERROR 0x1A | teilweise | UART-Fehler vorhanden; Motor-Fehlerkette noch nicht vollständig |
-| GET_POSITION 0x15 | teilweise | 4 Byte, POSITION_UNKNOWN bis echte Referenz |
+| GET_POSITION 0x15 | teilweise | Im Bench eine **markierte virtuelle Viertelschrittposition**, im Realbetrieb bis zur Referenz POSITION_UNKNOWN |
 | GET_TRACK 0x23 | nicht portiert | DEV_RESPONSE mangels Track-Snapshot |
 | HELP 0x25 | teilweise | String/CRC, verweist noch auf alten Nano-Spickzettel |
 | GET_FIRMWARE 0x27 | teilweise | Build-/Versionsinfo, Git-Commit möglicherweise unknown |
 | REFERENCE 0x16 | nicht portiert | Handler und REFRUN vorbereitet; keine reale Referenz, NACK |
 | SET_PARAM 0x2B | nicht portiert | Nur Protokoll/Queue; keine Parameterverarbeitung |
-| SET_POSITION 0x13 | nicht portiert | prepareSetPosition vorhanden, ohne validen REF-Status abgewiesen |
+| SET_POSITION 0x13 | Bench-only | Virtuelle absolute Zielposition wird mit Viertelschritten abgefahren; echte FY-Fahrt ohne REF bleibt gesperrt |
 | SET_TRACK 0x1C | nicht portiert | Range-Prüfung 1..5, noch keine Gleisfahrt |
 | SET_MODE 0x26 | nicht portiert | Bitmuster geprüft, mangels Keyboard NACK |
 | LEFT/RIGHT 0x0B/0x0D | im ESP32 bewusst abgelöst | NACK; auf Nano unverändert |
@@ -95,3 +95,39 @@ hardwareseitige Boot-/RESET-Sicherung und Sensorabnahme klären.
 6. Keyboard; später SPI-Erweiterung.
 
 Kein produktiv sicherer FY-Anlagenbetrieb freigegeben.
+
+## Neuer virtueller SET_POSITION-Test – 20.10.2026 (noch ungebaut)
+
+Benutzerentscheidung: `SET_POSITION` darf **am frei liegenden Tischmotor**
+ohne echte Referenz fahren, weil mechanisch nichts angekoppelt ist. Das
+gilt NUR bei `FY_MOTOR_BENCH_TEST=1`; `_ReferenceValid=false` bleibt
+**immer** gesetzt, bis reale Referenzsensorik implementiert wird.
+
+- Start bei `uint16_t max / 2 = 32767`; A4988-Default 1/4-Schritt.
+- Nano-HW-Test Gleisteilung `1600` Viertelschritte:
+  virtuelle BG1=29567, BG2=31167, BG3=32767, BG4=34367, BG5=35967.
+- Nominaler Testweg `1000 + 6*1600 = 10600` pro SET_POSITION-Auftrag,
+  keine harte absolute Bewegungsfensterbegrenzung.
+- Einzelne virtuelle `uint16_t`-Positionen nur 1..65534; mit
+  32-Bit-Zwischenrechnung werden Ueber- und Unterlauf **vor** START geprüft.
+  Ein entkoppelter Tischmotor kann nicht als sicherer Anlagentest gelten.
+- `GET_POSITION` markiert die Simulation durch Bit 16 (`0x00010000`);
+  niederwertige 16 Bits enthalten die Viertelschritt-Position. Das
+  Anfangstelegramm ist `20 FF 7F 01 00 2A` einschließlich CRC.
+- STEP-Zähler wird nur in Muninn (Core 1) nach einer ISR-gelesenen,
+  per Critical Section gesicherten Snapshotzahl verarbeitet;
+  UART (Core 0) liest eine atomare Positionskopie.
+- Nach STOP/GO AUS wird für den Tischtest bewusst auf den **synthetischen**
+  Startwert 32767 re-ankert. Es gibt keine echte Rückreferenzierung.
+  Bei MOVE mit einer anderen Auflösung als 1/4 verliert die
+  Viertelschritt-Koordinate ihre Gültigkeit bis zur Neuverankerung.
+- `SET_POSITION` veranlasst ebenfalls `calcProfile()`, startet aber
+  derzeit weiterhin einen **konstanten 120-Hz-STEP-Pulszug**. Die
+  Echtzeit-Rampen bleiben ein separates, offenes #153-Thema.
+
+**Gemeldete Speicher-Baseline des unmittelbar vorangegangenen Release-Builds:**
+RAM 21544 von 327680 Byte = 6,6 %; Flash 281981 von 1310720 Byte =
+21,5 %; Build erfolgreich in 4,05 s. Diese Werte stammen **vor**
+der neuen SET_POSITION-Änderung; noch kein neuer Build-Bericht.
+
+Vollständige Hex-Testfolge in `docs/MOTOR_TIMER_BENCH.md`.
