@@ -78,7 +78,7 @@ private:
 };
 
 // Motor state-machine skeleton is active for MOVE/GO/STOP; complete Nano
-// reference flow and dynamic six-phase timer executor remain pending.
+// reference flow remains pending. The six-phase timer is coded but not yet HW-tested.
 // Thread-safe driver-enable snapshot, published by Muninn (core 1).
 // GPIO27/A4988 ENABLE is active LOW. This is not a movement status.
 bool Muninn_isDriverEnabled();
