@@ -1,5 +1,6 @@
 #include "UART.h"
 #include "Firmware.h"
+#include "Motor.h"
 #include <freertos/task.h>
 #include <cstring>
 
@@ -234,8 +235,11 @@ void UART::handleGetStatus() {
         break;
     }
     case STATUS_SELECTOR_MOTOR: {
-        // Explicitly uninitialized: driver OFF, no ISR, no reliable motion.
-        const uint8_t data[3]{0U, 0U, 0U};
+        // Nano STATUS_Motor DATA[0]: bit 0 = driver enabled,
+        // bit 1 = moving. The motor ISR is not installed yet.
+        // Atomic snapshot is published by Muninn, never read from GPIO.
+        const uint8_t flags = Muninn_isDriverEnabled() ? 0x01U : 0x00U;
+        const uint8_t data[3]{flags, 0U, 0U};
         setResponse(STATUS_Motor, data, sizeof(data));
         break;
     }
