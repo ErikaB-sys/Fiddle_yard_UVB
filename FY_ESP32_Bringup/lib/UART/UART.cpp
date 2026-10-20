@@ -47,7 +47,7 @@ void UART::begin(BringupContext* context) {
     _babelFish.begin(115200); // ASCII input and local echo retained.
     Serial.println(F("Hello my friend"));
 #if defined(FY_MOTOR_BENCH_TEST) && FY_MOTOR_BENCH_TEST
-    Serial.println(F("FY ESP32: Huginn ready, Muninn MOVE BENCH (max 10000 steps / 120 Hz)"));
+    Serial.println(F("FY ESP32: Huginn ready, Muninn PROFILE BENCH (120..800 Hz)"));
     Serial.println(F("BENCH: 1/4 steps, virtual SET_POSITION origin 32767 (NOT referenced)"));
 #else
     Serial.println(F("FY ESP32: Huginn UART ready, motor backend not ready"));
