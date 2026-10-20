@@ -236,9 +236,11 @@ void UART::handleGetStatus() {
     }
     case STATUS_SELECTOR_MOTOR: {
         // Nano STATUS_Motor DATA[0]: bit 0 = driver enabled,
-        // bit 1 = moving. The motor ISR is not installed yet.
-        // Atomic snapshot is published by Muninn, never read from GPIO.
-        const uint8_t flags = Muninn_isDriverEnabled() ? 0x01U : 0x00U;
+        // bit 1 = moving. Both snapshots are published by Muninn.
+        // No direct GPIO or motor state access from Huginn.
+        const uint8_t flags = static_cast<uint8_t>(
+            (Muninn_isDriverEnabled() ? 0x01U : 0x00U) |
+            (Muninn_isMoving() ? 0x02U : 0x00U));
         const uint8_t data[3]{flags, 0U, 0U};
         setResponse(STATUS_Motor, data, sizeof(data));
         break;
