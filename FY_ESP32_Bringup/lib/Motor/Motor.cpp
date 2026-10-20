@@ -104,15 +104,31 @@ bool Motor::calcProfile(uint16_t distance)
     return true;
 }
 
-
+// Parameter validation is kept in Motor (prepare path), not in the ISR.
+MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
+                                        MoveRequest& request) const {
+    return decodeMovePayload(data, request)
+        ? MotorCommandResult_t::ACCEPTED
+        : MotorCommandResult_t::INVALID_DATA;
+}
 
 namespace {
 // Only Muninn writes this; Huginn reads through a C++ atomic snapshot.
 std::atomic<bool> driverEnabled{false};
 std::atomic<bool> motorMoving{false};
 
-constexpr uint16_t kBenchSteps = 64U;
+// Bench-only fixed pulse frequency; the number of steps comes from MOVE.
 constexpr uint16_t kBenchStepHz = 120U;
+
+void applyMicrostepMode(MoveMicrostep mode) {
+    // A4988 MS1/MS2/MS3 truth table. Apply only while STEP is stopped.
+    // Mode changes can invalidate a physical absolute position; bench only.
+    constexpr uint8_t masks[] = {0x00U, 0x01U, 0x02U, 0x03U, 0x07U};
+    const uint8_t value = masks[static_cast<uint8_t>(mode)];
+    digitalWrite(MOTOR_MS0_PIN, (value & 0x01U) ? HIGH : LOW);
+    digitalWrite(MOTOR_MS1_PIN, (value & 0x02U) ? HIGH : LOW);
+    digitalWrite(MOTOR_MS2_PIN, (value & 0x04U) ? HIGH : LOW);
+}
 
 void setLed(bool on) {
 #if FY_STATUS_LED_PIN >= 0
@@ -150,22 +166,16 @@ bool Muninn_isMoving() {
 
 void Muninn_initMotorMock() {
     // The A4988 microstep inputs are configured while ENABLE is HIGH.
-    // Bench: half-step (MS1 HIGH, MS2 LOW, MS3 LOW) to see rotation.
-    // Normal mode: 1/16 microstep (HIGH/HIGH/HIGH) for FY hardware.
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     digitalWrite(MOTOR_PWM_PIN, LOW);
-    const uint8_t microstepPins[] = {
-        MOTOR_MS0_PIN, MOTOR_MS1_PIN, MOTOR_MS2_PIN
-    };
+    pinMode(MOTOR_MS0_PIN, OUTPUT);
+    pinMode(MOTOR_MS1_PIN, OUTPUT);
+    pinMode(MOTOR_MS2_PIN, OUTPUT);
 #if FY_MOTOR_BENCH_TEST
-    const uint8_t microstepLevels[] = {HIGH, LOW, LOW};
+    applyMicrostepMode(MoveMicrostep::HALF);
 #else
-    const uint8_t microstepLevels[] = {HIGH, HIGH, HIGH};
+    applyMicrostepMode(MoveMicrostep::SIXTEENTH);
 #endif
-    for (size_t i = 0; i < 3U; ++i) {
-        digitalWrite(microstepPins[i], microstepLevels[i]);
-        pinMode(microstepPins[i], OUTPUT);
-    }
     // Timer is armed ONLY when a bounded motion test is accepted.
     (void)stepTimerBegin();
 #if FY_STATUS_LED_PIN >= 0
@@ -177,8 +187,12 @@ void Muninn_initMotorMock() {
 void Muninn_motorMockTask(void* arg) {
     auto* context = static_cast<BringupContext*>(arg);
     CommandMessage cmd{};
+    Motor motor{};
     bool ledState = false;
     bool stopActive = false;
+#if FY_MOTOR_BENCH_TEST
+    MoveMicrostep activeMicrostepMode = MoveMicrostep::HALF;
+#endif
 
     // Begin with the motor driver OFF; no STEP train starts automatically.
     digitalWrite(MOTOR_PWM_PIN, LOW);
@@ -228,7 +242,7 @@ void Muninn_motorMockTask(void* arg) {
             continue;
 
         // Nano GO/STOP enable semantics remain; only the explicit bench
-        // LEFT/RIGHT handlers below may start a bounded STEP train.
+        // MOVE handler below may start a bounded STEP train.
         if (cmd.id == CMD_GO &&
             cmd.data[0] == 0x55U && cmd.data[1] == 0xAAU) {
             // GO 55 AA: de-energize the driver; do NOT clear the STOP latch.
@@ -252,21 +266,35 @@ void Muninn_motorMockTask(void* arg) {
                 emit(context, cmd, true, cmd.id);
             }
 #if FY_MOTOR_BENCH_TEST
-        } else if (cmd.id == CMD_LEFT || cmd.id == CMD_RIGHT) {
-            // TEMPORARY BENCH MODE ONLY: no fake reference, no track movement.
-            // Each command gives exactly 64 half-steps at 120 steps/s.
-            // A loose, disconnected NEMA11 is required for this test!
-            if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
+        } else if (cmd.id == CMD_MOVE) {
+            // TEMPORARY BENCH MODE ONLY: no reference or track movement.
+            // STEP count and direction come from MOVE, never from a mock
+            // hardcoded left/right command. No new job while running.
+            MoveRequest request{};
+            if (motor.prepareMove(cmd.data, request) !=
+                MotorCommandResult_t::ACCEPTED) {
+                emit(context, cmd, false,
+                     nackData(NackReason::INVALID_PARAMETER));
+            } else if (stopActive ||
+                       !driverEnabled.load(std::memory_order_acquire)) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else if (stepTimerRunning()) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
-            } else if (!stepTimerStart(kBenchSteps,
-                                       cmd.id == CMD_RIGHT,
-                                       kBenchStepHz)) {
-                emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else {
-                motorMoving.store(true, std::memory_order_release);
-                emit(context, cmd, true, cmd.id);
+                // A4988 samples a new MS mode at the NEXT rising STEP edge.
+                // For this loose, unreferenced test motor only: do not assume
+                // position continuity when the microstep mode changes.
+                if (request.mode != activeMicrostepMode) {
+                    applyMicrostepMode(request.mode);
+                    activeMicrostepMode = request.mode;
+                }
+                if (!stepTimerStart(request.steps, request.directionRight,
+                                    kBenchStepHz)) {
+                    emit(context, cmd, false, nackData(NackReason::BUSY));
+                } else {
+                    motorMoving.store(true, std::memory_order_release);
+                    emit(context, cmd, true, cmd.id);
+                }
             }
 #endif
         } else {
