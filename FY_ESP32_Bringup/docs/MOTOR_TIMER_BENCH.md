@@ -129,10 +129,10 @@ Verbrauch steht erst nach dem neuen Build fest.
 Firmwarestart keine künstlichen STEP/DIR-Testpulse mehr.
 
 - `GO AA 55` direkt nach POR -> `NACK Motor/NOT_READY` (`70 22 B9`).
-- `MOVE 11 32 00` direkt nach POR -> `NACK Motor/NOT_READY`.
+- `MOVE 21 32 00` direkt nach POR -> `NACK Motor/NOT_READY`.
 - `STOP AA 55` -> `ACK 01`; STOP freigegeben, Treiber bleibt AUS.
 - `GO AA 55` -> `ACK 07`; Motorstrom wird freigegeben.
-- `MOVE 11 32 00` -> `ACK 0F`; STEP-Pulszug erlaubt.
+- `MOVE 21 32 00` -> `ACK 0F`; STEP-Pulszug erlaubt.
 - `STOP 55 AA` -> ENABLE HIGH, STEP beendet, STOP wieder verriegelt.
 - Nach erneutem Reset gilt dieselbe Verriegelung, auch wenn der Treiber
   zuvor eingeschaltet war.
