@@ -1,119 +1,69 @@
-# ESP32-WROOM – erste Motor-ISR / STEP-Timer (HW2)
+# FY ESP32 – MOVE-Inbetriebnahme (HW2, A4988)
 
-**Stand:** 20.10.2026 · #153 · Branch `feature/FY_ESP32_Port`
+Stand 20.10.2026. **Nur loser NEMA11**, keine FY-Mechanik.
+`FY_MOTOR_BENCH_TEST=1` in `platformio.ini`. Ohne Bench-Flag
+wird MOVE nicht ausgeführt. Original-Nano-Protokoll bleibt unverändert.
 
-## Ziel und klare Grenze
+## MOVE Telegramm (neue ESP32-Bench-ID 0x0F)
 
-Erste pruefbare STEP-Erzeugung an einem **losen, mechanisch nicht angebauten NEMA11**.
-Noch keine Referenzierung, keine Gleisposition, keine Sechs-Phasen-Fahrt,
-keine Sensor-/Endlagenbehandlung und **kein sicherheitsbewerteter Not-Halt**.
+`ID=0F | DATA[0]=MODE|DIR | DATA[1]=STEP_LO | DATA[2]=STEP_HI | CRC8`
 
-Als Ausgangspunkt diente `FY_Controller_Motor/lib/Motor/motor.cpp`, insbesondere
-`Motor::Timer1_ISR()`: STEP HIGH, beim naechsten Interrupt STEP LOW,
-**nur bei der fallenden Flanke einen Schritt zaehlen**. Die Nano-Profil-
-und Referenzlogik wird spaeter darauf aufgesetzt, nicht stillschweigend ersetzt.
+- Byte 0, obere 4 Bits: Microstep-Modus 0=voll, 1=halb, 2=viertel,
+  3=achtel, 4=sechzehntel.
+- Byte 0, Bits 3..1: reserviert, müssen 0 sein.
+- Byte 0, Bit 0: 0=links / 1=rechts.
+- Byte 1/2: uint16 Schrittzahl little-endian, **1 bis 1000 pro Auftrag**.
+- Konstante: `FY_MOVE_MAX_UNREFERENCED_STEPS = 1000U` in
+  `include/FY_Move.h`. Dies begrenzt NICHT die kumulierte Wegstrecke.
+- Beispiel: `MOVE 11 32 00` = 50 Halbschritte rechts;
+  `MOVE 10 32 00` = 50 Halbschritte links;
+  `MOVE 11 E8 03` = 1000 Halbschritte rechts.
+- Abweisung: `MOVE 11 E9 03` (1001), `MOVE 11 00 00` (0),
+  `MOVE 12 32 00` (reservierte Bits),
+  `MOVE 50 32 00` (ungültiger Modus).
+- Hexbyte-Eingabe über BabelFish: `MOVE 50` ist **kein**
+  gültiges Kommando; BYTE0, BYTE1 und BYTE2 müssen alle vorhanden sein.
+- `LEFT` und `RIGHT` sind im ESP32-Port außer Betrieb, ihre
+  Nano-IDs 0x0B/0x0D bleiben im originalen Nano erhalten.
+- Erfolgreiches MOVE antwortet ACK mit DATA=0F: Auftrag **angenommen**,
+  nicht abgeschlossen; NACK folgt den Nano-Regeln.
 
-## Timerwahl und Pulsform
+## Pipeline
 
-- ESP32 Hardwaretimer (Arduino-ESP32 2.x: Timer Nummer 1, APB 80 MHz / 80).
-- Timerauflosung: 1 MHz = **1 Mikrosekunde pro Timer-Tick**.
-- Start nur mit explizitem Auftrag; bei Stillstand Alarm deaktiviert.
-- Aktuell konstanter Takt: **120 Schritte pro Sekunde**.
-- Eine vollstaendige STEP-Periode hat zwei Timerereignisse.
-- Halbperiode = gerundet `500000 / 120 = 4167 us`.
-- Pulsdauer HIGH etwa 4167 us, LOW etwa 4167 us; insgesamt rund 120 Schritte/s.
-- A4988 laut Datenblatt mindestens 1 us HIGH und 1 us LOW, DIR-Setup mindestens 200 ns.
-- `StepTimer.cpp`: `IRAM_ATTR stepTimerIsr()` und registerdirektes STEP-Schalten
-  `GPIO.out_w1ts/out_w1tc`, keine `Serial`, keine Heap-Allokation, kein `digitalWrite` in ISR.
-- ISR begrenzt die Pulse auf 64 komplette HIGH/LOW-Zyklen.
-- `Muninn_Motor` (Core 1) nimmt den Abschluss zur Kenntnis und aktualisiert
-  den fuer Huginn lesbaren `motorMoving`-Status.
-- `GET_STATUS 20` Bit 0 = driver enabled, Bit 1 = Pulszug laeuft.
+BabelFish erkennt MOVE → Huginn validiert Länge, CRC und DATA →
+FreeRTOS-Queue → `Motor::prepareMove()` validiert nochmals →
+Muninn prüft GO/STOP/BUSY → setzt MS0..2 **nur bei ruhendem Motor** →
+`stepTimerStart(steps, direction, 120 Hz)` → Hardware-ISR STEP HIGH/LOW.
 
-```mermaid
-sequenceDiagram
-    participant PC as UART-Terminal
-    participant H as Huginn / Core 0
-    participant M as Muninn / Core 1
-    participant T as Timer-ISR
-    PC->>H: LEFT
-    H->>M: CommandQueue (CMD_LEFT)
-    M->>M: Pruefe GO, STOP, Busy, BENCH
-    M->>T: 64 Halbschritte / 120 Hz
-    M-->>H: ACK 0B
-    H-->>PC: 60 0B 16
-    loop Pro Schritt (2 Timer-Interrupts)
-        T->>T: STEP HIGH (rising)
-        T->>T: STEP LOW + Zaehler++
-    end
-    T->>T: Nach 64 Schritten stoppen
-    M->>M: Abgeschlossenen Pulszug feststellen
-```
+Die ISR zählt genau beim Übergang zu LOW einen abgeschlossenen
+Schritt und begrenzt auf den Auftrag. Die Nano-Auswertung der
+Lichtschranken, Rampen, Profilphasen und Profilwechsel in der LOW-Phase
+kommt **erst als nächster Entwicklungsschritt**. Die bisherige
+Nano-`Motor::Update()`/`setJob()`/`prepareGo/Stop()`-Logik ist
+noch nicht vollständig portiert.
 
-## Expliziter BENCH-Modus
+A4988-Moduswechsel wirken ab der nächsten steigenden STEP-Flanke
+und können die absolute Position unzuverlässig machen. Nur am
+unreferenzierten losen Motor testen; nicht an der FY-Mechanik.
 
-`platformio.ini`: `-D FY_MOTOR_BENCH_TEST=1` **nur fuer den losen Motor**.
+## Prüfsequenz
 
-- MS1/M0 G13: HIGH; MS2/M1 G14: LOW; MS3/M2 G4: LOW -> **Halbschritt**.
-- `GO AA 55`: A4988-Treiber EIN, noch keine Bewegung.
-- `LEFT`: exakt **64 Halbschritte nach links** bei 120 Hz.
-- `RIGHT`: exakt **64 Halbschritte nach rechts** bei 120 Hz.
-- `GO 55 AA`: STEP sofort stoppen, Treiber AUS.
-- `STOP 55 AA`: Sperre setzen, Treiber AUS, STEP stoppen; `LEFT`/`RIGHT` gesperrt.
-- `STOP AA 55`: Sperre loesen, Treiber **bleibt AUS**; erst neues GO ermoeglicht Fahrt.
-- Bewegungsbefehle ohne freigegebenen Treiber -> NACK NOT_READY.
-- Gleichzeitiger zweiter Bewegungsbefehl -> NACK BUSY.
-- Andere Bewegungsbefehle (Set-Position, Track, Reference) bleiben NACK NOT_READY.
-- Keine Fake-Referenz, keine Positions- oder Gleisrueckmeldung: `GET_POSITION`
-  liefert weiterhin UNKNOWN.
+1. **VMOT AUS** beim Umstecken, Reset und Flash. GPIO-ENABLE hat
+   vor dem Boot noch kein vollständig nachgewiesenes Hardware-Failsafe.
+2. Neuen Stand bauen und flashen; Bootmeldung:
+   `FY ESP32: Huginn ready, Muninn MOVE BENCH (max 1000 steps / 120 Hz)`.
+3. MS0 G13 HIGH, MS1 G14 LOW, MS2 G4 LOW (Default: Halbschritt);
+   G27 ENABLE HIGH bis zu GO.
+4. Vor Motorversorgung A4988 VREF/Stromgrenze, Wicklungspaare,
+   3,3-V-VDD, RESET/SLEEP, VMOT-Kondensator und GND prüfen.
+   Motor nie unter Spannung ab- oder anstecken.
+5. Mit losem Motor: `STOP AA 55`, `GO AA 55`,
+   `MOVE 11 32 00`, `MOVE 10 32 00`, `GO 55 AA`.
+6. 50 Halbschritte @120 Hz brauchen ca. 0,42 s; 1000 ca. 8,33 s.
+   Pulslänge, Schrittzahl und STOP-Latenz sind **noch nicht gemessen**.
+7. STOP/GO OFF deaktivieren ENABLE und stoppen STEP;
+   GO ON startet **keine** Bewegung. Keine gültige Referenz-/Position,
+   kein frei erfundenes Zielgleis.
 
-**Vor FY-Montage**: `-D FY_MOTOR_BENCH_TEST=0` setzen bzw. entfernen,
-den korrekten Normalmodus (1/16) wieder testen, Motorzustand/Endlagen/Sensoren
-implementieren und erst dann kontrolliert zur Anlage zurueckkehren.
-
-## Prueffolge auf HW2
-
-1. Motorversorgung VMOT **AUS**, ESP32 verbinden, Build, Upload.
-2. Nach Reset: G27/ENABLE HIGH; M0 HIGH, M1 LOW, M2 LOW; STEP LOW ausserhalb des
-   vorhandenen Startblinktests; DIR inaktiv.
-3. Motor abgesteckt: `STOP AA 55`, dann `GO AA 55`; ENABLE wird LOW.
-4. `LEFT`: ACK `60 0B 16`; G25/STEP zeigt nur begrenzten Pulszug;
-   G26/DIR LOW. `RIGHT`: ACK `60 0D 04`; G26/DIR HIGH.
-   Pulsbreite/Frequenz/Schrittzahl mit Oszilloskop oder Logikanalysator pruefen.
-5. `GO 55 AA` / `STOP 55 AA`: EN sofort HIGH; STEP LOW.
-6. Erst wenn Polung, VREF-Stromgrenze, A4988-VDD/VMOT, GND, VMOT-Stuetzkondensator,
-   RESET/SLEEP, Motorphasen und sichere Bootpegel bestaetigt sind: **losen Motor**
-   anschliessen und mit strombegrenzter Labornetzteilversorgung pruefen.
-   **Motor niemals bei eingeschaltetem Treiber an-/abstecken.**
-7. Test wiederholen: GO, LEFT, RIGHT, STOP; keine FY-Mechanik ankoppeln.
-
-| Eingang | Antwort (Hex) | Bedeutung |
-|---|---|---|
-| `GO AA 55` | `60 07 32` | Treiber an |
-| `LEFT` | `60 0B 16` | Pulszug angenommen, **nicht** Fahrabschluss |
-| `RIGHT` | `60 0D 04` | Pulszug angenommen |
-| `STATUS 20` waehrend Bewegung | `50 03 00 00 99` | ENABLE + MOVING |
-| `STATUS 20` nach Bewegung | `50 01 00 00 4F` | ENABLE an, MOVING aus |
-| `STOP 55 AA` | `60 01 20` | Stoppe und sperre |
-| `LEFT` mit STOP-Sperre | `70 22 B9` | NACK Motor/NOT_READY |
-
-**Hinweis:** 64 Halbschritte bei 120 Hz dauern nur rund 0,53 Sekunden.
-Ein manuell danach gesendetes STATUS-Telegramm kann die Bewegung schon beendet
-sehen. Fuer einen sicheren MOVING-Bit-Test UART automatisiert schnell abfragen
-oder eine spaetere dauerhafte Statusuebertragung spezifizieren; hier keine
-neue ungefragte STATUS-Alive-Semantik einfuehren.
-
-## Vor dem produktiven Motorbetrieb offen
-
-- Nano `Motor::Update()`, `setJob()`, `prepare...()` und
-  sechs Profilphasen sowie dynamische Alarm-Periodenanpassung portieren.
-- Motorstatus-/Positions-/DONE-Ereignisse nach bestehender Protokollsemantik.
-- Direkte ISR-Auswertung von Endschaltern und Lichtschranken auf Core 1.
-- STOP-Reaktionszeit unter Queue- und UART-Last messen; aktuelle STOP-Queue
-  ist **kein harter Safety-Eingang**.
-- Dauer, Flanken, Frequenzstabilitaet unter Core-0-Last nachmessen.
-- Hardware-ENABLE-Interlock vor ESP32-Boot/Flash absichern.
-- Arduino-ESP32 2.x/3.x Timer-API wird im HAL bedingt unterstuetzt;
-  fuer HW2 ist der tatsaechlich installierte Core/Build noch zu verifizieren.
-- Nach einem Fehlversuch: erneute Build- und Hardwarepruefung erforderlich.
-
+**Vor FY-Montage** Bench-Flag aus, Sensor-/Endlagenschutz,
+Positionsmodell, Rampen und Referenzierung einbauen.
