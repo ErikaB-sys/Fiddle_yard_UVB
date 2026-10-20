@@ -18,6 +18,12 @@ MotorState-IDs aus `Motor.h` in STATUS_Motor (`0x50`):
   1 CONF, 2 REFRUN, 3 MOVING, 4 STOPPED, 5 ERROR).
 - DATA[2] reserviert 0.
 
+Testtelegramme nach Neu-Flash (noch nicht HW-bestaetigt):
+- Direkt nach POR: `STATUS 20` -> `50 00 04 00 70` (STOPPED).
+- Nach `STOP AA 55` und `GO AA 55`: `50 01 00 00 4F` (IDLE, ENABLED).
+- Waehrend `MOVE 11 10 27`: `50 03 03 00 A6` (MOVING, ENABLED).
+- Nach `STOP 55 AA`: `50 00 04 00 70` (STOPPED, DISABLED).
+
 **Achtung:** DATA[1] war im Nano-Spickzettel reserviert.
 Diese ESP32-Erweiterung muss beim finalen Protokollabgleich festgelegt
 werden; ein produktiver Referenzstatus wird dadurch nicht simuliert.
