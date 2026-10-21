@@ -22,3 +22,20 @@ flowchart LR
 ```
 
 Issues: #157 (Keyboard), #152 (Queues), #162 (Dokumentation).
+
+## Hardware-Pinout (Übernahme aus FY_HW_TEST)
+
+Die Keyboard-Platine nutzt den **PCF8574 mit Adresse `0x27`**. Die Portbelegung folgt den Konstanten in `FY_HW_TEST/FY_HW_TEST/include/HW_Test.h`:
+
+| Taste | PCF8574 Eingang | Zugehöriger LED-Ausgang |
+| --- | --- | --- |
+| STOP | P7 | P3 |
+| Links (Blau 1) | P6 | P2 |
+| GO (Grün) | P5 | P1 |
+| Rechts (Blau 2) | P4 | P0 |
+
+**Hinweis:** Der ältere Kommentar in `HW_Test.h` vertauscht die LED-Angaben für STOP und GO gegenüber den Konstanten. Bei der nächsten Hardwareprüfung bestätigen. Die Tabelle folgt den Konstanten.
+
+Das ist die **Expander-Belegung**, keine ESP32-GPIO-Zuordnung. Die ESP32-I²C-Pins werden unabhängig davon konfiguriert. Die ESP32-Implementierung ist weiterhin offen; keine neue Nano-Implementierung vorsehen.
+
+Ausführliche Referenz: [KEYBOARD_PINOUT.md](../../../FY_HW_TEST/FY_HW_TEST/KEYBOARD_PINOUT.md) (HW-Test auf `main`).
