@@ -41,18 +41,27 @@ Aktuell definierte Zustände:
 Quelle: \`FY_Controller_Motor/lib/Motor/Motor.h\`
 
 ```mermaid
+
+
 stateDiagram-v2
     [*] --> IDLE
-    IDLE --> CONF
-    CONF --> REFRUN
-    CONF --> MOVING
-    MOVING --> STOPPED
-    MOVING --> ERROR
-    REFRUN --> STOPPED
-    REFRUN --> ERROR
-    STOPPED --> IDLE
-    STOPPED --> MOVING
-    ERROR --> IDLE
+
+    IDLE --> CONF : CMD
+    CONF --> IDLE : DONE
+
+    IDLE --> MOVING : CMD
+    IDLE --> REFRUN : CMD
+
+    MOVING --> IDLE : DONE
+    MOVING --> IDLE : STOP (CMD / Button)
+    MOVING --> ERROR : Problem
+
+    REFRUN --> IDLE : DONE
+    REFRUN --> IDLE : STOP (CMD / Button)
+    REFRUN --> ERROR : Problem
+
+    ERROR --> IDLE : Quittierung / Reset
+
 ```
 
 Aktuell definierte Zustände:
@@ -61,11 +70,12 @@ Aktuell definierte Zustände:
 - \`CONF\`
 - \`REFRUN\`
 - \`MOVING\`
-- \`STOPPED\`
 - \`ERROR\`
 
+
 Die konkrete Übergangslogik ist noch nicht als verbindliche Gesamt-Zustandsmaschine festgelegt.
-Das Diagramm zeigt daher den aktuellen Arbeitsstand und ist **nicht** als endgültige Spezifikation zu verstehen.
+Das Diagramm zeigt daher ** nicht ** Spezifikation zu verstehensondern als grobe Beschreibung der Abläufe.
+
 
 ---
 
