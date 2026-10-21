@@ -1,6 +1,6 @@
 # FY ESP32 – Systemarchitektur (Entwurf 0.1)
 
-**Stand:** 19.10.2026 · **Dokumentations-Issue:** #162 · **Head:** #150
+**Zielarchitektur aus Issues:** #150, #152, #162. Ursprungsentwurf 19.10.2026; am 21.10.2026 an die aktuelle Portierung und die verbindliche **Polling-statt-Push**-Regel angepasst. Für den wirklichen Ist-Code siehe [System](System/README.md) und [Abweichungen](VERIFICATION_GAPS.md). Nicht alle gestrichelt/geplanten Wege sind implementiert.
 
 ## Benennung der Kerne
 
@@ -71,7 +71,7 @@ flowchart LR
 
 Die Ein-Platz-Mailbox liefert den neuesten Zustand; bei Änderungen sofort, andernfalls als periodische Auffrischung (Intervall in #155 festlegen). Huginn unterscheidet **noch kein Snapshot empfangen** von einem gültigen Nullwert. Die systemweite `Error`-Verwaltung bekommt kontrollierte Modulmeldungen; es gibt keine ungeschützten Schreibzugriffe von beiden Kernen.
 
-**Status:** Entwurf. Noch kein aktiver Switches-Code oder Motor-ISR im ESP32.
+**Status:** Sensor-/Switches-Modul und direkte Endlagenabschaltung noch Entwurf. **STEP-Timer/ISR für den losen A4988-Motor existiert bereits**; ohne Sensor-Sicherheitsprüfung keine FY-Freigabe.
 
 ## B. Task- und Funktionskatalog (Entwurf)
 
@@ -91,26 +91,26 @@ Prioritäten und Intervalle sind **Entwurfswerte**, keine gemessenen Garantien.
 ```mermaid
 sequenceDiagram
     participant PC as Terminal
-    participant UART as UART/BabelFish (Core 0)
-    participant Router as Command Router
-    participant Motor as Motor Task (Core 1)
-    participant HAL as STEP / Sensor HAL
-    PC->>UART: Binärtelegramm oder ASCII-Testkommando
-    UART->>Router: validierter Request + Herkunft + ID
-    Router->>Motor: typisiertes Command (Queue)
-    Motor-->>Router: Annahme oder Ablehnung (Response)
-    Router-->>UART: korrelierte Antwort
-    UART-->>PC: ACK / NACK
-    opt Bewegung angenommen
-        Motor->>HAL: Bewegungsauftrag / STEP
-        HAL-->>Motor: Fortschritt / Endlage / Fehler
-        Motor-->>Router: Done / Fehler / Statusereignis
-        Router-->>UART: Event für ursprüngliche Quelle
-        UART-->>PC: DONE / Status / Fehler
+    participant UART as UART/BabelFish (Huginn)
+    participant Q as FreeRTOS Command/Response
+    participant M as Motor (Muninn)
+    participant STEP as STEP / ISR
+    PC->>UART: Request
+    UART->>UART: ID / Länge / CRC prüfen
+    UART->>Q: Typisierter Command (ggf. STOP-Priority)
+    Q->>M: Auftrag
+    M-->>Q: Annahme oder Ablehnung
+    Q-->>UART: Korrelierte Antwort
+    UART-->>PC: ACK / NACK (nur auf Request)
+    opt Fahrt angenommen
+        M->>STEP: Bewegung starten
+        STEP-->>M: fertig / gestoppt / Fehler
+        PC->>UART: GET_STATUS / GET_POSITION
+        UART-->>PC: Angefragter Status-Snapshot
     end
 ```
 
-**Noch zu designen:** Welche ACK/BUSY/DONE-/NACK-Semantik exakt dem bestehenden Protokoll entspricht, welche Komponenten mehrere gleichzeitige Requests akzeptieren dürfen, und wie die Antworten an UART/UI/WLAN zugestellt werden. Den Bestandsvertrag vor Implementierung aus #58/#114–#145 und Code/Spickzettel übernehmen, **nicht** aus diesem Entwurf ableiten.
+**Verbindliche Entscheidung aus #154:** UART sendet **kein spontanes DONE- oder anderes Ergebnis-Telegramm ohne Anfrage**. ACK/NACK bestätigt Annahme/Ablehnung; der Auftraggeber fragt den Abschluss per GET_STATUS ab. Interne MotorEvent-Queue nur für korrelierte Antworten. Weitere Details (Queue-voll, gleichzeitige Requests, Datenmodelle) bleiben als [Soll-Ist-Deltas](VERIFICATION_GAPS.md) offen.
 
 ## D. Eigentum und Schutz
 
@@ -140,4 +140,4 @@ sequenceDiagram
 - Konkrete Task-Prioritäten und Stackgrößen nach Messung.
 - Motor-Hardware-Timer bzw. RMT/MCPWM/GPTimer nach Pulsbreiten-/Frequenztests auswählen.
 - Hard-Stop-Signal, Sensor-Debounce sowie Queue-Überlauf-/Wiederabgleich für Error-Meldungen konkretisieren; die Zuständigkeiten sind festgelegt: unmittelbarer Schutz auf Muninn, zentrale Fehlerablage auf Huginn.
-- Die bisherigen Portierungsdokumente liegen zunächst in `FY_ESP32_Bringup/docs`; beim Übergang in die produktive Ordnerstruktur gezielt migrieren.
+- Die verbindlichen Modulbeschreibungen liegen nun unter `FY_ESP32_Bringup/docs/<Modul>/README.md`; ältere, quellnahe Nano-Diagramme stehen unter `docs/<Modul>/archive/`. Siehe Dokumentationsregeln.

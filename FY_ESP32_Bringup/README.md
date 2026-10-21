@@ -1,5 +1,7 @@
 # FY – ESP32-WROOM / Huginn und Muninn
 
+**Aktuelle, zentrale Dokumentationsnavigation:** [docs/README.md](docs/README.md) · [Regeln](docs/DOCUMENTATION_RULES.md) · [Soll-Ist-Abweichungen für Review](docs/VERIFICATION_GAPS.md). Die folgenden Bench-Messungen sind ein **historischer Stand** vom 20.10.2026; der Sollstand steht in den Issues/Modulbeschreibungen.
+
 **Branch:** `feature/FY_ESP32_Port` · **Stand:** 20.10.2026  
 **Status:** Dual-Core-UART/Queues, A4988-NEMA11 und sechsphasiger Profil-Executor
 **auf HW2 mit losem Testmotor gebaut und erfolgreich gefahren**: virtuelle Fahrten
@@ -10,7 +12,7 @@ Sicherheits- und Sensor-HW-Tests offen; **keine produktive FY-Freigabe**.
 
 - **[Technische Roadmap mit Rot/Orange/Gelb/Violett/Gruen-Ampel](../Documents/FY_Productivsoftware_Roadmap.md)**: Module, Prepare-Funktionen, Issues, Test-Gates und naechste Schritte.
 - **[ESP32-UART-Spickzettel mit Ampel je Kommando](src/UART_Command_Spickzettel.md)**: echte Eingaben, ACK/NACK, durchgefuehrte Testfahrten.
-- **[Nano-zu-ESP32-Profil-Walkthrough](docs/PROFILE_PORT_WALKTHROUGH.md)**: sechs Phasen und Timer-Backend.
+- **[Nano-zu-ESP32-Profil-Walkthrough](docs/reports/PROFILE_PORT_WALKTHROUGH.md)**: sechs Phasen und Timer-Backend.
 
 ## Aktueller Build nach Profilport und Bench-SET_POSITION
 
@@ -28,7 +30,7 @@ virtuelle BG3/BG1/BG5-Positionsantworten dokumentiert im Spickzettel.
 | Transport | FreeRTOS | `include/FY_Bringup.h` | Kommandos, STOP-Prioritaet, Antworten mit Sequenznummern |
 | Muninn | 1 | `lib/Motor/Motor.cpp` | GO/STOP, ENABLE, Mikroschritt-Aufloesung, begrenzte Bench-Auftraege |
 | Motor-Timer | ISR | `lib/Motor/StepTimer.cpp` | STEP HIGH/LOW; fallende Flanke zaehlt und aktualisiert sechs Profilphasen, Timergruppe 1/Timer 0 |
-| Hauptinitialisierung | Arduino | `src/main.cpp` | GPIO-Defaults, Boot-GPIO-Test, Queues, Tasks |
+| Hauptinitialisierung | Arduino | `src/main.cpp` | GPIO-Defaults ohne STEP-Boot-Test, Queues, Tasks |
 | Hardware | HW2 | `include/HW_Config.h` | Konkrete ESP32-Pinbelegung |
 
 Huginn und Muninn kommunizieren ueber FreeRTOS-Queues. Muninn ist
@@ -64,7 +66,7 @@ anschliessend ebenfalls ueber GO/NACK, STOP-Freigabe und MOVE bestaetigt.
 - `GO AA 55` schaltet den A4988 ein, ohne Bewegung.
 - `MOVE 21 32 00`: 50 Viertelschritte rechts bei 120 Hz (ca. 0,42 s).
 - `MOVE 20 32 00`: 50 Viertelschritte links.
-- `MOVE 21 10 27`: 10000 Viertelschritte rechts; neue Nano-Rampe rechnerisch ca. 14,6 s, auf HW2 noch nicht getestet.
+- `MOVE 21 10 27`: 10000 Viertelschritte rechts; neue Nano-Rampe rechnerisch ca. 14,6 s, Prüfstand laut späterer Dokumentation gesondert beachten.
 - `MOVE`-Format: DATA0 oberes Nibble Modus (0=voll,1=halb,2=viertel,3=achtel,4=sechzehntel), unterstes Bit Richtung 0=links/1=rechts; DATA1/2 Schrittzahl uint16 little endian; Restbits reserviert.
 - Die alten Nano-Befehle `LEFT` / `RIGHT` werden von ESP32 nicht mehr ausgefuehrt.
 - `GO 55 AA` bzw. `STOP 55 AA`: Treiber AUS, laufende STEP-Pulse abbrechen.
@@ -82,11 +84,11 @@ Ein STOP ueber FreeRTOS ist hier noch **kein nachgewiesener Hardware-Not-Halt**.
 
 ## Dateien zur Orientierung
 
-- [Portierungsstatus UART/Motor 20.10.2026](docs/MOTOR_PORT_STATUS_2026-10-20.md)
-- [Nano-zu-ESP32 Walkthrough: Profil, LOW-ISR, Zustandsmaschine](docs/PROFILE_PORT_WALKTHROUGH.md)
+- [Portierungsstatus UART/Motor 20.10.2026](docs/reports/MOTOR_PORT_STATUS_2026-10-20.md)
+- [Nano-zu-ESP32 Walkthrough: Profil, LOW-ISR, Zustandsmaschine](docs/reports/PROFILE_PORT_WALKTHROUGH.md)
 - [Erster Motor-Timer, ISR und Schritt-fuer-Schritt-Test](docs/MOTOR_TIMER_BENCH.md)
 - [UART-Protokoll und Hex-Testfolgen](docs/UART_PORT_STEP2.md)
-- [WROOM-Pinout / HW2](docs/PINOUT_ESP32.md)
+- [WROOM-Pinout / HW2](docs/pinouts/01_PINOUT_ESP32.md)
 - [Systemarchitektur und Task-Modell](docs/SYSTEM_ARCHITECTURE.md)
 - [Coding-Regeln](docs/CODING_RULES.md)
 - [Original Nano UART-Spickzettel](../FY_Controller_Motor/src/UART_Command_Spickzettel.md) (MOVE-Erweiterung siehe Motor-Timer-Doku)

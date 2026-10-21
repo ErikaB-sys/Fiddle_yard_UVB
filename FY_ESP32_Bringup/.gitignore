@@ -5,3 +5,7 @@
 .vscode/*
 !.vscode/c_cpp_properties.json
 !.vscode/launch.json
+
+# Lokale Cppcheck-Berichte und Build-Caches
+.cppcheck/
+reports/*.csv

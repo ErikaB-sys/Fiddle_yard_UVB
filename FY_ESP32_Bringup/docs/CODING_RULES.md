@@ -23,15 +23,15 @@
 ## PlattformIO und Tests
 - In `lib/<Modul>/` gehört zum `.cpp` auch ein öffentlicher `.h`, den `src/main.cpp` oder ein anderes aktiv verwendetes Modul einbindet. So erkennt der PlatformIO Library Dependency Finder das Modul und kompiliert dessen Implementierung.
 - Kompilier- und Linktest nach jeder Verschiebung von Dateien. Danach Smoke-Test mit `GO AA 55`.
-- Der aktuelle Motor ist ein Dummy und erzeugt **keine** STEP-Impulse und keine echten Nano-Responses.
+- Der ursprüngliche Motor-Dummy wurde inzwischen durch einen motorischen Bench-Pfad mit A4988/NEMA11, STEP-Timer und Profil-Executor erweitert. **Das ist noch keine freigegebene FY-Mechaniksteuerung.** Status siehe [Motor-Modulbeschreibung](Motor/README.md).
 - Änderungen per Commit einem konkreten Issue zuordnen: #152 RTOS/Queues, #156 UART, #153 ISR/Hardware, #154 Motorlogik, #162 Architektur.
 
 ## Dokumentation als Modulbestandteil (verbindlich)
 - Nano-Dokumente dienen als **Ausgangsstand**, nicht als dauerhaft doppelt gepflegte Referenz im ESP32-Baum.
-- Ein funktionales Modul erhält seine `.md`-Datenmodelle, Abläufe und Zustandsdiagramme direkt **neben** den C++-Quellen in `lib/<Modul>/`; systemweite Diagramme liegen in `docs/System/`.
-- Nano-Ausgangsdiagramme bei Übernahme als solche kennzeichnen und **schrittweise am echten ESP32-Code fortschreiben**. Der Nano-Originalstand bleibt unter `FY_Controller_Motor/` verfügbar.
-- Änderungen an Verhalten, Queue-Schnittstellen und Modulzuständigkeiten erfordern die Prüfung und bei Bedarf Aktualisierung der zugehörigen MD-Datei **im selben Commit**.
-- Die Quellen von `Keyboard`, `Error` und `Switches` werden erst nach Prüfung der AVR-Abhängigkeiten, Task-Besitzer und Thread-Sicherheit als ausführbare ESP32-Module portiert; reine Moduldokumentation darf bereits vorher angelegt werden.
+- **Neue, verbindliche Entscheidung vom 21.10.2026:** Modulbeschreibungen, Datenmodelle und Diagramme zentral unter `docs/<Modul>/README.md` (mit optionalen Unterseiten), Systemdiagramme unter `docs/System/`; bei `lib/<Modul>/` verbleiben **nur C++ und Doxygen-Kommentare**. Frühere MD-Arbeitsdiagramme stehen als historische Referenzen in `docs/<Modul>/archive/`. Siehe [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md).
+- Nano-Ausgangsdiagramme im Archiv als **historisch** kennzeichnen; für den ESP32-Zielstand die Anforderungen aus den referenzierten Issues ableiten. Alte Nano-Bilder niemals automatisch als aktuellen Code-/Sollstand ausgeben.
+- Änderungen an Verhalten, Queue-Schnittstellen und Modulzuständigkeiten erfordern den Abgleich **Issue → Modulbeschreibung → Code** sowie Rückwärtsprüfung. Offene Deltas in `docs/VERIFICATION_GAPS.md`; die Änderungen nach Möglichkeit im selben Commit dokumentieren.
+- `Keyboard` und `Switches` sind noch nicht als ESP32-Module implementiert. `Error.h/.cpp` **sind bereits vorhanden**, aber die geplante zentrale, kernübergreifende Fehleraggregation ist weiter offen. Einzelheiten in den Moduldokumenten.
 
 ## Sensor- und Sicherheitsregel (Entwurf; #155)
 - `Switches` gehört **Muninn**, nicht Huginn. Der sicherheitskritische Eingangspfad bleibt direkt bei Motor/ISR; die Queue ist **kein Teil der Stopp-Kette**.

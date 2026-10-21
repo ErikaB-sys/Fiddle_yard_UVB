@@ -1,0 +1,21 @@
+# Switches / Sensorik – Muninn (Core 1)
+
+**Soll:** [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155), [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153), [#162](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/162).
+
+Physische REF-/Endlagen- und Riemensignale gehören Muninn. **Unmittelbarer Schutzpfad** darf weder UART noch RTOS-Queue voraussetzen. Der geplante Diagnose-Snapshot an Huginn ist nicht Bestandteil des Motorstopps.
+
+```mermaid
+flowchart LR
+  GPIO["Sensor-GPIO"] --> S["Switches (Muninn)"]
+  S --> H["Direkte Stop-/Grenzreaktion"]
+  S -.-> Q["geplanter Snapshot an Huginn"]
+```
+
+**Ist:** In [`lib/Switches/`](../../lib/Switches/) derzeit kein ausführbarer ESP32-Switches-Code. GPIO32/33/16/17 in [HW_Config.h](../../include/HW_Config.h) **reserviert, nicht als Sensorsystem abgenommen**. 2-Byte-Snapshot und 1-Slot-Mailbox sind Entwurf.
+
+- [x] Soll-/Istgrenze beschrieben.
+- [ ] GPIO-/Pegel-/Sensorverdrahtung, Referenzfahrt und Endlagenlogik implementieren.
+- [ ] zeitkritische Motorabschaltung bei realen Fehlerfällen nachweisen.
+- [ ] Snapshot/Diagnose-Abbildung und MISRA-/Reviewstand prüfen.
+
+Offen: [VERIFICATION_GAPS.md](../VERIFICATION_GAPS.md). Historischer Entwurf: [archive/Switches.md](archive/Switches.md).
