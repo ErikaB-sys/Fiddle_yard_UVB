@@ -55,7 +55,8 @@ def main():
     full = REPORTS / "misra_full.csv"
     keep = REPORTS / "misra.csv"
     findings = []
-    config = 0
+    config_findings = []
+    other_findings = []
     with full.open(newline="", encoding="utf-8", errors="replace") as f:
         for row in csv.reader(f):
             if len(row) < 5:
@@ -68,15 +69,29 @@ def main():
                 continue  # Framework-/Fremdcode ausschließen
             sev, rule = row[2].strip().lower(), row[3].strip().lower()
             if rule == "misra-config":
-                config += 1
-            if rule.startswith("misra-c2012-") or sev == "error":
+                config_findings.append(row)
+            elif rule.startswith("misra-c2012-") or sev == "error":
                 findings.append(row)
-    with keep.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f, lineterminator="\n")
-        writer.writerows(findings)
-    print(f"Ergebnis: {len(findings)} relevante Befunde, {config} misra-config-Hinweise.")
-    print("Berichte:", full, "und", keep)
+            else:
+                other_findings.append(row)
+
+    config_report = REPORTS / "misra_config.csv"
+    for path, rows in ((keep, findings), (config_report, config_findings)):
+        with path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f, lineterminator="\n")
+            writer.writerows(rows)
+
+    print(f"Code-Befunde (MISRA-Regeln / echte Fehler): {len(findings)}.")
+    print(f"Weitere Hinweise (Style/Warning/Performance): {len(other_findings)} (siehe misra_full.csv).")
+    print(f"Konfigurationshinweise (misra-config): {len(config_findings)} (siehe misra_config.csv).")
+    if config_findings:
+        print("STATUS: ANALYSE UNVOLLSTÄNDIG – Konfiguration/Includes fehlen; keine Freigabe!")
+    else:
+        print("STATUS: Keine misra-config-Hinweise (keine Aussage über vollständige MISRA-Konformität).")
+    print("Berichte:", full, keep, config_report, sep="\n  ")
     print("WICHTIG: MISRA C:2012 auf C++ ist KEIN vollständiger MISRA-C++-Check.")
+    # Konfigurationslücken getrennt dokumentieren, nicht als nachgewiesene
+    # Codefehler zählen. Der Cppcheck-Prozessfehler oben bleibt weiterhin fatal.
     return 1 if findings else 0
 
 if __name__ == "__main__":
