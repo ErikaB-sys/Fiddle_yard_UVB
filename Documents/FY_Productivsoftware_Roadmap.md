@@ -1,6 +1,6 @@
 # FY Produktivsoftware – Roadmap und Status-Ampel
 
-**Stand:** 20.10.2026 (nach ESP32-Motor-Benchtest) · **aktive Entwicklung:** `feature/FY_ESP32_Port` · **Zielprojekt:** `FY_ESP32_Bringup/` · **Head-Issue:** [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150).
+**Stand:** 21.10.2026 (ESP32-Benchstand, Dokumentationsreview und MISRA-Erstlauf) · **aktive Entwicklung:** `feature/FY_ESP32_Port` · **Zielprojekt:** `FY_ESP32_Bringup/` · **Head-Issue:** [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150).
 
 **Wichtig:** Diese Ampel bewertet den **nachweisbaren ESP32-Port**, nicht den historischen Nano-Stand und nicht automatisch den GitHub-Issue-/Kanban-Status. `main` ist noch nicht auf den ESP32-Stand gemergt. Der bereits funktionsfähige, lose NEMA11-Benchtest ist **keine Freigabe der angeschlossenen FY-Schiebebühne**.
 
@@ -70,7 +70,7 @@ Der **Funktionsvertrag** zählt, nicht der alte Funktionsname: Im Nano war die K
 
 1. **Code/Issues bereinigen:** insbesondere #24, #75–#81 und alte Nano-Job-/Update-Issues fachlich auf neue Architektur mappen, ohne erfolgreiche Bench-Teile doppelt zu implementieren.
 2. **Bench-Nachtests:** bewegter STOP unter aktuellem Sechsphasenprofil, STEP-Halbperioden, beide Rampen, Jitter, Queue-Last; Arduino-ESP32-2.x-Version in PlatformIO reproduzierbar pinnen. Arduino-ESP32 3.x hat noch **kein** sechsphasiges Timer-Backend.
-3. **PCB-Sicherheitskonzept:** stabile STEP- und ENABLE-Pegel vor `setup()`, definierter inaktiver Treiber beim Flash/Reset und spaeter OTA; vorhandene Pull-Widerstaende des Shields messen, nicht blind verdoppeln. Beim heutigen Tischaufbau VMOT vor Reset/Flash physisch trennen.
+3. **PCB-Sicherheitskonzept:** stabile STEP- und ENABLE-Pegel vor `setup()`, definierter inaktiver Treiber beim Flash/Reset und spaeter OTA; vorhandene Pull-Widerstaende des Shields messen, nicht blind verdoppeln. Bei HW3 hängt die Logikversorgung ebenfalls an 12 V; deshalb VMOT unabhängig trennbar ausführen und Flash-/Reset-Pegel auf der realen Platine prüfen.
 4. **Sensorik/REF:** 3,3-V-Pegel, LSL/LSR, LSREF, zweiten Referenz-/Hall-Sensor und Endlagenreaktion prüfen. Erst damit Position/FY-Bühne freigeben.
 5. **Reale Zielgleise und `prepareSetTrack`:** Fahrweg-/Grenzprüfung, Track-Snapshot, Referenzverlust, Test an Mechanik.
 6. **Bedienung, Parameter, Persistenz, WLAN/OTA; dann vollständige Abnahme** [#159](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/159).
@@ -79,115 +79,63 @@ Der **Funktionsvertrag** zählt, nicht der alte Funktionsname: Im Nano war die K
 
 ---
 
-## Historischer Nano-Plan (Archiv, vor ESP32-Entscheidung)
+## Plattformentscheidung: Nano-Produktiventwicklung eingestellt (21.10.2026)
 
-Der folgende Abschnitt bleibt absichtlich erhalten, damit die Entwicklungsgeschichte und die damaligen Entscheidungen nicht verloren gehen. **Die Angaben zu `FY_Motor` als aktivem Branch, Nano-Timer1 und alten Merge-Zielen sind überholt; für die aktuelle Steuerung gilt ausschließlich der Ampelteil oben.**
+**Beschluss:** Die Weiterentwicklung der **FY-Produktivsoftware auf dem Arduino Nano ist eingestellt**. Der Nano hat seine Aufgabe als Hardwaretest- und Referenzplattform erfüllt. Vorhandene Nano-Quellen, Messwerte, Issues und Dokumente bleiben erhalten, sind aber **kein aktiver Implementierungsplan** mehr. Keine weitere Planung für Nano-Timer1, AVR-Speicheroptimierungen oder den ehemaligen Branch `FY_Motor` als Produktivziel.
 
-**Aktiver Entwicklungsbranch:** `FY_Motor`  
-**Basis:** aktueller, kompilierbarer Stand von `main` (Branch-Erstellung nach Abschluss und Merge der UART-Phase)  
-**Phasenziel:** Timer-/STEP-Ausführung und Bewegungsprofil gegen den verifizierten HW-Test abgleichen; Timerbasis, Prescaler, Compare-Berechnung, Rampenbeschleunigung und Segmentwechsel konsistent machen. Danach Motoraufträge und Sicherheits-/Referenzpfade schrittweise umsetzen und gezielt testen.
+Die künftige FY-Produktivsoftware entsteht **ausschließlich auf dem ESP32-WROOM**, zunächst im Branch `feature/FY_ESP32_Port` unter `FY_ESP32_Bringup/`. Die alte Nano-Zukunftsplanung ist über die Git-Historie dieser Datei weiterhin einsehbar; sie wird hier bewusst **nicht als zweiter aktiver Plan fortgeführt**.
 
-> Arbeitsdiagramm für die schrittweise Überführung der Erkenntnisse aus dem FY_HW_TEST in die Produktivsoftware.
+## ESP32 – Vorausschau ab 21.10.2026
 
 ```mermaid
 flowchart TD
-    A["HW-Test Erkenntnisse<br/>#105"] --> B["Motor / Profil<br/>#104"]
-    V["Firmware-Identität<br/>#107/ DONE"] -. Build-/Diagnosebasis .-> B
-
-    B --> C["UART / Intermediate Commands<br/>#13"]
-    C --> D["Erstes Positions-Command / Motor-Schnittstelle<br/>#28"]
-    D --> E["Parameter / Profilwerte<br/>#106 + #104"]
-    E --> F["Motorbewegung / Execution / STEP<br/>#51"]
-
-    F -. parallel .-> T["Tests / Native<br/>#46 + PC-Tests"]
-    F --> G["Motorzustand / Sicherheit<br/>#86 + #26 + #50 + #52"]
-    G --> H["Sensoren<br/>#93"]
-    H --> I["Referenz<br/>#85 + #94"]
-    I --> J["Position / Trackmodell<br/>#11"]
-    J --> K["Keyboard / LOCAL<br/>#88 + #89"]
-    K --> L["Display<br/>#90"]
-    K --> M["UART / Service<br/>#13 + #17 + #28 + #29 + #39"]
-    L --> N["LOCAL / REMOTE<br/>#91"]
-    M --> N
-    M -. Service .-> S["Servicebetrieb<br/>#95"]
-    N --> O["System Executive<br/>#96"]
-    O --> P["Gesamtintegration<br/>#30 + Tests"]
-
-    T -. Validierung .-> G
-    T -. Validierung .-> I
-    T -. Validierung .-> J
-    T -. Validierung .-> P
+    A["ESP32 Bench: UART, FreeRTOS, STEP-Profil, virtuelle Position ✓"] --> B["Ist/Soll-Review: Issues ↔ Docs ↔ Code"]
+    B --> C["HW3: Versorgung, Boot-Pegel, Treiber, Leitungen"]
+    C --> D["STOP / Queue-Last / Timing physisch prüfen"]
+    D --> E["Switches: Lichtschranken und Endlagen"]
+    E --> F["Reale Referenzierung / Grenzschutz"]
+    F --> G["SET_TRACK / echte Gleispositionen"]
+    G --> H["Keyboard / OLED / Local-Remote"]
+    H --> I["Parameter / Teach-in / Speicherung"]
+    I --> J["FY-Gesamtabnahme an Mechanik"]
+    J --> K["Freigabe / gezielter Merge nach main"]
+    B -. "parallel" .-> Q["Cppcheck / MISRA-orientierte QS"]
+    Q -. "begleitet jeden sinnvollen Schritt" .-> J
+    K -. "später" .-> W["WLAN / JMRI / weitere Funktionen"]
 ```
 
-## Arbeitsreihenfolge
+**Reihenfolge als Orientierung, keine starre Sperre für parallele Arbeiten an Hardware, Dokumentation oder Keyboard.** Vor der echten Bewegung an der FY-Bühne gelten die Hardware- und Safety-Gates unabhängig von der Ampelfarbe. Spätere WLAN-/Display-Ideen sind kein Freigabekriterium für die erste Schiebebühnen-Version.
 
-Die Motorintegration wird bewusst in kleinen, testbaren Schritten aufgebaut. Die echte Hardware ist dabei zunächst **nicht erforderlich**; die Produktivsoftware wird auf dem Schreibtisch-Mockup entwickelt und geprüft.
+| Abschnitt | Stand | Nächster Nachweis / Entscheidung | Quellen |
+|---|---|---|---|
+| **ESP32-Grundarchitektur**: Huginn/Core 0, Muninn/Core 1; UART, Queues, Motor | 🟢 Bench / 🟣 Gesamt | Aufgaben-/Status-Semantik, STOP-Priorität, Robustheit und Dokumentations-Review | [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150), [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152), [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) |
+| **Sechsphasen-Profil, STEP-Timer, A4988** | 🟢 Bench / 🟣 Lasttest | Bewegter STOP, STEP-Timing/Jitter, Rampen und Fehlerfälle unter Last | [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153), [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) |
+| **HW3-Trägerplatine und Spannungsversorgung** | 🟠 | 12 V → externer 3,3-V-DC/DC, getrennte VMOT-Schaltmöglichkeit, USB-Isolator, Boot-Pull-Pegel, Messung von Rückspeisung. Versorgungs- und GPIO-Freigabe **noch nicht abgenommen** | [#161](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/161), [HW3 Versorgung](../FY_ESP32_Bringup/docs/pinouts/HW3_STROMVERSORGUNG.md) |
+| **Sensorik, REF, Endlagen, echter Fahrweg** | 🟠 ⛔ | Schalter/Sensor-Pins prüfen, echte Referenzfahrt und Grenzabschaltung nachweisen | [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155) |
+| **SET_TRACK, Position, Teach-in** | 🟠 ⛔ | Referenzierte Gleispositionen, sichere Ziel-/Grenzprüfung, Positionserhalt und Fehlerfälle | [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154), [#167](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/167) |
+| **Keyboard mit PCF8574 und OLED** | 🟠 | Tastenscan, STOP, LED/OLED und Betriebsarten-Handover auf echter Hardware | [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157) |
+| **Error-/Parameterverwaltung** | 🟡/🟠 | Fehlertransport zwischen Kernen, Parametervalidierung, Speicher-/Kalibrierkonzept | [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158), [#162](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/162) |
+| **Cppcheck / MISRA-orientierte QS** | 🟣 Konfiguration offen | **21.10. Baseline:** 6 Quellen geprüft, 0 bestätigte Codefehler, 10 Style-Hinweise und 45 `misra-config`; wegen fehlender Definitionen **unvollständig**, kein MISRA-Nachweis. Python-Auswertung trennt inzwischen `misra.csv`, `misra_config.csv`, `misra_full.csv`. `pio run -t misra` lokal noch ungeklärt | [#163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163), [Evidence](../FY_ESP32_Bringup/reports/) |
+| **WLAN, JMRI, Betriebsarten, OTA** | 🟠 | Zukunftsarbeit; Betriebsartenwechsel nur nach STOP/im Stillstand, Rechte und Quellenpriorität klären | [#160](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/160), [#166](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/166) |
+| **Optionales SPI-Display und Beleuchtung** | 🟠 | Separater späterer Ausbau; kein Bestandteil des ursprünglichen Keyboard-Auftrags | [#165](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/165) |
+| **Produktiver FY-Einsatz und Merge** | 🔴 ⛔ | Integration mit Mechanik, Safety-/Fehlertests, Nachweise und dokumentierte Freigabe; **nicht** aus Bench-Erfolg ableiten | [#159](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/159) |
 
-1. **Firmware-Identität** als kleine Build-/Diagnosebasis festlegen.
-2. **Motor-/Profil-Erkenntnisse aus dem HW-Test** übernehmen, ohne den HW-Test-Code zu kopieren.
-3. **Intermediate Commands** zuerst produktiv stabilisieren. Damit wird die Kommunikation CMD → Verarbeitung → Response unabhängig von echter Motorbewegung überprüfbar.
-4. **Erstes Positions-Command / Motor-Schnittstelle** einführen. Zunächst reicht die Verbindung bis zur Motorlogik bzw. zum Mockup; die vollständige STEP-Ausführung folgt später.
-5. **Parameter- und Profilmodell** schrittweise festlegen. Als Startpunkt werden die im HW-Test verifizierten und veränderbaren Parameterwerte verwendet. Die endgültige Klassifizierung von Default-, Konfigurations-, Kalibrier-, Laufzeit- und Diagnosewerten erfolgt in #106.
-6. **Motorbewegung / Execution / STEP** in die Produktivsoftware überführen. Die verifizierte Profilberechnung aus #104 und die STEP-Ausführung aus #51 werden dabei getrennt gehalten: Profil berechnet, Execution führt aus.
-7. **Mockup vollständig gegen die Produktivschnittstellen testen.**
-8. Erst wenn Kommunikation, Position, Parameter und Motor-Execution auf dem Mockup funktionieren, erfolgt der **erste Live-Test mit Steppertreiber und echter Motor-Hardware**.
-9. Danach Motorzustand, Sicherheit, Sensoren und Referenz schrittweise ergänzen.
-10. Erst auf diesem stabilen Kern folgen Bedienung, Service und Systemintegration.
+### Architektur- und Arbeitsregeln
 
-## Arbeitsprinzip
+- **Code-Wahrheit:** *Issue/SOLL → Modul-Markdown/Diagramm → C++ → sinnvolle Prüfungen*, dann rückwärts *C++/IST → Dokumentation → Issue*. Abweichungen festhalten, nicht stillschweigend glätten. [Dokumentationsregeln](../FY_ESP32_Bringup/docs/DOCUMENTATION_RULES.md).
+- **Motorhoheit:** Muninn/Core 1 allein kontrolliert Motorzustand und STEP. Huginn/Core 0 betreibt UART/BabelFish, Command-Routing, künftig Keyboard und gegebenenfalls WLAN. [Architektur](../FY_ESP32_Bringup/docs/SYSTEM_ARCHITECTURE.md).
+- **Kein spontanes UART-DONE:** ACK/NACK beantwortet Anfragen; Abschluss wird mit GET_STATUS abgefragt. Sensorik und STOP müssen lokal und ohne Abhängigkeit von Anzeige, UART oder WLAN reagieren.
+- **Keine blinde Nano-Kopie:** Die historischen Prepare-/Job-/Update-Issues sind nach ihrem fachlichen Auftrag einzeln zu bewerten, nicht 1:1 zu implementieren. Verifizierte Nano-Algorithmen dürfen als begründete Referenz dienen.
+- **Betriebsartenwechsel:** erst nach STOP und im Stillstand; WLAN/JMRI erhalten keinen unkontrollierten direkten Zugriff auf Motor-GPIO.
+- **Tests mit Augenmaß:** Testtiefe und physische Nachweise nach Risiko; kein künstliches Vollabdeckungsziel. Bench-Erfolg gilt ausdrücklich nur für Bench, nicht für echte FY-Mechanik.
 
-- Die drei Command-Klassen werden bewusst nacheinander genutzt: **INTERMEDIATE → Positions-/Bewegungsauftrag → weitere ausführende Commands**.
-- Kommunikation wird vor echter Motorbewegung stabilisiert.
-- Das erste Positions-Command bildet die Brücke zwischen UART und Motor-Schnittstelle.
-- Parameter werden zunächst aus dem HW-Test übernommen, aber ihre endgültige Struktur wird nicht vorweggenommen.
-- Die reale Hardware dient erst dann als Integrationsprüfung, wenn die Produktivlogik auf dem Mockup nachvollziehbar funktioniert.
-- Der Steppertreiber ist eine nachgelagerte Hardware-Schnittstelle; seine konkrete Implementierung wird nicht zum Vorab-Gegenstand der Motor-API gemacht.
-- Der HW-Test-Code wird nicht kopiert.
-- Übernommen werden bestätigte Anforderungen, Zustände, Abläufe, Parameter und technische Prinzipien.
-- UART bleibt bei jedem Entwicklungsschritt funktionsfähig, damit der Nano weiterhin beobachtet und getestet werden kann.
-- Referenzkompensation zunächst nicht erzwingen; die Architektur dafür bleibt offen.
-- Parameter und EEPROM werden in #106 schrittweise klassifiziert.
-- `response()` der Produktiv-UART wird im Zuge der UART-Überarbeitung konkretisiert.
-- Neue Issues nur anlegen, wenn aus der Umsetzung tatsächlich eine Lücke entsteht.
-- Die Firmware-Identität wird zentral gepflegt: Release-Version manuell, Builddatum/-zeit und Git-Commit automatisch aus dem Build ableiten.
+### Aktueller Arbeits- und Freigabepfad
 
-## Gemeinsame Software-Komponenten und Versionierung
+1. **Review [D01–D18](../FY_ESP32_Bringup/docs/VERIFICATION_GAPS.md):** Priorität der offenen Soll-Ist-Deltas gemeinsam festlegen; Fach-Issues als Quelle belassen.
+2. **HW3 und Bench absichern:** Strompfad, RESET/ENABLE/SLEEP, motorseitige VMOT-Trennung und Testfälle; 12 V versorgen künftig auch den Logik-DC/DC, deshalb ersetzt „12 V beim Flashen AUS“ **keine** technische Flash-/Reset-Sicherheitslösung. Ein kurzes Zucken am losen Benchmotor ist kein FY-Sicherheitsnachweis.
+3. **STEP/STOP-Nachtests und QA:** Timing, Profil, Last, Queue-Priorität; Cppcheck-Konfigurationslücken später verbessern, ohne die erste Evidence zu überschreiben.
+4. **Sensorik, Referenz und echte Bewegung:** Referenzzustand, Endlage, Fehler-/Timeoutpfade sowie reale Track-Ziele.
+5. **Bedienung und Konfiguration:** Keyboard, lokale Freigabe, Parameter und Teach-in; geplante neue Funktionen modular ergänzen.
+6. **Hardware-Abnahme und kontrollierter Merge:** dokumentierte Tests an der FY-Schiebebühne vor Freigabe. Erst danach nachgelagerte WLAN-/JMRI-/Anzeigefunktionen priorisieren.
 
-Gemeinsame Dateien oder Bibliotheksbestandteile zwischen HW-Test und Produktivsoftware sind grundsätzlich zulässig, wenn sie tatsächlich ein gemeinsames Verfahren oder einen gemeinsamen Mechanismus beschreiben. Das gilt insbesondere für hardwarefreie Berechnungen oder eindeutig definierte Datenstrukturen.
-
-Dabei gilt:
-
-- Eine gemeinsame Datei ist eine **gemeinsame Software-Komponente**, nicht automatisch Bestandteil jeder Firmware-Version.
-- Änderungen an einer gemeinsamen Komponente dürfen **keine stille Verhaltensänderung** in einem anderen Projekt erzeugen.
-- Die Übernahme einer geänderten gemeinsamen Komponente in eine Firmware muss deshalb **bewusst und nachvollziehbar** erfolgen.
-- Die verwendete Version bzw. der konkrete Git-Stand der Komponente muss aus dem jeweiligen Projektstand nachvollziehbar sein.
-- Eine Änderung der gemeinsamen Komponente wird zunächst isoliert geprüft. Erst danach wird sie in die jeweils betroffenen Firmwarebereiche übernommen.
-- Wenn HW-Test und Produktivsoftware fachlich auseinanderlaufen, darf eine gemeinsame Datei aufgelöst werden. Beide Projekte erhalten dann bewusst eigene Implementierungen.
-- **Submodule oder Subrepositories werden dafür nicht vorausgesetzt.** Die gemeinsame Komponente kann im selben Repository liegen; entscheidend ist die nachvollziehbare Übernahme und nicht die technische Verpackung.
-- Vor einer Änderung an `FY_Common` wird daher geprüft, welche Projekte die Komponente tatsächlich verwenden und ob eine gemeinsame Weiterentwicklung noch sinnvoll ist.
-
-Für `FY_Common/MotorProfile.h` ist damit zunächst **keine automatische gemeinsame Weiterentwicklung festgelegt**. Vor der nächsten Änderung wird geklärt, ob die Profilberechnung weiterhin eine echte gemeinsame Komponente sein soll oder ob HW-Test und Produktivsoftware an diesem Punkt bewusst getrennte Wege gehen.
-
-## Branch- und Merge-Regel
-
-`main` ist die maßgebliche Referenz für den aktuellen Produktivstand. Die jeweils laufende Implementierungsphase erhält einen eigenen, klar benannten Branch, der aus dem aktuellen `main` erstellt wird. Es wird nicht parallel auf mehreren Produktiv-Branches gearbeitet.
-
-**Aktuelle Phase:** `FY_Motor`  
-**Ausgangsbasis:** `main` zum Stand der abgeschlossenen UART-Phase; die bewusst akzeptierten `unused`- und MISRA-Warnings bleiben zunächst akzeptiert.
-
-Ziele der Phase:
-
-1. Timer1-Konfiguration und Prescaler mit dem HW-Test vergleichen und eine gemeinsame, nachvollziehbare Zeitbasis festlegen.
-2. Compare-Wert-Berechnung einschließlich Rundung, Wertebereich und Frequenzgrenzen korrigieren bzw. bestätigen.
-3. Prüfen, wie die Profilbeschleunigung den Compare-Wert verändert und ob Rampenintervalle, STEP-Flanken und Beschleunigungswerte zum gewählten Timer-Takt passen.
-4. Den Segmentwechsel so umsetzen bzw. verifizieren, dass Segmente mit `Steps == 0` unmittelbar übersprungen werden und das Profilende sicher erkannt wird.
-5. Bewährte STEP-/Portzugriffe, Endschalterkoordinaten und Positionslogik gezielt in die Produktivarchitektur übertragen.
-6. Anschließend Bewegungsaufträge, Abbruch-/Fehlerpfade und Referenzabläufe schrittweise implementieren und testen.
-7. Hardwarefreie Tests und Buildprüfungen durchführen; nicht ausgeführte Hardwaretests ausdrücklich offenhalten.
-
-`FY_Motor` wurde aus dem aktuellen `main` erstellt. Der bisherige Branch `FY_Controller_Motor` bleibt als historischer Entwicklungsstand erhalten und wird nicht gelöscht. Nach Abschlussprüfung wird `FY_Motor` gezielt nach `main` gemergt; die nächste Phase wird erst danach festgelegt.
-
-Vor jeder Übernahme werden Commit-Historie, relevante Issues und bewusste Architekturentscheidungen geprüft. Eine Abweichung zwischen Branches gilt nicht automatisch als Fehler. Bereits bewusst in `main` vorgenommene Änderungen werden respektiert; es werden nur tatsächlich relevante Unterschiede als offene Punkte gemeldet.
-
-Vor jedem neuen Arbeitsabschnitt werden aktiver Branch und Ausgangscommit geprüft und benannt. Es wird nicht stillschweigend zwischen unterschiedlichen Branch-Ständen gewechselt.
-
+**Statusquellen:** [Ampel oben](#status-auf-einen-blick) · [ESP32-Doku](../FY_ESP32_Bringup/docs/README.md) · [Review-Checkliste](../FY_ESP32_Bringup/docs/VERIFICATION_GAPS.md) · [Issue #150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150). **Für historische Nano-Pläne:** frühere Git-Revisionen dieser Roadmap bzw. `FY_Controller_Motor/`.
