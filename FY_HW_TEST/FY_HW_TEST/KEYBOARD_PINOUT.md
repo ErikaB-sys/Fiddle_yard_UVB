@@ -29,7 +29,7 @@ Die Tabelle gibt die **tatsächlich definierten Konstanten** wieder.
 | P6 | Taster Links / Blau 1 |
 | P7 | Taster STOP |
 
-> **Achtung, Quellcode-Unstimmigkeit:** Der Kommentar direkt oberhalb der Konstanten in `HW_Test.h` behauptet `STOP → LED P1` und `GREEN → LED P3`. Die Konstanten legen dagegen `LED_STOP_PIN = P3` und `LED_GO_PIN = P1` fest. Diese Dokumentation folgt den Konstanten. Beim nächsten Hardwaretest die reale LED-Zuordnung bestätigen und den veralteten Kommentar korrigieren.
+> **Quelle der Wahrheit:** Die Konstanten in `HW_Test.h` bestimmen die Portbelegung. Der zugehörige Kommentar wurde am 21.10.2026 an diese Konstanten angepasst. Die physische Verdrahtung bleibt bei Bedarf am Gerät überprüfbar.
 
 ## Bedienung im Hardwaretest
 
