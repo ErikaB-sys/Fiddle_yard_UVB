@@ -14,8 +14,16 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 REPORTS = ROOT / "reports"
 CPPDIR = ROOT / ".cppcheck"
-SOURCES = ["src", "lib/BabelFish", "lib/Error", "lib/Motor", "lib/UART"]
-INCLUDES = ["include", "src", "lib/BabelFish", "lib/Error", "lib/Motor", "lib/UART", "lib/Keyboard", "lib/Switches"]
+SOURCES = ["src"] + [
+    str(p.relative_to(ROOT)).replace("\\", "/")
+    for p in sorted((ROOT / "lib").iterdir())
+    if p.is_dir() and any(p.rglob("*.cpp"))
+]
+INCLUDES = ["include", "src"] + [
+    str(p.relative_to(ROOT)).replace("\\", "/")
+    for p in sorted((ROOT / "lib").iterdir())
+    if p.is_dir()
+]
 
 def main():
     exe = shutil.which("cppcheck")
