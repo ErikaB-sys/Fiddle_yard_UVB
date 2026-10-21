@@ -12,7 +12,7 @@ flowchart LR
   K --> O["OLED + LEDs"]
 ```
 
-**Ist:** [`lib/Keyboard/`](../../lib/Keyboard/) enthält derzeit **nur historisches Markdown, keinen aktiven C++-Keyboard-Port**. I²C-Pins stehen im [Pinout](../pinouts/README.md); PCF-Port-Belegung in der [HW-Test-Referenz](../../../FY_HW_TEST/FY_HW_TEST/KEYBOARD_PINOUT.md) prüfen. Keine Pinwerte doppelt hier pflegen.
+**Ist:** Ein ausführbares ESP32-Modul `lib/Keyboard/` existiert im Git-Stand noch **nicht**; die früher dort vorhandene MD-Arbeitsnotiz liegt jetzt im Archiv. I²C-Pins stehen im [Pinout](../pinouts/README.md); PCF-Port-Belegung in der [HW-Test-Referenz](../../../FY_HW_TEST/FY_HW_TEST/include/HW_Test.h) prüfen. Keine Pinwerte doppelt hier pflegen.
 
 - [x] Issue- und Architekturbezug erstellt.
 - [x] fehlenden ESP32-Code ausgewiesen.

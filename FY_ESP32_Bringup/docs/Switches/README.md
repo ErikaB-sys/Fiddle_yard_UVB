@@ -11,7 +11,7 @@ flowchart LR
   S -.-> Q["geplanter Snapshot an Huginn"]
 ```
 
-**Ist:** In [`lib/Switches/`](../../lib/Switches/) derzeit kein ausführbarer ESP32-Switches-Code. GPIO32/33/16/17 in [HW_Config.h](../../include/HW_Config.h) **reserviert, nicht als Sensorsystem abgenommen**. 2-Byte-Snapshot und 1-Slot-Mailbox sind Entwurf.
+**Ist:** Im aktuellen Git-Stand gibt es noch kein ausführbares ESP32-`lib/Switches/`-Modul; die alte MD-Arbeitsnotiz wurde archiviert. GPIO32/33/16/17 in [HW_Config.h](../../include/HW_Config.h) **reserviert, nicht als Sensorsystem abgenommen**. 2-Byte-Snapshot und 1-Slot-Mailbox sind Entwurf.
 
 - [x] Soll-/Istgrenze beschrieben.
 - [ ] GPIO-/Pegel-/Sensorverdrahtung, Referenzfahrt und Endlagenlogik implementieren.
