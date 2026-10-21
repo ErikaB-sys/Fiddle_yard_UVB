@@ -34,7 +34,7 @@ Die Keyboard-Platine nutzt den **PCF8574 mit Adresse `0x27`**. Die Portbelegung 
 | GO (Grün) | P5 | P1 |
 | Rechts (Blau 2) | P4 | P0 |
 
-**Hinweis:** Der ältere Kommentar in `HW_Test.h` vertauscht die LED-Angaben für STOP und GO gegenüber den Konstanten. Bei der nächsten Hardwareprüfung bestätigen. Die Tabelle folgt den Konstanten.
+**Verbindliche Zuordnung:** Tabelle und Kommentar in `HW_Test.h` stimmen jetzt mit den dortigen Konstanten überein. Für die ESP32-Portierung gelten diese PCF8574-Portnummern.
 
 Das ist die **Expander-Belegung**, keine ESP32-GPIO-Zuordnung. Die ESP32-I²C-Pins werden unabhängig davon konfiguriert. Die ESP32-Implementierung ist weiterhin offen; keine neue Nano-Implementierung vorsehen.
 
