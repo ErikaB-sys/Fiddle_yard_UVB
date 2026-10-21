@@ -60,9 +60,9 @@ constexpr uint8_t PORT_EXPANDER_ADDRESS = 0x27;
 
 // Button / LED mapping on PCF8574
 // Physical mapping, verified on the hardware:
-//   STOP   -> button P7 / LED P1
+//   STOP   -> button P7 / LED P3
 //   BLUE 1 -> button P6 / LED P2
-//   GREEN  -> button P5 / LED P3
+//   GREEN  -> button P5 / LED P1
 //   BLUE 2 -> button P4 / LED P0
 constexpr uint8_t BUTTON_STOP_PIN  = P7;
 constexpr uint8_t BUTTON_LEFT_PIN  = P6;
