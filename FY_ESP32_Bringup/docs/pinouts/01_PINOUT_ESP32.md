@@ -1,8 +1,10 @@
 # ESP32-WROOM (38 Pin) – HW3-Gesamtbelegungsplan
 
 **Stand: 22.10.2026 · Branch `feature/FY_ESP32_Port`.**
-**HW3-Zielplan für die Verdrahtung; noch nicht elektrisch abgenommen und noch nicht vollständig in der Firmware umgesetzt.**
-Die Spalte „Code bisher“ zeigt den beim Abgleich gelesenen Stand von [HW_Config.h](../../include/HW_Config.h). Insbesondere die vier Sensorpins müssen vor Nutzung der neuen Verdrahtung im Code umgestellt werden. SLEEP benötigt zusätzlich eine neue Ansteuerung. Der vorhandene HW2-Bench-Nachweis gilt nicht automatisch für HW3.
+**HW3-Pinbelegung in `HW_Config.h` übernommen; Ansteuerung und elektrische Abnahme noch unvollständig.**
+Die Haupttabelle entspricht den neuen Pin-Konstanten in [HW_Config.h](../../include/HW_Config.h). Die Statusspalte nennt zusätzlich die frühere HW2-Zuordnung. SLEEP, Sensor-Schutzpfad und SPI benötigen weiterhin Implementierung und Tests. Der vorhandene HW2-Bench-Nachweis gilt nicht automatisch für HW3.
+
+**Software-Zuständigkeit:** Muninn / Kern 1 besitzt Motor, SLEEP, Sensoren und die bisherige Diagnose-LED. Huginn / Kern 0 besitzt I²C-Bedienung, SPI-Anzeige/Licht und UART-Kommunikation. Die Zuordnung beschreibt den Software-Owner; GPIOs sind nicht elektrisch an einen Kern gebunden. `CORE_MUNINN=1` und `CORE_HUGINN=0` sowie das Task-Pinning bleiben erhalten.
 
 ## Anforderungen und Quellen
 
@@ -19,7 +21,7 @@ Die Spalte „Code bisher“ zeigt den beim Abgleich gelesenen Stand von [HW_Con
 
 GPIO-Zahlen beziehen sich auf die Board-Aufschrift Gxx, **nicht auf Steckerpositionsnummern**. G36 kann VP, G39 VN heißen. Plan gilt für das vorhandene **WROOM ohne PSRAM**, nicht ungeprüft für WROVER oder andere ESP32-Varianten.
 
-| Gruppe | Funktion / Anschluss | HW3 GPIO | Richtung am ESP32 | Code bisher / Änderung |
+| Gruppe | Funktion / Anschluss | HW3 GPIO | Richtung am ESP32 | Code-Stand / Änderung gegenüber HW2 |
 |---|---|---:|---|---|
 | Motor | A4988 STEP | G25 | Ausgang | G25, unverändert |
 | Motor | A4988 DIR | G26 | Ausgang | G26, unverändert |
@@ -27,19 +29,19 @@ GPIO-Zahlen beziehen sich auf die Board-Aufschrift Gxx, **nicht auf Steckerposit
 | Motor | M0 → A4988 MS1 | G13 | Ausgang | G13, unverändert |
 | Motor | M1 → A4988 MS2 | G14 | Ausgang | G14, unverändert |
 | Motor | M2 → A4988 MS3 | G4 | Ausgang | G4, unverändert |
-| Motor | A4988 !SLEEP / SLP | **G32** | Ausgang | **Neu**; LOW = Schlafzustand |
-| Sensor | Lichtschranke REF / LSREF | **G34** | nur Eingang | **bisher G32** |
-| Sensor | Lichtschranke 2 / Riemen / LS4 | **G35** | nur Eingang | **bisher G33** |
-| Sensor | Endschalter links / LSL | **G36 / VP** | nur Eingang | **bisher G16** |
-| Sensor | Endschalter rechts / LSR | **G39 / VN** | nur Eingang | **bisher G17** |
+| Motor | A4988 !SLEEP / SLP | **G32** | Ausgang | Konstante neu; Ansteuerung offen; LOW = Schlafzustand |
+| Sensor | Lichtschranke REF / LSREF | **G34** | nur Eingang | umgestellt von G32 |
+| Sensor | Lichtschranke 2 / Riemen / LS4 | **G35** | nur Eingang | umgestellt von G33 |
+| Sensor | Endschalter links / LSL | **G36 / VP** | nur Eingang | umgestellt von G16 |
+| Sensor | Endschalter rechts / LSR | **G39 / VN** | nur Eingang | umgestellt von G17 |
 | I²C | SDA – PCF8574 und OLED | G21 | bidirektional | G21, unverändert |
 | I²C | SCL – PCF8574 und OLED | G22 | Open-Drain-Bus | G22, unverändert |
-| SPI | SCLK – gemeinsam | G18 | Ausgang | bisher reserviert |
-| SPI | MISO – MCP23S17, ggf. Display | G19 | Eingang | bisher reserviert |
-| SPI | MOSI – gemeinsam | G23 | Ausgang | bisher reserviert |
-| SPI | !CS_DISPLAY | **G16** | Ausgang | **Neu reserviert** |
-| SPI | !CS_EXPANDER | **G17** | Ausgang | **Neu reserviert** |
-| SPI | Display D/C | **G33** | Ausgang | **Neu reserviert** |
+| SPI | SCLK – gemeinsam | G18 | Ausgang | Konstante reserviert; SPI-Ansteuerung offen |
+| SPI | MISO – MCP23S17, ggf. Display | G19 | Eingang | Konstante reserviert; SPI-Ansteuerung offen |
+| SPI | MOSI – gemeinsam | G23 | Ausgang | Konstante reserviert; SPI-Ansteuerung offen |
+| SPI | !CS_DISPLAY | **G16** | Ausgang | Konstante neu; SPI-Ansteuerung offen |
+| SPI | !CS_EXPANDER | **G17** | Ausgang | Konstante neu; SPI-Ansteuerung offen |
+| SPI | Display D/C | **G33** | Ausgang | Konstante neu; SPI-Ansteuerung offen |
 | Service | UART0 TX → USB-UART | G1 / TX0 | Ausgang | für USB/UART0 freihalten |
 | Service | UART0 RX ← USB-UART | G3 / RX0 | Eingang | für USB/UART0 freihalten |
 | Diagnose | bisherige Test-LED-Funktion | G2 | Ausgang | reserviert; tatsächliche Board-Bestückung beachten |
@@ -124,17 +126,18 @@ Ein drittes CS ist **nicht zugesichert**. Dafür wäre eine gesonderte Entscheid
 
 Die bisherige HW2-Motorbelegung bleibt erhalten. Frühere Bench-Beobachtungen: STEP am losen NEMA11 erprobt, DIR beobachtet, ENABLE-Pegel getestet; Mikroschrittpegel mit dem jeweils aktuellen Build nachmessen. Bench-Modus/Normalmodus siehe [MOTOR_TIMER_BENCH.md](../MOTOR_TIMER_BENCH.md). Das ist keine Freigabe der FY-Endlagen.
 
-**Code-Ist:** [HW_Config.h](../../include/HW_Config.h) enthält noch die in der Haupttabelle genannten alten Sensorpins; SLEEP/CS/DC sind noch nicht umgesetzt. Nur die neue Tabelle zu verdrahten macht den alten Build nicht HW3-kompatibel.
+**Code-Ist:** [HW_Config.h](../../include/HW_Config.h) enthält die HW3-Sensorpins und Konstanten für SLEEP sowie SPI einschließlich beider CS und DC. Die Datei ist nach Muninn/Kern 1 und Huginn/Kern 0 gegliedert. `MOTOR_SLEEP_PIN` allein steuert den Ausgang noch nicht: Bei angeschlossenem SLEEP-Pulldown bleibt der A4988 mit der bisherigen Laufzeitlogik im Schlafzustand. Sensor-Schutzpfad und SPI-Ansteuerung fehlen ebenfalls weiterhin. Alte HW2-Verdrahtung und neue Sensor-Konstanten dürfen nicht als kompatibel angenommen werden.
 
-- [ ] Sensor-Konstanten umstellen; Boardprofil HW2/HW3 oder gezielte Migration festlegen.
+- [x] Sensor-Konstanten gezielt auf HW3 umgestellt; SLEEP und SPI-Steuersignale definiert, nach Kernen gegliedert.
 - [ ] SLEEP-Initialisierung, Aufwachzeit und Referenzgültigkeit implementieren.
 - [ ] G36/G39 als Pegel im unmittelbaren Motor-Schutzpfad integrieren; Stopplatenz prüfen.
-- [ ] CS/DC für #165 übernehmen, wenn die Erweiterung implementiert wird.
+- [x] SPI einschließlich CS/DC als Konstanten für #165 übernommen.
+- [ ] SPI-Initialisierung und tatsächliche Geräteansteuerung für #165 implementieren.
 - [ ] Shield-Pulls, RESET/SLEEP-Trennung, Sensorpegel und tatsächliche Boardrevision prüfen.
 - [ ] Versorgungsauswahl gemäß [HW3_STROMVERSORGUNG.md](HW3_STROMVERSORGUNG.md) aufbauen und messen.
 - [ ] Power-on, Reset, USB-Flash und später OTA samt STEP/ENABLE/SLEEP am realen Aufbau prüfen.
 
-**Prüfstand dieser Änderung:** GPIO-Eindeutigkeit, Ein-/Ausgangseignung, Anforderungen und Soll/Ist-Abweichungen dokumentarisch abgeglichen. Keine Firmwareänderung, kein Build und kein Hardwaretest. Zentrale offene Punkte: [VERIFICATION_GAPS.md](../VERIFICATION_GAPS.md).
+**Prüfstand dieser Änderung:** Pin-Konstanten und Kernzuständigkeiten gegen Plan und vorhandenes Task-Pinning abgeglichen; keine GPIO-Doppelbelegung. Isolierte C++11-Syntaxprüfung des Headers mit g++ und minimalem Arduino-Typstub bestanden. Kein vollständiger ESP32-/PlatformIO-Build (Toolchain hier nicht installiert), keine MISRA-/Cppcheck-Prüfung und kein Hardwaretest. Laufzeitlogik unverändert. Zentrale offene Punkte: [VERIFICATION_GAPS.md](../VERIFICATION_GAPS.md).
 
 ## Technische Referenzen
 
