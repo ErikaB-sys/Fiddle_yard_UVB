@@ -35,3 +35,7 @@
 ## Bei unserem Review
 
 Zu jedem Punkt festhalten: **Entscheidung (Soll), konkrete Code-/Dokuänderung, Nachweisart, Datum/Commit oder bewusst „nicht geprüft“**. Die Checkliste dient der Abweichungsbearbeitung, nicht als zweite Issue-Verwaltung. Beim Schließen auf betroffene Fach-Issues verweisen und einmalig aktualisieren.
+
+## HW3-Pinplanung – Ergänzung 22.10.2026
+
+- [ ] **D19 – HW3-Zielbelegung in Firmware überführen:** Der [zentrale Pinplan](pinouts/01_PINOUT_ESP32.md) enthält jetzt die vollständige HW3-Zielbelegung mit separatem A4988-SLEEP und den SPI-Steuersignalen aus #165. `HW_Config.h` verwendet weiterhin die alten Sensorpins. Vor Inbetriebnahme neuer Verdrahtung Sensor-Konstanten/Boardprofil, SLEEP-Ansteuerung und Aufwachzeit sowie unmittelbare Endlagen-Pegelprüfung auf Muninn implementieren. G36/G39 werden ohne GPIO-Flankeninterrupts geplant. Display-Reset lokal, keine ungeprüfte Brücke zu ESP32-EN. GPIO-Konflikte dokumentarisch geprüft; **kein Build/HW-Nachweis**, vorhandene D01/D03/D18 bleiben offen. Details und Pinzahlen ausschließlich im zentralen Pinplan pflegen.
