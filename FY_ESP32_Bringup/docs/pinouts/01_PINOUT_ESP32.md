@@ -23,13 +23,13 @@ GPIO-Zahlen sind **GPIO-Nummern, keine Steckerpositionsnummern**. Die beiden rei
 
 | Gruppe | Funktion / Anschluss | HW3 GPIO | Richtung am ESP32 | Code-Stand / Änderung gegenüber HW2 |
 |---|---|---:|---|---|
-| Motor | A4988 STEP | G25 | Ausgang | **kein externer Pull-down in HW3-Testbestückung**; weiße STEP-Diagnose-LED |
-| Motor | A4988 DIR | G26 | Ausgang | **kein externer Pull-down in HW3-Testbestückung**; gelbe DIR-Diagnose-LED |
-| Motor | A4988 !ENABLE / EN | G27 | Ausgang | **10 kΩ Pull-up nach 3,3 V**; blaue EN-Diagnose-LED (bei LOW an); LOW = Wicklungen freigegeben |
+| Motor | ⚪ A4988 STEP | G25 | Ausgang | **kein externer Pull-down in HW3-Testbestückung**; weiße STEP-Diagnose-LED |
+| Motor | 🟡 A4988 DIR | G26 | Ausgang | **kein externer Pull-down in HW3-Testbestückung**; gelbe DIR-Diagnose-LED |
+| Motor | 🔵 A4988 !ENABLE / EN | G27 | Ausgang | **10 kΩ Pull-up nach 3,3 V**; blaue EN-Diagnose-LED (bei LOW an); LOW = Wicklungen freigegeben |
 | Motor | M0 → A4988 MS1 | G13 | Ausgang | G13, unverändert |
 | Motor | M1 → A4988 MS2 | G14 | Ausgang | G14, unverändert |
 | Motor | M2 → A4988 MS3 | G4 | Ausgang | G4, unverändert |
-| Motor | A4988 !SLEEP / SLP, mit !RESET verbunden | **G32** | Ausgang | **10 kΩ Pull-down nach GND** am gemeinsamen SLP/RST-Netz; rote WAKE-LED (bei HIGH an); Ansteuerung offen |
+| Motor | 🔴 A4988 !SLEEP / SLP, mit !RESET verbunden | **G32** | Ausgang | **10 kΩ Pull-down nach GND** am gemeinsamen SLP/RST-Netz; rote WAKE-LED (bei HIGH an); Ansteuerung offen |
 | Sensor | Lichtschranke REF / LSREF | **G34** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G32 |
 | Sensor | Lichtschranke 2 / Riemen / LS4 | **G35** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G33 |
 | Sensor | Endschalter links / LSL | **G36 / SENSOR_VP** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G16 |
