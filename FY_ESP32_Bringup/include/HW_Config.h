@@ -12,8 +12,9 @@
 // MUNINN - Kern 1: Motor, Sensoren und unmittelbarer Hardwareschutz
 // ============================================================================
 
-// A4988: bestehende STEP/DIR/ENABLE-Belegung bleibt erhalten.
-// Firmware-Grundzustand: STEP LOW, ENABLE HIGH; SLEEP/RESET LOW.
+// A4988: HW3-Belegung gemaess physischer Verdrahtung G27/G26/G25.
+// Firmware-Startzustand: STEP LOW, ENABLE HIGH, SLEEP/RESET LOW.
+// Nach initialisiertem Motor/Timer wird SLEEP einmal HIGH und bleibt es.
 // Auf HW3 wurden STEP und ENABLE gegenueber HW2 vertauscht: G27/G25.
 constexpr uint8_t MOTOR_PWM_PIN    = 27; // G27 -> STEP / PULS (Ausgang), weisse LED
 constexpr uint8_t MOTOR_DIR_PIN    = 26; // G26 -> DIR (Ausgang)
@@ -25,14 +26,16 @@ constexpr uint8_t MOTOR_MS0_PIN = 13; // G13 -> MS1 (Ausgang)
 constexpr uint8_t MOTOR_MS1_PIN = 14; // G14 -> MS2 (Ausgang)
 constexpr uint8_t MOTOR_MS2_PIN =  4; // G4  -> MS3 (Ausgang)
 
-// HW3-SLEEP: G32 startet LOW, wird erst bei freigegebenem GO HIGH.
-// Nach Aufwecken mindestens 1 ms vor erstem STEP warten.
+// HW3-SLEEP: G32 LOW waehrend Boot/Setup, nach Motorinitialisierung
+// EINMAL HIGH mit 1,5 ms tWAKE-Wartezeit vor UART-/Muninn-Taskstart.
+// GO/STOP schaltet nur ENABLE und STEP, nicht SLEEP.
 // HW3: !RESET und !SLEEP verbunden an G32, gemeinsamer 10-kOhm-Pulldown.
 // HW3: G25 (!ENABLE), G26 (DIR), G27 (STEP) ohne Zusatz-Pulls.
-// HW3-LEDs haben gemeinsames PLUS, sind bei GPIO LOW AN:
-// rot !SLEEP/!RESET G32, blau !ENABLE G25, gelb DIR G26, weiss STEP G27.
-// ACHTUNG: Rote LED von +3,3 V nach G32 kann den 10-kOhm-Pulldown
-// bei hochohmigem GPIO uebersteuern. LOW-Pegel vor VMOT pruefen (#153).
+// ROTE LED: Anode G32, Kathode ueber Vorwiderstand nach GND,
+//           aktiv HIGH (wach = LED AN).
+// BLAU/GELB/WEISS: gemeinsame Anode +3,3 V, aktiv LOW,
+//           blau !ENABLE G25, gelb DIR G26, weiss STEP G27.
+// Bei Reset/Boot reale G32-Sperrpegel vor VMOT pruefen (#153).
 // Pulls ersetzen keinen geprueften Boot-/Flash-/OTA-Interlock.
 constexpr uint8_t MOTOR_SLEEP_PIN = 32; // G32 -> !SLEEP (HIGH = wach)
 
