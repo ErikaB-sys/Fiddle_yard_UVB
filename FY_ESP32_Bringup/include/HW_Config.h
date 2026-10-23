@@ -27,7 +27,9 @@ constexpr uint8_t MOTOR_MS2_PIN =  4; // G4  -> MS3 (Ausgang)
 // Neu reserviert: die SLEEP-Ansteuerung ist noch NICHT implementiert.
 // Hardware-Pulldown -> LOW; nach Aufwecken mindestens 1 ms vor erstem STEP.
 // HW3: !RESET und !SLEEP verbunden an G32, gemeinsamer 10-kOhm-Pulldown.
-// !ENABLE 10-kOhm-Pullup; STEP/DIR 10-kOhm-Pulldowns (HW3-Soll).
+// !ENABLE 10-kOhm-Pullup; STEP/DIR in HW3-Testbestueckung ohne Pulls.
+// Diagnose-LEDs: rot SLEEP/RESET G32, blau !ENABLE G27 (LOW=an),
+// gelb DIR G26, weiss STEP G25 (schnelle Pulse ggf. nicht sichtbar).
 // Pulls ersetzen keinen geprueften Boot-/Flash-/OTA-Interlock.
 constexpr uint8_t MOTOR_SLEEP_PIN = 32; // G32 -> !SLEEP (HIGH = wach)
 
