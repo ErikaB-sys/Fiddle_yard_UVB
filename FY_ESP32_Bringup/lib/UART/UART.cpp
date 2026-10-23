@@ -48,7 +48,7 @@ void UART::begin(BringupContext* context) {
     Serial.println(F("Hello my friend"));
 #if defined(FY_MOTOR_BENCH_TEST) && FY_MOTOR_BENCH_TEST
     Serial.println(F("FY ESP32: Huginn ready, Muninn PROFILE BENCH (120..800 Hz)"));
-    Serial.println(F("BENCH: 1/4 steps, virtual SET_POSITION origin 32767 (NOT referenced)"));
+    Serial.println(F("BENCH: REFERENCE 00 -> FAKE position 1000; STATUS 30 = 02 (NOT real REF)"));
 #else
     Serial.println(F("FY ESP32: Huginn UART ready, motor backend not ready"));
 #endif
@@ -260,6 +260,13 @@ void UART::handleGetStatus() {
         setResponse(STATUS_System, data, sizeof(data));
         break;
     }
+    case STATUS_SELECTOR_REFERENCE: {
+        // Explicitly distinguish real from simulated reference.
+        // Real hardware reference is NOT implemented in this branch.
+        const uint8_t status = Muninn_referenceStatusSnapshot();
+        setResponse(STATUS_Reference, &status, 1U);
+        break;
+    }
     case STATUS_SELECTOR_MOTOR: {
         // Nano STATUS_Motor DATA[0]: bit 0 = driver enabled,
         // bit 1 = moving. Both snapshots are published by Muninn.
@@ -322,10 +329,16 @@ void UART::handleGetTrack() {
         nack(FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
         return;
     }
-    // Nano's existing null-snapshot behavior: no truthful track data yet.
-    const uint8_t data[2]{static_cast<uint8_t>(DEV_MODULE_UART |
-                          DEV_ERROR_NULL_POINTER), DEV_DEBUG_DATA_NONE};
-    setResponse(DEV_RESPONSE, data, sizeof(data));
+    // Atomically published by Muninn, not inferred from Huginn/GPIO.
+    // DATA: requested target, last confirmed track, movement status.
+    // Track 00 + ERROR means not referenced/no known track.
+    const uint32_t value = Muninn_trackSnapshot();
+    const uint8_t data[3]{
+        static_cast<uint8_t>(value & 0xFFU),
+        static_cast<uint8_t>((value >> 8U) & 0xFFU),
+        static_cast<uint8_t>((value >> 16U) & 0xFFU)
+    };
+    setResponse(STATUS_Track, data, sizeof(data));
 }
 
 void UART::handleHelp() { setResponse(STATUS_Help, HELP_RESPONSE); }
