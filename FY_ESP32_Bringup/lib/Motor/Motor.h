@@ -49,11 +49,13 @@ public:
     void onMoveFinished();
     void onProfileError();
     MotorCommandResult_t prepareReference(uint8_t mode);
-    // Synthetic quarter-step position used only by the loose motor bench.
-    // Does NOT set the physical _ReferenceValid state.
-    void resetBenchPosition();
+    // Synthetic short REF (without motion) is BENCH ONLY, never sets _ReferenceValid.
+    void resetBenchPosition();  // Called exclusively after accepted fake REFERENCE 00.
+    void invalidateBenchPosition();
     bool benchPositionValid() const { return _BenchPositionValid; }
+    bool benchReferenceValid() const { return _BenchReferenceValid && _BenchPositionValid; }
     uint16_t benchPosition() const { return _BenchPosition; }
+    MotorCommandResult_t prepareSetTrack(uint8_t track, MoveRequest& request);
     MotorCommandResult_t prepareSetPosition(uint16_t target,
                                              MoveRequest& request);
     void onMotionAccepted(const MoveRequest& request);
@@ -65,9 +67,10 @@ private:
     MotorState_t _State = MotorState_t::STOPPED; // POR/STOP latch.
     bool _ReferenceValid = false; // Real LS reference remains invalid.
     bool _BenchPositionValid = false;
+    bool _BenchReferenceValid = false;
     bool _MotionPositionTracked = false;
-    uint16_t _BenchPosition = UINT16_MAX / 2U;
-    uint16_t _MotionStartPosition = UINT16_MAX / 2U;
+    uint16_t _BenchPosition = 0U;
+    uint16_t _MotionStartPosition = 0U;
     uint16_t _MotionStepCount = 0U;
     bool _MotionRight = false;
     bool _StopActive = true;
@@ -80,13 +83,17 @@ private:
 // Motor state-machine skeleton is active for MOVE/GO/STOP; complete Nano
 // reference flow remains pending. The six-phase timer is coded but not yet HW-tested.
 // Thread-safe driver-enable snapshot, published by Muninn (core 1).
-// GPIO27/A4988 ENABLE is active LOW. This is not a movement status.
+// GPIO25/A4988 ENABLE is active LOW (HW3). Not a movement status.
 bool Muninn_isDriverEnabled();
 // Atomic movement snapshot; true while the bounded STEP train is running.
 bool Muninn_isMoving();
 // A simulated quarter-step position only in FY_MOTOR_BENCH_TEST.
 // Otherwise returns Nano POSITION_UNKNOWN (0x00007FFF).
 uint32_t Muninn_positionSnapshot();
+// Explicit reference truth source: 0=UNKNOWN, 1=REAL, 2=BENCH_FAKE.
+uint8_t Muninn_referenceStatusSnapshot();
+// Packed STATUS_Track payload: target | (last confirmed << 8) | (status << 16).
+uint32_t Muninn_trackSnapshot();
 // Atomic status snapshot: IDLE=0, CONF=1, REFRUN=2, MOVING=3, STOPPED=4, ERROR=5.
 MotorState_t Muninn_motorState();
 
