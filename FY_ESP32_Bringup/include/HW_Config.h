@@ -26,13 +26,16 @@ constexpr uint8_t MOTOR_MS2_PIN =  4; // G4  -> MS3 (Ausgang)
 
 // Neu reserviert: die SLEEP-Ansteuerung ist noch NICHT implementiert.
 // Hardware-Pulldown -> LOW; nach Aufwecken mindestens 1 ms vor erstem STEP.
-// !RESET separat per Pull-up an 3,3 V; kein GPIO, keine RESET/SLEEP-Bruecke.
+// HW3: !RESET und !SLEEP verbunden an G32, gemeinsamer 10-kOhm-Pulldown.
+// !ENABLE 10-kOhm-Pullup; STEP/DIR in HW3-Testbestueckung ohne Pulls.
+// Diagnose-LEDs: rot SLEEP/RESET G32, blau !ENABLE G27 (LOW=an),
+// gelb DIR G26, weiss STEP G25 (schnelle Pulse ggf. nicht sichtbar).
 // Pulls ersetzen keinen geprueften Boot-/Flash-/OTA-Interlock.
 constexpr uint8_t MOTOR_SLEEP_PIN = 32; // G32 -> !SLEEP (HIGH = wach)
 
 // HW3-Sensorpins: ersetzt die bisherige Zuordnung G32/G33/G16/G17.
 // G34/G35/G36/G39 sind reine Eingaenge OHNE interne Pull-Widerstaende.
-// Nur 0..3,3-V-Signale; externe Pulls passend zur Sensorschaltung.
+// Nur 0..3,3-V-Signale; je Sensor 10-kOhm-Pullup nach 3,3 V (HW3-Soll).
 // Das ausfuehrbare Switches-Modul und der Endlagenschutz sind noch offen.
 constexpr uint8_t LSREF_PIN = 34; // G34 -> Referenz-Lichtschranke
 constexpr uint8_t LS4_PIN   = 35; // G35 -> zweite Lichtschranke / Riemen
@@ -50,7 +53,8 @@ constexpr uint8_t LSR_PIN   = 39; // G39 / VN -> Endschalter rechts
 // ============================================================================
 
 // I2C: PCF8574 mit vier LED-Tastern und OLED; Polling, kein INT-GPIO.
-// Pull-ups nach 3,3 V. Keyboard/OLED-Modul noch nicht implementiert.
+// SDA/SCL je 4,7-kOhm-Pullup nach 3,3 V als Bus-Gesamtzielwert.
+// Vorhandene Modul-Pulls anrechnen; Keyboard/OLED-Modul noch nicht implementiert.
 constexpr uint8_t I2C_SDA_PIN = 21; // G21 -> SDA
 constexpr uint8_t I2C_SCL_PIN = 22; // G22 -> SCL
 

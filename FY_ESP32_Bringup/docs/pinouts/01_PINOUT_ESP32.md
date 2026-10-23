@@ -1,6 +1,6 @@
 # ESP32-WROOM (38 Pin) – HW3-Gesamtbelegungsplan
 
-**Stand: 22.10.2026 · Branch `feature/FY_ESP32_Port`.**
+**Stand: 23.10.2026 · Branch `feature/FY_ESP32_Port`.**
 **HW3-Pinbelegung in `HW_Config.h` übernommen; Ansteuerung und elektrische Abnahme noch unvollständig.**
 Die Haupttabelle entspricht den neuen Pin-Konstanten in [HW_Config.h](../../include/HW_Config.h). Die Statusspalte nennt zusätzlich die frühere HW2-Zuordnung. SLEEP, Sensor-Schutzpfad und SPI benötigen weiterhin Implementierung und Tests. Der vorhandene HW2-Bench-Nachweis gilt nicht automatisch für HW3.
 
@@ -19,72 +19,93 @@ Die Haupttabelle entspricht den neuen Pin-Konstanten in [HW_Config.h](../../incl
 
 ## Vollständige Funktionsbelegung
 
-GPIO-Zahlen beziehen sich auf die Board-Aufschrift Gxx, **nicht auf Steckerpositionsnummern**. G36 kann VP, G39 VN heißen. Plan gilt für das vorhandene **WROOM ohne PSRAM**, nicht ungeprüft für WROVER oder andere ESP32-Varianten.
+GPIO-Zahlen sind **GPIO-Nummern, keine Steckerpositionsnummern**. Die beiden reinen Eingänge GPIO36 und GPIO39 heißen im Espressif-Datenblatt **SENSOR_VP (SVP/VP)** und **SENSOR_VN (SVN/VN)**; auf manchen Boards steht **SP/SN**. Am vorhandenen AZ-Board wurden die Aufdrucke **„SN“ und „SV“** abgelesen. Welche physische Stiftposition welchem GPIO entspricht, wird vor dem Anschließen anhand des konkreten Board-Pinouts verifiziert – **nicht allein aus der Kurzbeschriftung abgeleitet**. Plan gilt für das vorhandene **WROOM ohne PSRAM**, nicht ungeprüft für WROVER oder andere ESP32-Varianten.
 
 | Gruppe | Funktion / Anschluss | HW3 GPIO | Richtung am ESP32 | Code-Stand / Änderung gegenüber HW2 |
 |---|---|---:|---|---|
-| Motor | A4988 STEP | G25 | Ausgang | G25, unverändert |
-| Motor | A4988 DIR | G26 | Ausgang | G26, unverändert |
-| Motor | A4988 !ENABLE / EN | G27 | Ausgang | G27, unverändert; LOW = Wicklungen freigegeben |
+| Motor | ⚪ A4988 STEP | G25 | Ausgang | **kein externer Pull-down in HW3-Testbestückung**; weiße STEP-Diagnose-LED |
+| Motor | 🟡 A4988 DIR | G26 | Ausgang | **kein externer Pull-down in HW3-Testbestückung**; gelbe DIR-Diagnose-LED |
+| Motor | 🔵 A4988 !ENABLE / EN | G27 | Ausgang | **10 kΩ Pull-up nach 3,3 V**; blaue EN-Diagnose-LED (bei LOW an); LOW = Wicklungen freigegeben |
 | Motor | M0 → A4988 MS1 | G13 | Ausgang | G13, unverändert |
 | Motor | M1 → A4988 MS2 | G14 | Ausgang | G14, unverändert |
 | Motor | M2 → A4988 MS3 | G4 | Ausgang | G4, unverändert |
-| Motor | A4988 !SLEEP / SLP | **G32** | Ausgang | Konstante neu; Ansteuerung offen; LOW = Schlafzustand |
-| Sensor | Lichtschranke REF / LSREF | **G34** | nur Eingang | umgestellt von G32 |
-| Sensor | Lichtschranke 2 / Riemen / LS4 | **G35** | nur Eingang | umgestellt von G33 |
-| Sensor | Endschalter links / LSL | **G36 / VP** | nur Eingang | umgestellt von G16 |
-| Sensor | Endschalter rechts / LSR | **G39 / VN** | nur Eingang | umgestellt von G17 |
-| I²C | SDA – PCF8574 und OLED | G21 | bidirektional | G21, unverändert |
-| I²C | SCL – PCF8574 und OLED | G22 | Open-Drain-Bus | G22, unverändert |
+| Motor | 🔴 A4988 !SLEEP / SLP, mit !RESET verbunden | **G32** | Ausgang | **10 kΩ Pull-down nach GND** am gemeinsamen SLP/RST-Netz; rote WAKE-LED (bei HIGH an); Ansteuerung offen |
+| Sensor | Lichtschranke REF / LSREF | **G34** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G32 |
+| Sensor | Lichtschranke 2 / Riemen / LS4 | **G35** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G33 |
+| Sensor | Endschalter links / LSL | **G36 / SENSOR_VP** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G16 |
+| Sensor | Endschalter rechts / LSR | **G39 / SENSOR_VN** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G17 |
+| I²C | SDA – PCF8574 und OLED | G21 | bidirektional | **4,7 kΩ Pull-up nach 3,3 V am Bus**; G21, unverändert |
+| I²C | SCL – PCF8574 und OLED | G22 | Open-Drain-Bus | **4,7 kΩ Pull-up nach 3,3 V am Bus**; G22, unverändert |
 | SPI | SCLK – gemeinsam | G18 | Ausgang | Konstante reserviert; SPI-Ansteuerung offen |
 | SPI | MISO – MCP23S17, ggf. Display | G19 | Eingang | Konstante reserviert; SPI-Ansteuerung offen |
 | SPI | MOSI – gemeinsam | G23 | Ausgang | Konstante reserviert; SPI-Ansteuerung offen |
-| SPI | !CS_DISPLAY | **G16** | Ausgang | Konstante neu; SPI-Ansteuerung offen |
-| SPI | !CS_EXPANDER | **G17** | Ausgang | Konstante neu; SPI-Ansteuerung offen |
-| SPI | Display D/C | **G33** | Ausgang | Konstante neu; SPI-Ansteuerung offen |
+| SPI | !CS_DISPLAY | **G16** | Ausgang | **10 kΩ Pull-up nach 3,3 V**; SPI-Ansteuerung offen |
+| SPI | !CS_EXPANDER | **G17** | Ausgang | **10 kΩ Pull-up nach 3,3 V**; SPI-Ansteuerung offen |
+| SPI | Display D/C | **G33** | Ausgang | **10 kΩ Pull-down nach GND**; SPI-Ansteuerung offen |
 | Service | UART0 TX → USB-UART | G1 / TX0 | Ausgang | für USB/UART0 freihalten |
 | Service | UART0 RX ← USB-UART | G3 / RX0 | Eingang | für USB/UART0 freihalten |
 | Diagnose | bisherige Test-LED-Funktion | G2 | Ausgang | reserviert; tatsächliche Board-Bestückung beachten |
 
 **Bilanz:** 19 Funktions-GPIOs einschließlich Sensorik, I²C, SPI und SLEEP, zusätzlich zwei UART0-Pins und G2 für Diagnose. Keine Doppelbelegung. Die normalen, frei nutzbaren Ausgangspins sind damit verplant.
 
-## A4988: RESET, SLEEP und definierte Startpegel
+## Verbindliche HW3-Pull-Bestückung (Soll-Schaltung)
 
-Die folgenden Widerstandswerte sind **Bestückungsvorschläge**, keine Messwerte des vorhandenen Shields. Vorhandene Pulls und Brücken zuerst erfassen; parallele bzw. gegensätzliche Widerstände nicht blind ergänzen.
+**Die Pull-Widerstände in dieser Tabelle sind als HW3-Bestückung festgelegt, soweit nicht ausdrücklich als weggelassen gekennzeichnet.** Sie sind damit eine **Verdrahtungsvorgabe**, keine Behauptung, dass sie bereits eingelötet oder elektrisch abgenommen sind. Am A4988-Modul wurde der Pull-up von !SLEEP nach 3,3 V mit **ca. 97 kΩ** gemessen. Die übrigen Modulwiderstände und die Wirksamkeit der gesamten HW3-Beschaltung werden beim HW3-Abnahmetest kontrolliert.
 
-| A4988-Netz | HW3-Beschaltung | Gewünschter Zustand ohne aktive Firmware |
+| Netz / ESP32-GPIO | Externe HW3-Beschaltung | Pegel bei hochohmigem ESP32 |
 |---|---|---|
-| VDD | gemeinsame 3,3-V-Logikversorgung | definierte Logikversorgung |
-| !RESET / RST | ca. 10 kΩ nach VDD; zugänglicher Testpunkt | HIGH, kein Reset |
-| !SLEEP / SLP | G32; ca. 10 kΩ nach GND, vorhandenen Modul-Pull-up berücksichtigen | LOW, Treiber schläft |
-| !ENABLE / EN | G27; ca. 10 kΩ nach VDD | HIGH, Ausgänge gesperrt |
-| STEP | G25; ca. 10 kΩ nach GND | LOW |
-| DIR | G26; ca. 10 kΩ nach GND, sofern nicht bereits vorhanden | definierte Grundrichtung |
-| MS1 / MS2 / MS3 | G13 / G14 / G4 | interne A4988-Pulldowns; Modus erst nach Initialisierung verbindlich |
-| VMOT | separat abschaltbare 12 V; mindestens 47 µF nahe VMOT/GND | beim Flashen/Umverdrahten AUS |
-| GND | gemeinsame Signalmasse; Motorstrom mit geeignetem Rückweg | gemeinsamer Pegelbezug |
+| A4988 !ENABLE / G27 | **10 kΩ Pull-up an 3,3 V** | HIGH: Motorausgänge gesperrt |
+| A4988 STEP / G25 | **kein zusätzlicher Pull-down in der ersten HW3-Bestückung** | im Bootzustand ohne Firmware nicht garantiert definiert; elektrisch prüfen |
+| A4988 DIR / G26 | **kein zusätzlicher Pull-down in der ersten HW3-Bestückung** | im Bootzustand ohne Firmware nicht garantiert definiert; elektrisch prüfen |
+| A4988 !SLEEP + !RESET / G32 | **SLP und RST miteinander verbinden; gemeinsamer 10 kΩ Pull-down an GND** | LOW: Treiber schläft und bleibt im Reset |
+| Lichtschranke REF / G34 | **10 kΩ Pull-up an 3,3 V** | HIGH |
+| Lichtschranke 2 / G35 | **10 kΩ Pull-up an 3,3 V** | HIGH |
+| Endschalter links / G36 | **10 kΩ Pull-up an 3,3 V** | HIGH |
+| Endschalter rechts / G39 | **10 kΩ Pull-up an 3,3 V** | HIGH |
+| I²C SDA / G21 | **4,7 kΩ Pull-up an 3,3 V, einmal je Bus** | HIGH |
+| I²C SCL / G22 | **4,7 kΩ Pull-up an 3,3 V, einmal je Bus** | HIGH |
+| SPI !CS_DISPLAY / G16 | **10 kΩ Pull-up an 3,3 V** | HIGH: Display abgewählt |
+| SPI !CS_EXPANDER / G17 | **10 kΩ Pull-up an 3,3 V** | HIGH: MCP23S17 abgewählt |
+| SPI Display D/C / G33 | **10 kΩ Pull-down an GND** | LOW: definierter Startpegel |
 
-**RESET und SLEEP bleiben getrennt.** Keine Brücke beider Pins auf fest HIGH. RESET wird nicht mit ESP32-EN verbunden. G32/SLEEP darf am Shield nicht bereits fest auf VDD liegen; LOW-Pegel am tatsächlichen Treiberpin messen.
+## HW3-Motortreiber: Diagnose-LEDs und Farben
 
-Geplanter Firmwareablauf: ENABLE HIGH und STEP LOW halten, SLEEP zunächst LOW; MS1–3 und DIR setzen; SLEEP kontrolliert HIGH setzen und **mindestens 1 ms vor dem ersten STEP** warten. ENABLE erst nach gültiger Betriebsfreigabe LOW. SLEEP ist keine normale STOP-/GO-Umschaltung: Aufwachen/Reset bzw. stromloser Motor können die Positionsgültigkeit beeinflussen; erneute Referenzierung entsprechend Motorzustand erzwingen.
+Die vier Diagnose-LEDs werden **direkt an den Motor-Steuersignalen** angeschlossen; dafür sind **keine zusätzlichen ESP32-GPIOs** erforderlich. LED und Vorwiderstand dürfen die Funktion des A4988 nicht beeinträchtigen. Diese Zuordnung dokumentiert die **HW3-Hardwareplanung**, keine bereits abgeschlossene elektrische Abnahme.
 
-**Grenze:** Pulls definieren hochohmige GPIOs, unterdrücken aber keine aktiv getriebenen Gegenpegel. Diese Beschaltung ist noch kein nachgewiesener Boot-/OTA-Interlock. VMOT-Trennung und Messungen nach #155/#161 bleiben erforderlich; bei OTA mit anliegendem VMOT ist der sichere Reset-/Bootpfad gesondert nachzuweisen.
+| LED-Farbe | Signal | GPIO | Aussage bei leuchtender LED | Elektrische Beschaltung |
+|---|---|---|---|---|
+| **Rot** | !SLEEP + !RESET, verbunden | **G32** | **Treiber wach / aus Reset**; noch keine Motorfreigabe | von G32 über Vorwiderstand und LED nach GND; LED leuchtet bei HIGH |
+| **Blau** | !ENABLE / EN | **G27** | **Motorendstufen freigegeben** (LOW aktiv); nicht zwingend Bewegung | von 3,3 V über Vorwiderstand und LED nach G27; LED leuchtet bei LOW |
+| **Gelb** | DIR | **G26** | Richtungssignal HIGH; Richtung selbst abhängig von Motorkabel-/Mechanikzuordnung | von G26 über Vorwiderstand und LED nach GND; LED leuchtet bei HIGH |
+| **Weiß** | STEP | **G25** | STEP-Impulsaktivität; bei kurzen/schnellen Impulsen ggf. nur schwach oder nicht sichtbar | von G25 über Vorwiderstand und LED nach GND; LED leuchtet bei HIGH-Impulsen |
+
+**Dimensionierung:** Für Rot an 3,3 V ist **4,7 kΩ als LED-Vorwiderstand vorgesehen**. Bei Blau/Gelb/Weiß werden Vorwiderstand und reale Helligkeit entsprechend Durchlassspannung und Signalbelastbarkeit am Aufbau geprüft; **kein 10-kΩ-Pull-Widerstand ersetzt einen LED-Vorwiderstand**. Gerade die weiße LED kann wegen ihrer höheren Durchlassspannung an 3,3 V nur wenig Spielraum haben. STEP-LED unmittelbar am STEP-Pin belastet das Pulssignal und dient nicht als garantierte visuelle Schrittanzeige; Pegel und Timing sind mit Messgerät zu prüfen.
+
+**Wichtig:** Rot zeigt lediglich *wach*, Blau die aktive Endstufenfreigabe. Eine leuchtende blaue LED beweist nicht, dass sich der Motor tatsächlich dreht. Für einen sicheren Bootzustand bleiben G32-Pull-down und G27-Pull-up maßgeblich. **G25/STEP und G26/DIR werden zunächst ohne zusätzliche Pull-downs bestückt** (bewusste HW3-Testentscheidung vom 23.10.2026); nach Reset-, Boot- und Motortest erneut bewerten.
+
+**I²C:** 4,7 kΩ sind der festgelegte **Zielwert je Busleitung**, nicht zusätzlich blind einzulötende Widerstände. Haben OLED/PCF8574 bereits wirksame Pull-ups, werden diese für den Gesamtwiderstand berücksichtigt; der tatsächlich erreichte Bus-Pull-up wird vor der Bestückung gemessen und dokumentiert.
+
+**A4988:** Die R100-Aufdrucke bezeichnen die beiden **Strommesswiderstände (je 0,1 Ω)** und sagen nichts über die Pull-Widerstände aus. Beim Pololu-Referenzcarrier sind 100 kΩ Pull-up an !SLEEP und 100 kΩ Pull-down an !ENABLE beschrieben. Auf unserem R100-Modul wurde der !SLEEP-Pull-up nach 3,3 V inzwischen mit **ca. 97 kΩ** gemessen; die übrigen Modul-Pulls sind nicht abschließend nachgewiesen. Die oben genannten 10-kΩ-Widerstände sind trotzdem die verbindliche HW3-Soll-Beschaltung; die tatsächlichen Pegel und die Wirksamkeit werden gemessen. !RESET ist **nicht** mit ESP32-EN verbunden.
+
+**A4988-Grundzustand:** VDD = 3,3 V; VMOT = separat schaltbare 12 V, mit mindestens 47 µF nahe VMOT/GND. Der 10-kΩ-Pull-down hält !SLEEP und !RESET bei hochohmigem G32 gemeinsam LOW. Erst nach sicherem Setzen von STEP LOW, ENABLE HIGH, DIR und MS1–3 setzt die Firmware G32 auf HIGH, wartet **mindestens 1 ms** und darf anschließend nach Betriebsfreigabe ENABLE auf LOW setzen. **Die SLEEP-Ansteuerung ist im Code noch nicht implementiert; mit dem geplanten Pull-down läuft der Motor bis dahin nicht.**
+
+**Sicherheitsgrenze:** Pull-Widerstände bestimmen Pegel nur bei hochohmigen Ausgängen; sie überstimmen keinen aktiv falsch getriebenen ESP32-Pin. Die HW3-Beschaltung ist noch kein geprüfter Boot-/Flash-/OTA-Interlock. VMOT-Trennung und Messungen nach [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155) / [#161](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/161) bleiben erforderlich.
 
 ## Sensoren: Eingangspins sinnvoll nutzen
 
-G34/G35/G36/G39 besitzen keine internen Pull-ups/Pull-downs. Für Schaltkontakte oder bestätigte Open-Collector-/Open-Drain-Ausgänge sind beispielsweise **4,7 kΩ nach 3,3 V auf der ESP32-Seite** vorgesehen. Bei Push-Pull-Sensoren die tatsächliche Ausgangsschaltung beachten. Signalpegel immer 0…3,3 V; keine 5-V-Sensorausgänge direkt anschließen. In der Firmware `INPUT` statt vermeintlich wirksamem `INPUT_PULLUP` verwenden.
+G34/G35/G36/G39 besitzen keine internen Pull-ups/Pull-downs. **Jeder der vier Eingänge erhält in HW3 einen eigenen externen 10-kΩ-Pull-up nach 3,3 V auf der ESP32-Seite.** Die Sensorausgänge werden vor dem Anschluss auf 3,3-V-Verträglichkeit geprüft; bei aktivem Push-Pull-Ausgang muss der HIGH/LOW-Treiber die Beschaltung sicher vertragen. Signalpegel immer 0…3,3 V; keine 5-V-Sensorausgänge direkt anschließen. In der Firmware `INPUT` statt vermeintlich wirksamem `INPUT_PULLUP` verwenden.
 
 - G34/G35 sind für die Lichtschranken vorgesehen, damit eine spätere Flankenerfassung nicht an den besonderen G36/G39-Einschränkungen hängt.
 - G36/G39 werden für Endschalter **als Pegel gelesen, ohne GPIO-Flankeninterrupts**. Grund: Espressif nennt Interrupt-Einschränkungen bei ADC-Nutzung bzw. WLAN/Bluetooth mit Schlafmodi.
 - Der Endlagen-Schutzpfad muss auf Muninn unmittelbar vor weiteren STEP-Flanken prüfen; keine Abhängigkeit von Keyboard-Polling, Web, UART oder Core-0-Queues. Ein langsames UI-Polling ist hierfür nicht ausreichend. Implementierung und maximale Stopplatenz stehen noch aus.
-- Kontaktart NO/NC und aktiv-HIGH/LOW werden anhand der vorhandenen Schalter festgelegt. Wo Öffner vorhanden sind, ist NC gegen GND mit Pull-up zweckmäßig: offen/Leitungsbruch = HIGH/Sperre. Das ist ein Vorschlag, keine Behauptung über die vorhandene Verdrahtung.
+- Kontaktart NO/NC und aktiv-HIGH/LOW werden anhand der vorhandenen Schalter festgelegt. Für die Endschalter ist **NC gegen GND mit den festgelegten Pull-ups** das vorgesehene Schutzprinzip: offen/Leitungsbruch = HIGH/Sperre. Ob die vorhandenen Schalter als Öffner verdrahtet sind, wird vor Inbetriebnahme geprüft; bis dahin ist die elektrische Funktionsprüfung offen.
 - Keine pauschalen großen Entstörkondensatoren an Referenzsignale ergänzen; Filterung muss zum erforderlichen Schaltzeitpunkt passen.
 
 ## I²C und SPI-Anschluss
 
-Keyboard/OLED benötigen am ESP32 nur **3,3 V, GND, G21/SDA, G22/SCL**. Bus-Pull-ups liegen auf 3,3 V; vorhandene Modulwiderstände berücksichtigen. LED-Taster werden über den PCF8574 bedient und verbrauchen keine weiteren ESP32-GPIOs.
+Keyboard/OLED benötigen am ESP32 nur **3,3 V, GND, G21/SDA, G22/SCL**. **SDA und SCL erhalten je einen wirksamen 4,7-kΩ-Bus-Pull-up nach 3,3 V (Sollwert); vorhandene Modulwiderstände werden angerechnet und nicht blind parallel bestückt.** LED-Taster werden über den PCF8574 bedient und verbrauchen keine weiteren ESP32-GPIOs.
 
-SPI-CS jeweils mit etwa **10 kΩ nach 3,3 V** auf inaktiv HIGH halten, auch wenn das Gebäude abgenommen ist. Beide CS vor Businitialisierung HIGH. Display-DC kann lokal mit etwa 10 kΩ nach GND definiert werden. MCP23S17-Adresspins und !RESET lokal definieren; sein INT wird für die geplanten Lichtausgänge nicht gebraucht. Keine 5-V-Pegel auf MISO.
+**Beide SPI-CS erhalten je 10 kΩ Pull-up nach 3,3 V** und bleiben dadurch auch ohne Gebäude auf inaktiv HIGH. Beide CS vor Businitialisierung HIGH. **Display-DC erhält 10 kΩ Pull-down nach GND.** MCP23S17-Adresspins und !RESET lokal definieren; sein INT wird für die geplanten Lichtausgänge nicht gebraucht. Keine 5-V-Pegel auf MISO.
 
 ### DE-9 für das Gebäude – Entwurf aus #165 mit GPIO-Zuordnung
 
@@ -124,7 +145,7 @@ Ein drittes CS ist **nicht zugesichert**. Dafür wäre eine gesonderte Entscheid
 
 ## Umstellung und Nachweis
 
-Die bisherige HW2-Motorbelegung bleibt erhalten. Frühere Bench-Beobachtungen: STEP am losen NEMA11 erprobt, DIR beobachtet, ENABLE-Pegel getestet; Mikroschrittpegel mit dem jeweils aktuellen Build nachmessen. Bench-Modus/Normalmodus siehe [MOTOR_TIMER_BENCH.md](../MOTOR_TIMER_BENCH.md). Das ist keine Freigabe der FY-Endlagen.
+Die bisherige HW2-Motorbelegung bleibt erhalten. **HW3-Änderung 23.10.2026:** Verbindliche Pull-up-/Pull-down-Bestückung ergänzt; !RESET/!SLEEP als gemeinsames G32-Netz festgelegt; Sensor-Pin-Aliase dokumentiert. Frühere Bench-Beobachtungen: STEP am losen NEMA11 erprobt, DIR beobachtet, ENABLE-Pegel getestet; Mikroschrittpegel mit dem jeweils aktuellen Build nachmessen. Bench-Modus/Normalmodus siehe [MOTOR_TIMER_BENCH.md](../MOTOR_TIMER_BENCH.md). Das ist keine Freigabe der FY-Endlagen.
 
 **Code-Ist:** [HW_Config.h](../../include/HW_Config.h) enthält die HW3-Sensorpins und Konstanten für SLEEP sowie SPI einschließlich beider CS und DC. Die Datei ist nach Muninn/Kern 1 und Huginn/Kern 0 gegliedert. `MOTOR_SLEEP_PIN` allein steuert den Ausgang noch nicht: Bei angeschlossenem SLEEP-Pulldown bleibt der A4988 mit der bisherigen Laufzeitlogik im Schlafzustand. Sensor-Schutzpfad und SPI-Ansteuerung fehlen ebenfalls weiterhin. Alte HW2-Verdrahtung und neue Sensor-Konstanten dürfen nicht als kompatibel angenommen werden.
 
@@ -133,7 +154,8 @@ Die bisherige HW2-Motorbelegung bleibt erhalten. Frühere Bench-Beobachtungen: S
 - [ ] G36/G39 als Pegel im unmittelbaren Motor-Schutzpfad integrieren; Stopplatenz prüfen.
 - [x] SPI einschließlich CS/DC als Konstanten für #165 übernommen.
 - [ ] SPI-Initialisierung und tatsächliche Geräteansteuerung für #165 implementieren.
-- [ ] Shield-Pulls, RESET/SLEEP-Trennung, Sensorpegel und tatsächliche Boardrevision prüfen.
+- [ ] A4988-Modul-Pulls (SLEEP: ca. 97 kΩ gemessen), gemeinsame RESET/SLEEP-Verdrahtung, externe HW3-Pulls, Sensorpegel und tatsächliche Boardrevision prüfen.
+- [ ] Vier Diagnose-LEDs Rot/Blau/Gelb/Weiß samt Pegeln, Vorwiderständen und STEP-Signalbelastung überprüfen; Boot-Sicherheit ohne zusätzliche STEP-/DIR-Pulls messen.
 - [ ] Versorgungsauswahl gemäß [HW3_STROMVERSORGUNG.md](HW3_STROMVERSORGUNG.md) aufbauen und messen.
 - [ ] Power-on, Reset, USB-Flash und später OTA samt STEP/ENABLE/SLEEP am realen Aufbau prüfen.
 
