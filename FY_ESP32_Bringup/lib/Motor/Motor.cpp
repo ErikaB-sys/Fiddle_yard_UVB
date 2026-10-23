@@ -113,15 +113,10 @@ void Motor::onGoEnabled() {
 }
 void Motor::onStop(bool latched) {
     _StopActive = latched;
-    _ReferenceValid = false; // Disable invalidates the *real* reference.
+    _ReferenceValid = false;
     _State = MotorState_t::STOPPED;
-#if FY_MOTOR_BENCH_TEST
-    // Only a disconnected table motor: deliberate synthetic re-anchor.
-    // Neither the electronics nor any real machinery has been homed!
-    resetBenchPosition();
-#else
-    _BenchPositionValid = false;
-#endif
+    // STOP / GO OFF must never invent a new reference position.
+    invalidateBenchPosition();
 }
 void Motor::onMoveStarted() {
     if (!_StopActive && _State == MotorState_t::IDLE)
@@ -133,22 +128,53 @@ void Motor::onMoveFinished() {
 }
 void Motor::onProfileError() {
     _ReferenceValid = false;
+    invalidateBenchPosition();
     _State = MotorState_t::ERROR;
 }
 MotorCommandResult_t Motor::prepareReference(uint8_t mode) {
     if (mode > 1U) return MotorCommandResult_t::INVALID_DATA;
-    // REFRUN is a defined state, but no sensors connected -> do not enter it.
+    if (_StopActive || _State != MotorState_t::IDLE)
+        return MotorCommandResult_t::STOP_ACTIVE;
+#if FY_MOTOR_BENCH_TEST
+    // Only short REF 00 is simulated. Long REF and all real REF remain off.
+    if (mode == 0U) return MotorCommandResult_t::ACCEPTED;
+#endif
     return MotorCommandResult_t::STOP_ACTIVE;
+}
+void Motor::invalidateBenchPosition() {
+    _BenchReferenceValid = false;
+    _BenchPositionValid = false;
+    _MotionPositionTracked = false;
+    _MotionStepCount = 0U;
 }
 void Motor::resetBenchPosition() {
 #if FY_MOTOR_BENCH_TEST
-    _BenchPosition = FY_BENCH_POSITION_START; // 32767
+    // Explicit fake short reference: assign measured HW_TEST coordinate 1000.
+    // Never claim a *physical* reference without sensor confirmation.
+    _BenchPosition = FY_BENCH_REFERENCE_POSITION;
     _BenchPositionValid = true;
+    _BenchReferenceValid = true;
     _MotionPositionTracked = false;
     _MotionStartPosition = _BenchPosition;
     _MotionStepCount = 0U;
 #else
-    _BenchPositionValid = false;
+    invalidateBenchPosition();
+#endif
+}
+
+MotorCommandResult_t Motor::prepareSetTrack(uint8_t track, MoveRequest& request) {
+#if FY_MOTOR_BENCH_TEST
+    uint16_t target = 0U;
+    if (!benchTrackPosition(track, target))
+        return MotorCommandResult_t::INVALID_DATA;
+    if (!benchReferenceValid())
+        return MotorCommandResult_t::STOP_ACTIVE;
+    // Reuse existing position prepare / six-phase profile executor.
+    return prepareSetPosition(target, request);
+#else
+    (void)track;
+    (void)request;
+    return MotorCommandResult_t::STOP_ACTIVE;
 #endif
 }
 
@@ -194,7 +220,7 @@ void Motor::onMotionAccepted(const MoveRequest& request) {
     _MotionStepCount = request.steps;
     _MotionRight = request.directionRight;
     if (!_MotionPositionTracked)
-        _BenchPositionValid = false;
+        invalidateBenchPosition();
 #else
     (void)request;
 #endif
@@ -210,7 +236,7 @@ void Motor::onMotionProgress(uint32_t completedSteps) {
                       : -static_cast<int32_t>(done));
     if (pos < FY_BENCH_MIN_POSITION ||
         pos > FY_BENCH_MAX_POSITION) {
-        _BenchPositionValid = false;
+        invalidateBenchPosition();
         return;
     }
     _BenchPosition = static_cast<uint16_t>(pos);
@@ -253,6 +279,10 @@ std::atomic<uint8_t> motorStateSnapshot{static_cast<uint8_t>(MotorState_t::STOPP
 constexpr uint32_t kPositionUnknown = 0x00007FFFU;
 constexpr uint32_t kPositionBenchFlag = 0x00010000U;
 std::atomic<uint32_t> positionSnapshot{kPositionUnknown};
+std::atomic<uint8_t> referenceStatusSnapshot{0U}; // 0 none, 1 real, 2 fake
+std::atomic<uint32_t> trackSnapshot{
+    static_cast<uint32_t>(TRACK_STATUS_ERROR) << 16U
+}; // target, confirmed, status encoded atomically
 
 void publishPosition(const Motor& motor) {
 #if FY_MOTOR_BENCH_TEST
@@ -264,6 +294,19 @@ void publishPosition(const Motor& motor) {
     (void)motor;
     positionSnapshot.store(kPositionUnknown, std::memory_order_release);
 #endif
+}
+
+void publishReference(const Motor& motor) {
+    const uint8_t status = motor.referenced() ? 1U :
+        (motor.benchReferenceValid() ? 2U : 0U);
+    referenceStatusSnapshot.store(status, std::memory_order_release);
+}
+
+void publishTrack(uint8_t target, uint8_t confirmed, uint8_t status) {
+    const uint32_t packed = static_cast<uint32_t>(target) |
+        (static_cast<uint32_t>(confirmed) << 8U) |
+        (static_cast<uint32_t>(status) << 16U);
+    trackSnapshot.store(packed, std::memory_order_release);
 }
 
 // The six-phase profile now sets the STEP frequency in the timer ISR.
@@ -314,6 +357,14 @@ bool Muninn_isMoving() {
 
 uint32_t Muninn_positionSnapshot() {
     return positionSnapshot.load(std::memory_order_acquire);
+}
+
+uint8_t Muninn_referenceStatusSnapshot() {
+    return referenceStatusSnapshot.load(std::memory_order_acquire);
+}
+
+uint32_t Muninn_trackSnapshot() {
+    return trackSnapshot.load(std::memory_order_acquire);
 }
 
 MotorState_t Muninn_motorState() {
