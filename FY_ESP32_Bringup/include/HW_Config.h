@@ -31,11 +31,11 @@ constexpr uint8_t MOTOR_MS2_PIN =  4; // G4  -> MS3 (Ausgang)
 // GO/STOP schaltet nur ENABLE und STEP, nicht SLEEP.
 // HW3: !RESET und !SLEEP verbunden an G32, gemeinsamer 10-kOhm-Pulldown.
 // HW3: G25 (!ENABLE), G26 (DIR), G27 (STEP) ohne Zusatz-Pulls.
-// ROTE LED: Anode G32, Kathode ueber Vorwiderstand nach GND,
-//           aktiv HIGH (wach = LED AN).
-// BLAU/GELB/WEISS: gemeinsame Anode +3,3 V, aktiv LOW,
-//           blau !ENABLE G25, gelb DIR G26, weiss STEP G27.
-// Bei Reset/Boot reale G32-Sperrpegel vor VMOT pruefen (#153).
+// ALLE vier LEDS: gemeinsames PLUS +3,3 V, aktiv LOW:
+// rot !SLEEP/!RESET G32 (LOW = Sleep/Reset, LED AN),
+// blau !ENABLE G25, gelb DIR G26, weiss STEP G27.
+// ACHTUNG: roter LED-Zweig von +3,3 V nach G32 kann bei hochohmigem
+// GPIO den Pulldown teilweise uebersteuern. LOW-Pegel vor VMOT pruefen.
 // Pulls ersetzen keinen geprueften Boot-/Flash-/OTA-Interlock.
 constexpr uint8_t MOTOR_SLEEP_PIN = 32; // G32 -> !SLEEP (HIGH = wach)
 
