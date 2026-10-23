@@ -63,13 +63,15 @@
 - Bench-`GET_POSITION`: `0x00010000 | virtuelle_16bit_position`, also DATA[2] = `01`; **kein echter REF-Nachweis**. `POSITION_UNKNOWN` (ohne Bench-Bit) = `0x00007FFF`.
 - NACK-Typen: `1 BUSY`, `2 NOT_READY`, `3 INVALID_COMMAND`, `4 INVALID_PARAMETER`, `5 EXECUTION_ERROR`, `6 INVALID_TELEGRAM`. Fehlerort z. B. UART `0x10`, Motor `0x20`.
 
-### HW3: STEP/ENABLE-GPIO-Tausch und SLEEP-Startfreigabe (23.10.2026)
+### HW3: STEP/ENABLE-GPIO-Tausch und einmalige SLEEP-Startfreigabe (23.10.2026)
 
-Auf der verlöteten HW3 gilt **!ENABLE G25 (Blau)**, **DIR G26 (Gelb)**, **STEP G27 (Weiß)**, **!SLEEP + !RESET G32 (Rot)**. **Alle vier LEDs haben gemeinsames Plus nach 3,3 V**, leuchten also **bei GPIO LOW**: Rot AN heißt Sleep/Reset aktiv; Rot AUS bedeutet nach der Initialisierung normalerweise wach. Für tatsächliche Pegel immer messen.
+HW3: **!ENABLE G25 (Blau)**, **DIR G26 (Gelb)**, **STEP G27 (Weiß)**, **!SLEEP + !RESET G32 (Rot)**.
 
-`StepTimer.cpp` bezieht den Pin direkt aus `MOTOR_PWM_PIN`; **ISR-Logik unverändert**. `setup()` hält G32 zuerst LOW, `Muninn_initMotorMock()` hebt SLEEP/RESET nach initialisierten Motor-Ausgängen **einmalig auf HIGH** und wartet **1,5 ms vor dem Taskstart**. Danach bleibt G32 HIGH. `STOP AA 55` entriegelt die POR-STOP-Sperre, ohne ENABLE zu aktivieren. `GO AA 55` gibt ENABLE mit LOW frei; `STOP 55 AA` und `GO 55 AA` setzen ENABLE HIGH und halten STEP an, **ohne SLEEP erneut auszulösen**.
+**LED-Polaritäten aus tatsächlicher Verdrahtung:** Rot (Anode an G32, Vorwiderstand nach GND) leuchtet bei **G32 HIGH = A4988 wach** und ist bei LOW (Sleep/Reset) AUS. Blau/Gelb/Weiß haben gemeinsames Plus an 3,3 V und leuchten bei **GPIO LOW**.
 
-**Neuer Code noch nicht auf HW3 gebaut/getestet.** Vor 12 V/VMOT G32 bei Reset/Boot messen: Die rote LED liegt von +3,3 V nach G32 und kann bei hochohmigem GPIO den 10-kΩ-Pull-down belasten; am A4988 ist zusätzlich ein Modul-Pull-up von ca. 97 kΩ gemessen. Siehe [HW3-Pinout](../docs/pinouts/01_PINOUT_ESP32.md) und [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153).
+`setup()` hält G32 anfangs LOW. Nach Motor-/MS-/Timer-Initialisierung setzt `Muninn_initMotorMock()` G32 **einmalig HIGH (Rot AN)**, wartet **1,5 ms** und lässt erst danach die Tasks starten. **Die ISR wurde nicht geändert** und nimmt ihren STEP-GPIO unverändert aus `MOTOR_PWM_PIN`. Beim Start ist die POR-STOP-Sperre aktiv, ENABLE HIGH, Blau AUS. `STOP AA 55` entriegelt nur STOP. `GO AA 55` setzt ENABLE LOW (Blau AN); `GO 55 AA` sowie beide STOP-Varianten deaktivieren ENABLE, ohne G32 nochmals zu verändern.
+
+**Code vorhanden, neuer HW3-Build und Hardware-Nachweis offen.** Vor VMOT den G32-SLEEP-/RESET-LOW-Pegel während Boot/Reset prüfen; 10-kΩ-Pull-down gegen den am Modul gemessenen ca. 97-kΩ-Pull-up. Siehe [HW3-Pinout](../docs/pinouts/01_PINOUT_ESP32.md) und [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153).
 
 ### Bewährte HW2-Sequenz (loser Motor, keine angekoppelte Bühne)
 
