@@ -11,10 +11,15 @@ fy::BringupContext bridge{nullptr, nullptr, nullptr};
 
 void setup() {
     Serial.begin(115200);
-    // Safe output levels before configuring the pins as outputs.
+    // Keep the A4988 asleep during boot/configuration. !SLEEP and !RESET
+    // share G32; the external HW3 pulldown covers the high-impedance period.
+    // Boot/flash pin levels are NOT independently proven yet (Issue #153).
+    digitalWrite(MOTOR_SLEEP_PIN, LOW);
+    pinMode(MOTOR_SLEEP_PIN, OUTPUT);
+    // Safe output levels before configuring the other pins as outputs.
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_DIR_PIN, LOW);
-    digitalWrite(MOTOR_ENABLE_PIN, HIGH); // Driver disabled.
+    digitalWrite(MOTOR_ENABLE_PIN, HIGH); // Driver disabled (active LOW).
     pinMode(MOTOR_PWM_PIN, OUTPUT);
     pinMode(MOTOR_DIR_PIN, OUTPUT);
     pinMode(MOTOR_ENABLE_PIN, OUTPUT);
