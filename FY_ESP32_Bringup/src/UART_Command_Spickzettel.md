@@ -1,6 +1,6 @@
 # FY ESP32 – UART-Command-Spickzettel mit Funktions-Ampel
 
-**Stand:** 20.10.2026, nach HW2-Bench-Fahrtest · **Quelle:** aktueller Code in `feature/FY_ESP32_Port/FY_ESP32_Bringup`, nicht die alte Nano-Befehlsbeschreibung. **Nur loser NEMA11, nicht die FY-Mechanik.**
+**Stand:** 23.10.2026, nach HW3-Motorlauf und Vorbereitung der Fake-REF-/SET_TRACK-Erprobung · **Quelle:** aktueller Code in `feature/FY_ESP32_Port/FY_ESP32_Bringup`, nicht die alte Nano-Befehlsbeschreibung. **Nur loser NEMA11, nicht die FY-Mechanik.**
 
 **Roadmap und detaillierte Prepare-Issue-Matrix:** [FY Produktivsoftware – Roadmap](../../Documents/FY_Productivsoftware_Roadmap.md) · **Protokollport:** [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) · **Motor:** [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153), [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154).
 
@@ -27,13 +27,14 @@
 | `SET_POSITION` (**real**) | `13` | dieselben Bytes, echte mechanische Position | 🟠 ⛔ | Bei deaktiviertem Bench-Flag ausdrücklich gesperrt; REF, reale Grenzen, kalibrierte Koordinaten und Ausführung fehlen. |
 | `GET_POSITION` / `POSITION` | `15` | `position` (keine Daten) | 🟢 **Bench** | Antwort `20` + 4 Bytes LE + CRC; Positions-Snapshot/Markierung Bit16 getestet. Echte Position noch offen. |
 | `GET_STATUS`, Motor | `19` | `status 20` | 🟢 **Bench** | Antwort-ID `50`, DATA[0] ENABLE/MOVING und DATA[1] MotorState; `50 01 00 00 4F` als IDLE bestätigt. |
+| `GET_STATUS`, Referenz | `19` | `status 30` | 🟡 **Bench** | **ESP32-Erweiterung (HW3 ungetestet):** Antwort `30` + ein Byte **00=keine Referenz**, **01=echt** (derzeit nie gesetzt), **02=simuliert**. `REFERENCE 00` behauptet niemals einen echten Referenzlauf. |
 | `GET_STATUS`, System | `19` | `status 10` | 🟡 | Antwort-ID `10`, vorläufig fester Initialisierungs-/UART-Status statt vollständiger Systemdiagnose. |
 | `GET_STATUS`, Sensoren | `19` | `status 40` | 🟠 | Antwort-ID `41`; nur Null-Platzhalter, **keine** echten LS/Hall-Werte. |
 | `GET_STATUS`, Keyboard | `19` | `status 50` | 🟠 | Antwort-ID `51`; nur `0` = nicht verbunden, kein Keyboard angeschlossen. |
 | `GET_ERROR` / `ERROR` | `1A` | `error` | 🟡 | UART-Fehlerspeicher und Antwort-ID `F0` implementiert; Motor-/Sensorfehler noch nicht systemweit vollständig. |
-| `GET_TRACK` / `TRACK` | `23` | `track 00` | 🟠 | Für Option `00` derzeit `DEV_RESPONSE` mangels Track-Snapshot, **keine** gültige aktuelle Gleisnummer. |
-| `SET_TRACK` | `1C` | `set_track 03` | 🟠 ⛔ | UART validiert 1…5; Muninn weist ab; echte `prepareSetTrack` fehlt. |
-| `REFERENCE` | `16` | `reference 00` oder `reference 01` | 🟠 ⛔ | Byte 0/1 wird validiert, `Motor::prepareReference` weist absichtlich ab. Keine realen LS-/Hall-/Endschalter. |
+| `GET_TRACK` / `TRACK` | `23` | `track 00` | 🟡 | **Neu im Code (HW3 ungetestet):** `40` + DATA: Zielgleis / zuletzt bestätigtes Gleis / Status (0 erreicht, 1 fährt, 2 unbekannt/Fehler). |
+| `SET_TRACK` | `1C` | `set_track 03` | 🟡 **Bench** | **Neu im Code (HW3 ungetestet):** Muninn ruft `Motor::prepareSetTrack()` auf. Verwenden der fünf im HW_TEST eingemessenen Koordinaten, nur nach ausdrücklicher **simulierter** Kurzreferenz im Bench-Modus. Kein echtes REF. |
+| `REFERENCE` | `16` | `reference 00` oder `reference 01` | 🟡 **Bench** | **Neu im Code (HW3 ungetestet):** `reference 00` setzt ohne Fahrt virtuelle Position **1000** und REF-Status **02=FAKE**; `reference 01` sowie alle REF-Befehle im Produktivmodus bleiben gesperrt. Keine echten LS-/Hall-/Endschalter. |
 | `SET_PARAM` | `2B` | `set_param 01 50 00 00` | 🟠 | Telegrammform vorhanden; aktuelle ESP32-Motorlogik übernimmt noch keine Profil-/Kalibrierwerte per Kommando. |
 | `SET_MODE` | `26` | `set_mode 55 aa` (LOCAL); `set_mode aa 55` (REMOTE) | 🟠 | Muster geprüft, mangels Keyboard/Modusverwaltung absichtlich `NOT_READY`; keine Umschaltung. |
 | `LEFT`, `RIGHT` (Nano-Legacy) | `0B`, `0D` | `left`, `right` | 🔴 **bewusst** | Im ESP32-Router absichtlich `INVALID_COMMAND`; klären, ob überhaupt neu benötigt oder vollständig von `SET_TRACK`/MOVE abgedeckt. |
@@ -58,10 +59,35 @@
 - `uint16`: **zwei Little-Endian-Hexbytes**, Beispiel BG1 = dezimal 29567 = `0x737F` → `SET_POSITION 7F 73`.
 - `SET_PARAM`: Parameter-ID + drei Rohwertbytes, z. B. `SET_PARAM 01 50 00 00` (momentan NACK).
 - `MOVE`: DATA[0] oberes Nibble = Mikroschritt-Modus **0 voll / 1 halb / 2 viertel / 3 achtel / 4 sechzehntel**, Bit 0 = Richtung (0 links, 1 rechts), Bits 3..1 reserviert; DATA[1..2] Schrittzahl LE **1..10000**.
-- Nur Bench-`SET_POSITION`: **1..65534** als virtueller Positionsraum; maximal **10600 Viertelschritte je SET_POSITION-Auftrag**; andere Mikroschrittauflösung kann die Bench-Position ungültig machen.
+- Nur Bench-`SET_POSITION`: **1..65534** als virtueller Positionsraum; maximal **10600 Viertelschritte je SET_POSITION-Auftrag**; **ab dieser Version erst nach `reference 00`**, keine automatische Position 32767. Andere Mikroschrittauflösung invalidiert die simulierte Referenz.
 - Status Motor, DATA[0]: Bit0 Treiber an, Bit1 in Bewegung; DATA[1] **ESP32-Erweiterung** des Nano-Protokolls: `0 IDLE / 1 CONF / 2 REFRUN / 3 MOVING / 4 STOPPED / 5 ERROR`. Kompatibilitätsfreigabe hierzu noch in [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156).
 - Bench-`GET_POSITION`: `0x00010000 | virtuelle_16bit_position`, also DATA[2] = `01`; **kein echter REF-Nachweis**. `POSITION_UNKNOWN` (ohne Bench-Bit) = `0x00007FFF`.
 - NACK-Typen: `1 BUSY`, `2 NOT_READY`, `3 INVALID_COMMAND`, `4 INVALID_PARAMETER`, `5 EXECUTION_ERROR`, `6 INVALID_TELEGRAM`. Fehlerort z. B. UART `0x10`, Motor `0x20`.
+
+### Neu: Fake-Kurz-REF und SET_TRACK aus HW_TEST (nur loser Motor)
+
+Gemessene Tabelle aus `FY_HW_TEST/FY_HW_TEST/src/main.cpp`, **unveränderte absolute HW_TEST-Koordinaten im 1/4-Schritt-Testmaßstab**:
+
+| Gleis | BG1 | BG2 | BG3 | BG4 | BG5 |
+|---|---:|---:|---:|---:|---:|
+| Position | **1557** | **3157** | **4757** | **6357** | **7957** |
+
+`REFERENCE 00` ist im `FY_MOTOR_BENCH_TEST=1` **rein synthetisch**: Es gibt keine Motorfahrt, keine Sensorprüfung und keine echte Referenzfreigabe. Es setzt **1000** als Startposition und `STATUS 30` auf **02=simuliert**. Erst damit erlaubt `Motor::prepareSetTrack()` die Gleisauswahl; sie nutzt unverändert die `prepareSetPosition()`-/Profil-/STEP-Implementierung. Eine Änderung der Auflösung durch freies `MOVE`, STOP oder GO OFF löscht die simulierte Referenz. `REFERENCE 01` ist nicht implementiert; **außerhalb des Bench-Modus sind beide gesperrt**.
+
+```text
+stop aa 55            # Boot-STOP entriegeln
+go aa 55              # Endstufen freigeben
+status 30             # vor Fake-REF: STATUS_Reference 30 00 <CRC>
+reference 00          # FAKE Kurzreferenz: Position = 1000, kein STEP!
+status 30             # STATUS_Reference 30 02 <CRC>
+position              # STATUS_Position: Low16=1000 und Bit16=1 (nur BENCH)
+set_track 01          # Ziel BG1=1557, Differenz +557 in 1/4-Schritt
+status 20             # poll bis IDLE
+track 00              # STATUS_Track 40: Ziel, bestätigt, Status
+set_track 05          # Ziel BG5=7957
+```
+
+**Die Testreihe ist neu und noch nicht auf HW3 gebuildet oder gefahren.** Nur loser Motor; **nicht** als FY-Referenzierung verwenden. `GO/STOP`-Verriegelung und echte Sensor-/Endlagenüberwachung bleiben separate Aufgaben. Keine ungefragte DONE-UART-Meldung; Abschluss abfragen.
 
 ### HW3: STEP/ENABLE-GPIO-Tausch und einmalige SLEEP-Startfreigabe (23.10.2026)
 
@@ -73,7 +99,7 @@ HW3: **!ENABLE G25 (Blau)**, **DIR G26 (Gelb)**, **STEP G27 (Weiß)**, **!SLEEP 
 
 **Code vorhanden, neuer HW3-Build und Hardware-Nachweis offen.** Vor VMOT den G32-SLEEP-/RESET-LOW-Pegel während Boot/Reset prüfen; 10-kΩ-Pull-down gegen den am Modul gemessenen ca. 97-kΩ-Pull-up. Siehe [HW3-Pinout](../docs/pinouts/01_PINOUT_ESP32.md) und [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153).
 
-### Bewährte HW2-Sequenz (loser Motor, keine angekoppelte Bühne)
+### Historische HW2-Sequenz (alter Build mit Startposition 32767 – nicht mehr aktuelle FW)
 
 ```text
 stop aa 55               # POR-STOP-Sperre entriegeln, Treiber aus
