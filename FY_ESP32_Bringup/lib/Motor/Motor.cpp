@@ -321,6 +321,8 @@ MotorState_t Muninn_motorState() {
 }
 
 void Muninn_initMotorMock() {
+    // G32 (!SLEEP + !RESET) stays LOW until explicitly released by GO ON.
+    digitalWrite(MOTOR_SLEEP_PIN, LOW);
     // The A4988 microstep inputs are configured while ENABLE is HIGH.
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     digitalWrite(MOTOR_PWM_PIN, LOW);
@@ -352,7 +354,8 @@ void Muninn_motorMockTask(void* arg) {
 #endif
 
     // POR: STOP remains locked independently of UART task startup.
-    // Begin with the motor driver OFF; no STEP train starts automatically.
+    // Begin with the motor driver asleep and disabled.
+    digitalWrite(MOTOR_SLEEP_PIN, LOW);
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     driverEnabled.store(false, std::memory_order_release);
@@ -373,11 +376,12 @@ void Muninn_motorMockTask(void* arg) {
                      nackData(NackReason::INVALID_PARAMETER));
                 continue;
             }
-            // First disable the driver, THEN stop STEP generation.
+            // First disable the driver, then stop STEP and enter sleep/reset.
             // STOP and release both remain non-resuming, Nano semantics.
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
             stepTimerStop();
+            digitalWrite(MOTOR_SLEEP_PIN, LOW);
             motorMoving.store(false, std::memory_order_release);
             stopActive = activate;
             motor.onStop(activate);
@@ -418,10 +422,11 @@ void Muninn_motorMockTask(void* arg) {
         // MOVE handler below may start a bounded STEP train.
         if (cmd.id == CMD_GO &&
             cmd.data[0] == 0x55U && cmd.data[1] == 0xAAU) {
-            // GO 55 AA: de-energize the driver; do NOT clear the STOP latch.
+            // GO 55 AA: de-energize and sleep; retain STOP latch.
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
             stepTimerStop();
+            digitalWrite(MOTOR_SLEEP_PIN, LOW);
             motorMoving.store(false, std::memory_order_release);
             motor.onStop(stopActive);
             publishPosition(motor);
@@ -435,7 +440,13 @@ void Muninn_motorMockTask(void* arg) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else {
                 if (!driverEnabled.load(std::memory_order_acquire)) {
+                    // !RESET and !SLEEP are joined on HW3. Keep outputs
+                    // disabled and STEP LOW until the driver is awake.
+                    digitalWrite(MOTOR_ENABLE_PIN, HIGH);
                     digitalWrite(MOTOR_PWM_PIN, LOW);
+                    digitalWrite(MOTOR_SLEEP_PIN, HIGH);
+                    // A4988 tWAKE >= 1 ms; run in Muninn TASK, never ISR.
+                    delayMicroseconds(1500U);
                     digitalWrite(MOTOR_ENABLE_PIN, LOW); // active LOW
                     driverEnabled.store(true, std::memory_order_release);
                 }
