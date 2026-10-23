@@ -583,6 +583,14 @@ void Muninn_motorMockTask(void* arg) {
                     if (request.mode != activeMicrostepMode) {
                         applyMicrostepMode(request.mode);
                         activeMicrostepMode = request.mode;
+                        // The measured table is only calibrated in 1/4.
+                        // Changing to another microstep mode must invalidate
+                        // the fake reference even if timer start fails later.
+                        if (request.mode != MoveMicrostep::QUARTER) {
+                            motor.invalidateBenchPosition();
+                            publishPosition(motor);
+                            publishReference(motor);
+                        }
                     }
                     // Nano ACC1,ACC2,KONST,BRE1,BRE2,POSI prepared in
                     // Motor::calcProfile(). Timer alone owns the ISR copy.
