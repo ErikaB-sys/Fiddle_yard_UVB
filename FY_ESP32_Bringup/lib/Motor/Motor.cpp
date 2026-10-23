@@ -404,6 +404,8 @@ void Muninn_motorMockTask(void* arg) {
     bool ledState = false;
     // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
     bool stopActive = true; // Mirrors Motor state for the existing STOP path.
+    uint8_t targetTrack = 0U; // 0 = unknown, only Muninn changes these.
+    uint8_t confirmedTrack = 0U;
 #if FY_MOTOR_BENCH_TEST
     MoveMicrostep activeMicrostepMode = MoveMicrostep::QUARTER;
 #endif
@@ -414,10 +416,10 @@ void Muninn_motorMockTask(void* arg) {
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     driverEnabled.store(false, std::memory_order_release);
     motorMoving.store(false, std::memory_order_release);
-#if FY_MOTOR_BENCH_TEST
-    motor.resetBenchPosition();
-#endif
+    // No fake reference at boot. REFERENCE 00 must be explicitly requested.
     publishPosition(motor);
+    publishReference(motor);
+    publishTrack(0U, 0U, TRACK_STATUS_ERROR);
     motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
 
     for (;;) {
@@ -439,7 +441,11 @@ void Muninn_motorMockTask(void* arg) {
             motorMoving.store(false, std::memory_order_release);
             stopActive = activate;
             motor.onStop(activate);
+            targetTrack = 0U;
+            confirmedTrack = 0U;
             publishPosition(motor);
+            publishReference(motor);
+            publishTrack(0U, 0U, TRACK_STATUS_ERROR);
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
 
             // Cancel any old queued movement requests; every dropped request
@@ -462,11 +468,17 @@ void Muninn_motorMockTask(void* arg) {
             motorMoving.store(false, std::memory_order_release);
             motor.onMoveFinished();
             publishPosition(motor);
+            publishReference(motor);
+            if (targetTrack != 0U && motor.benchReferenceValid()) {
+                confirmedTrack = targetTrack;
+                publishTrack(targetTrack, confirmedTrack, TRACK_STATUS_REACHED);
+            }
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
         } else if (motorMoving.load(std::memory_order_acquire)) {
             // Position is a core-1 snapshot, never read straight from UART/ISR.
             motor.onMotionProgress(stepTimerCompletedSteps());
             publishPosition(motor);
+            publishReference(motor);
         }
 
         if (xQueueReceive(context->commands, &cmd, pdMS_TO_TICKS(2)) != pdTRUE)
@@ -483,7 +495,11 @@ void Muninn_motorMockTask(void* arg) {
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
             motor.onStop(stopActive);
+            targetTrack = 0U;
+            confirmedTrack = 0U;
             publishPosition(motor);
+            publishReference(motor);
+            publishTrack(0U, 0U, TRACK_STATUS_ERROR);
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
             emit(context, cmd, true, cmd.id);
         } else if (cmd.id == CMD_GO &&
@@ -505,9 +521,31 @@ void Muninn_motorMockTask(void* arg) {
                 emit(context, cmd, true, cmd.id);
             }
 #if FY_MOTOR_BENCH_TEST
-        } else if (cmd.id == CMD_MOVE || cmd.id == CMD_SET_POSITION) {
-            // Bench-only: simulated uint16 quarter-step position. The
-            // real-reference flag stays false, including for SET_POSITION.
+        } else if (cmd.id == CMD_REFERENCE) {
+            // BENCH ONLY: explicit simulated short REFRUN without motor motion.
+            // REFERENCE 01 (long) stays NOT_READY, never fake real sensors.
+            if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
+                emit(context, cmd, false, nackData(NackReason::NOT_READY));
+            } else if (stepTimerRunning() || motor.state() != MotorState_t::IDLE) {
+                emit(context, cmd, false, nackData(NackReason::BUSY));
+            } else {
+                const MotorCommandResult_t prep = motor.prepareReference(cmd.data[0]);
+                if (prep != MotorCommandResult_t::ACCEPTED) {
+                    emit(context, cmd, false, nackData(NackReason::NOT_READY));
+                } else {
+                    motor.resetBenchPosition(); // FAKE: coordinate 1000; no STEP.
+                    targetTrack = 0U;
+                    confirmedTrack = 0U;
+                    publishPosition(motor);
+                    publishReference(motor);
+                    publishTrack(0U, 0U, TRACK_STATUS_ERROR);
+                    emit(context, cmd, true, cmd.id);
+                }
+            }
+        } else if (cmd.id == CMD_MOVE || cmd.id == CMD_SET_POSITION ||
+                   cmd.id == CMD_SET_TRACK) {
+            // BENCH ONLY. SET_TRACK uses physically measured HW_TEST positions,
+            // but the reference is synthetic and MUST remain visibly fake.
             if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else if (stepTimerRunning() ||
@@ -515,9 +553,10 @@ void Muninn_motorMockTask(void* arg) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
             } else {
                 MoveRequest request{};
-                const MotorCommandResult_t prep = (cmd.id == CMD_MOVE)
-                    ? motor.prepareMove(cmd.data, request)
-                    : motor.prepareSetPosition(
+                const MotorCommandResult_t prep =
+                    (cmd.id == CMD_MOVE) ? motor.prepareMove(cmd.data, request) :
+                    (cmd.id == CMD_SET_TRACK) ? motor.prepareSetTrack(cmd.data[0], request) :
+                    motor.prepareSetPosition(
                         static_cast<uint16_t>(cmd.data[0]) |
                         (static_cast<uint16_t>(cmd.data[1]) << 8U), request);
 
@@ -528,6 +567,16 @@ void Muninn_motorMockTask(void* arg) {
                         : NackReason::NOT_READY));
                 } else if (request.steps == 0U) {
                     // Already at the requested position. No STEP pulses.
+                    if (cmd.id == CMD_SET_TRACK) {
+                        targetTrack = cmd.data[0];
+                        confirmedTrack = targetTrack;
+                        publishTrack(targetTrack, confirmedTrack, TRACK_STATUS_REACHED);
+                    } else {
+                        targetTrack = 0U;
+                        confirmedTrack = 0U;
+                        publishTrack(0U, 0U, TRACK_STATUS_ERROR);
+                    }
+                    publishReference(motor);
                     emit(context, cmd, true, cmd.id);
                 } else {
                     // Change microstepping only when the STEP timer is idle.
@@ -564,7 +613,18 @@ void Muninn_motorMockTask(void* arg) {
                         motor.onMotionAccepted(request);
                         motorMoving.store(true, std::memory_order_release);
                         motor.onMoveStarted();
+                        if (cmd.id == CMD_SET_TRACK && motor.benchReferenceValid()) {
+                            targetTrack = cmd.data[0];
+                            // Last confirmed track is no longer guaranteed once moving.
+                            confirmedTrack = 0U;
+                            publishTrack(targetTrack, 0U, TRACK_STATUS_MOVING);
+                        } else {
+                            targetTrack = 0U;
+                            confirmedTrack = 0U;
+                            publishTrack(0U, 0U, TRACK_STATUS_ERROR);
+                        }
                         publishPosition(motor);
+                        publishReference(motor);
                         motorStateSnapshot.store(
                             static_cast<uint8_t>(motor.state()),
                             std::memory_order_release);
