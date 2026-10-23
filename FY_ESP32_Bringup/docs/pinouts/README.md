@@ -2,7 +2,7 @@
 
 **Issues:** [#151](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/151), [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155), [#161](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/161).
 
-- [ESP32-WROOM / HW2 Pinout](01_PINOUT_ESP32.md)
+- [ESP32-WROOM: HW3-Zielbelegung und HW2-Code-Abgleich](01_PINOUT_ESP32.md)
 - [Nano-ESP32 Adapter](ADAPTER_NANO_ESP32.md)
 - [HW_Config.h](../../include/HW_Config.h): **tatsächlich im Code benutzte GPIO-Zahlen**.
 - [Nano-Referenz](../../reference/02_PINOUT_NANO.md)

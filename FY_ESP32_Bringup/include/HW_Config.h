@@ -1,36 +1,85 @@
 #pragma once
-// HW2: ESP32-WROOM pin allocation and electrical purpose.
-// GPIO numbers refer to the ESP32 board marking Gxx.
+// HW3: ESP32-WROOM (38 Pin), GPIO-Belegung vom 22.10.2026.
+// Gxx bezeichnet die Board-Aufschrift, nicht die Steckerposition.
+// Zentraler Verdrahtungsplan: docs/pinouts/01_PINOUT_ESP32.md
+// Die Kernzuordnung beschreibt den Software-Owner, keine elektrische Bindung.
+// Core-IDs und Task-Pinning: FY_Bringup.h, lib/Motor/ und lib/UART/.
+// Pin-Konstanten allein initialisieren keine Hardware.
 
 #include <Arduino.h>
 
-// A4988 driver logic; STEP is intended for hardware-timer-driven pulses.
-constexpr uint8_t MOTOR_PWM_PIN    = 25; // G25 -> PULS / STEP (output)
-constexpr uint8_t MOTOR_DIR_PIN    = 26; // G26 -> DIR (output)
-constexpr uint8_t MOTOR_ENABLE_PIN = 27; // G27 -> ENA (output, LOW enables)
+// ============================================================================
+// MUNINN - Kern 1: Motor, Sensoren und unmittelbarer Hardwareschutz
+// ============================================================================
 
-// A4988 microstep resolution selection (HW2 wired 20 Oct 2026).
-// HW2 M0/M1/M2 correspond to A4988 MS1/MS2/MS3 respectively.
-// All HIGH = 1/16 microstep; these are owned by the Muninn motor module.
-constexpr uint8_t MOTOR_MS0_PIN = 13; // G13 -> M0 / A4988 MS1
-constexpr uint8_t MOTOR_MS1_PIN = 14; // G14 -> M1 / A4988 MS2
-constexpr uint8_t MOTOR_MS2_PIN =  4; // G4  -> M2 / A4988 MS3 (ESP32 strap-sampled GPIO)
+// A4988: bestehende STEP/DIR/ENABLE-Belegung bleibt erhalten.
+// Hardware-Grundzustand: STEP LOW, ENABLE HIGH (Treiber gesperrt).
+constexpr uint8_t MOTOR_PWM_PIN    = 25; // G25 -> STEP / PULS (Ausgang)
+constexpr uint8_t MOTOR_DIR_PIN    = 26; // G26 -> DIR (Ausgang)
+constexpr uint8_t MOTOR_ENABLE_PIN = 27; // G27 -> !ENABLE (LOW = Freigabe)
 
-// Planned light barriers / switches (inputs, not yet wired on HW2).
-// Confirm every sensor has a 0..3.3 V output BEFORE connecting.
-constexpr uint8_t LSREF_PIN = 32; // G32 -> reference light barrier 1
-constexpr uint8_t LS4_PIN   = 33; // G33 -> reference light barrier 2 / belt
-constexpr uint8_t LSL_PIN   = 16; // G16 -> left end stop
-constexpr uint8_t LSR_PIN   = 17; // G17 -> right end stop
+// Mikroschritte: M0/M1/M2 entsprechen beim A4988 MS1/MS2/MS3.
+// HIGH/HIGH/HIGH = 1/16; Bench-Aufloesung siehe Motor-Modul.
+constexpr uint8_t MOTOR_MS0_PIN = 13; // G13 -> MS1 (Ausgang)
+constexpr uint8_t MOTOR_MS1_PIN = 14; // G14 -> MS2 (Ausgang)
+constexpr uint8_t MOTOR_MS2_PIN =  4; // G4  -> MS3 (Ausgang)
 
-// Reserved for optional local I2C keyboard / display (not connected).
-constexpr uint8_t I2C_SDA_PIN = 21; // G21 -> I2C SDA
-constexpr uint8_t I2C_SCL_PIN = 22; // G22 -> I2C SCL
+// Neu reserviert: die SLEEP-Ansteuerung ist noch NICHT implementiert.
+// Hardware-Pulldown -> LOW; nach Aufwecken mindestens 1 ms vor erstem STEP.
+// !RESET separat per Pull-up an 3,3 V; kein GPIO, keine RESET/SLEEP-Bruecke.
+// Pulls ersetzen keinen geprueften Boot-/Flash-/OTA-Interlock.
+constexpr uint8_t MOTOR_SLEEP_PIN = 32; // G32 -> !SLEEP (HIGH = wach)
 
-// Optional SPI building/display extension: RESERVED, NOT IMPLEMENTED.
-// constexpr uint8_t SPI_SCLK_PIN = 18; // G18 -> SPI clock
-// constexpr uint8_t SPI_MISO_PIN = 19; // G19 -> SPI input
-// constexpr uint8_t SPI_MOSI_PIN = 23; // G23 -> SPI output
-// Display-CS, MCP23S17-CS, and DC GPIOs are not assigned yet.
-// Proposed DE-9: GND, 3V3, SCLK, MOSI, MISO, two CS, DC, reserve.
-// 12 V light power separately wired; common GND at a defined point.
+// HW3-Sensorpins: ersetzt die bisherige Zuordnung G32/G33/G16/G17.
+// G34/G35/G36/G39 sind reine Eingaenge OHNE interne Pull-Widerstaende.
+// Nur 0..3,3-V-Signale; externe Pulls passend zur Sensorschaltung.
+// Das ausfuehrbare Switches-Modul und der Endlagenschutz sind noch offen.
+constexpr uint8_t LSREF_PIN = 34; // G34 -> Referenz-Lichtschranke
+constexpr uint8_t LS4_PIN   = 35; // G35 -> zweite Lichtschranke / Riemen
+constexpr uint8_t LSL_PIN   = 36; // G36 / VP -> Endschalter links
+constexpr uint8_t LSR_PIN   = 39; // G39 / VN -> Endschalter rechts
+// G36/G39: Pegelabfrage im direkten Motor-Schutzpfad, keine GPIO-Interrupts
+// (ESP32-Einschraenkungen bei ADC bzw. Funk mit Schlafmodi beachten).
+
+// Diagnose G2 gehoert aktuell ebenfalls Muninn: setLed() in Motor.cpp.
+// Tatsächliche Auswahl ueber FY_STATUS_LED_PIN (platformio.ini; Default 2).
+// Hier keine zweite unabhaengige LED-Pinkonstante anlegen.
+
+// ============================================================================
+// HUGINN - Kern 0: Bedienung, Anzeige und Kommunikation
+// ============================================================================
+
+// I2C: PCF8574 mit vier LED-Tastern und OLED; Polling, kein INT-GPIO.
+// Pull-ups nach 3,3 V. Keyboard/OLED-Modul noch nicht implementiert.
+constexpr uint8_t I2C_SDA_PIN = 21; // G21 -> SDA
+constexpr uint8_t I2C_SCL_PIN = 22; // G22 -> SCL
+
+// SPI-Gebaeudeerweiterung #165: reserviert, noch NICHT implementiert.
+// Gemeinsamer Bus, je ein CS fuer Display und MCP23S17.
+// Beide CS hardwareseitig HIGH halten und vor Businitialisierung deaktivieren.
+constexpr uint8_t SPI_SCLK_PIN       = 18; // G18 -> SCLK (Ausgang)
+constexpr uint8_t SPI_MISO_PIN       = 19; // G19 <- MISO (Eingang)
+constexpr uint8_t SPI_MOSI_PIN       = 23; // G23 -> MOSI (Ausgang)
+constexpr uint8_t SPI_CS_DISPLAY_PIN = 16; // G16 -> !CS Display
+constexpr uint8_t SPI_CS_EXPANDER_PIN = 17; // G17 -> !CS MCP23S17
+constexpr uint8_t SPI_DISPLAY_DC_PIN = 33; // G33 -> Display D/C
+// Display-RESET/Backlight und MCP23S17-RESET lokal nach Moduldatenblatt.
+// Kein eigener Reset-GPIO, keine ungepruefte Bruecke zu ESP32-EN.
+// DE-9: GND, 3V3, SCLK, MOSI, MISO, CS_DISPLAY, CS_EXPANDER, DC, Reserve.
+// Kontakt 9 bleibt unbeschaltet. 12-V-Lichtversorgung separat fuehren.
+
+// UART0: vorhandene USB-UART-Verbindung, nicht fuer andere Geraete vergeben.
+// Serial.begin() nutzt derzeit die Board-Standardpins; keine neue UART.
+constexpr uint8_t UART0_TX_PIN = 1; // G1 / TX0 -> USB-UART
+constexpr uint8_t UART0_RX_PIN = 3; // G3 / RX0 <- USB-UART
+// WLAN/Web/JMRI benoetigen keine zusaetzlichen Header-GPIOs.
+
+// ============================================================================
+// BOARD / VERSORGUNG - keine frei vergebenen Task-GPIOs
+// ============================================================================
+// G12: ausdruecklich frei lassen.
+// G0: Boot/Download; G5/G15: unbeschaltet, Reserve nur nach Strapping-Pruefung.
+// G6..G11: Flash, nicht benutzen. G37/G38: am WROOM-Header nicht verfuegbar.
+// EN: ESP32-Chipfreigabe/Reset, kein Benutzer-GPIO.
+// 3V3/5V/GND: Versorgung; USB/externe Einspeisung gemaess HW3_STROMVERSORGUNG.md.
+// Kein drittes CS zugeteilt. G16/G17 gelten hier fuer WROOM ohne PSRAM.
