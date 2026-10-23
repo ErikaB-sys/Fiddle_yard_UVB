@@ -63,6 +63,12 @@
 - Bench-`GET_POSITION`: `0x00010000 | virtuelle_16bit_position`, also DATA[2] = `01`; **kein echter REF-Nachweis**. `POSITION_UNKNOWN` (ohne Bench-Bit) = `0x00007FFF`.
 - NACK-Typen: `1 BUSY`, `2 NOT_READY`, `3 INVALID_COMMAND`, `4 INVALID_PARAMETER`, `5 EXECUTION_ERROR`, `6 INVALID_TELEGRAM`. Fehlerort z. B. UART `0x10`, Motor `0x20`.
 
+### HW3: STEP/ENABLE-GPIO-Tausch und SLEEP-Gating (23.10.2026)
+
+Auf der verlöteten HW3 gilt **!ENABLE G25 (Blau)**, **DIR G26 (Gelb)**, **STEP G27 (Weiß)**, **!SLEEP + !RESET G32 (Rot)**. Die LEDs besitzen gemeinsames Plus, leuchten also bei **GPIO LOW**. `StepTimer.cpp` bezieht den Pin direkt aus `MOTOR_PWM_PIN`; die ISR wurde nicht geändert. Der G32-SLEEP-Ausgang wird bei Setup LOW gesetzt, bei erfolgreichem `GO AA 55` HIGH, wartet 1,5 ms und gibt erst dann ENABLE LOW frei. `STOP AA 55` entriegelt die POR-Sperre, aber weckt nicht auf. `STOP 55 AA` sowie `GO 55 AA` deaktivieren ENABLE und versetzen den A4988 wieder in Sleep/Reset.
+
+**Neuer Code noch nicht auf HW3 gebaut/getestet.** 12 V/VMOT erst nach Pegelprüfung der roten LED am hochohmigen G32: Die LED mit gemeinsamem Plus kann den 10-kΩ-Pull-down belasten und einen undefinierten Zwischenpegel verursachen. Siehe [HW3-Pinout](../docs/pinouts/01_PINOUT_ESP32.md) und [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153).
+
 ### Bewährte HW2-Sequenz (loser Motor, keine angekoppelte Bühne)
 
 ```text
