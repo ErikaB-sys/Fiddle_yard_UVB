@@ -2,7 +2,7 @@
 
 **Stand: 23.10.2026 · Branch `feature/FY_ESP32_Port`.**
 **HW3-Pinbelegung in `HW_Config.h` übernommen; Ansteuerung und elektrische Abnahme noch unvollständig.**
-Die Haupttabelle entspricht den neuen Pin-Konstanten in [HW_Config.h](../../include/HW_Config.h). Die Statusspalte nennt zusätzlich die frühere HW2-Zuordnung. SLEEP ist jetzt im Setup und im GO-/STOP-Pfad implementiert, aber **noch nicht an HW3 getestet**. Sensor-Schutzpfad und SPI benötigen weiterhin Implementierung und Tests. Der vorhandene HW2-Bench-Nachweis gilt nicht automatisch für HW3.
+Die Haupttabelle entspricht den neuen Pin-Konstanten in [HW_Config.h](../../include/HW_Config.h). Die Statusspalte nennt zusätzlich die frühere HW2-Zuordnung. SLEEP wird im Setup auf LOW gesetzt und am Ende von `Muninn_initMotorMock()` nach der Motorinitialisierung **einmalig HIGH gesetzt**. Diese Startsequenz ist **noch nicht an HW3 getestet**. Sensor-Schutzpfad und SPI benötigen weiterhin Implementierung und Tests. Der vorhandene HW2-Bench-Nachweis gilt nicht automatisch für HW3.
 
 **Software-Zuständigkeit:** Muninn / Kern 1 besitzt Motor, SLEEP, Sensoren und die bisherige Diagnose-LED. Huginn / Kern 0 besitzt I²C-Bedienung, SPI-Anzeige/Licht und UART-Kommunikation. Die Zuordnung beschreibt den Software-Owner; GPIOs sind nicht elektrisch an einen Kern gebunden. `CORE_MUNINN=1` und `CORE_HUGINN=0` sowie das Task-Pinning bleiben erhalten.
 
@@ -29,7 +29,7 @@ GPIO-Zahlen sind **GPIO-Nummern, keine Steckerpositionsnummern**. Die beiden rei
 | Motor | M0 → A4988 MS1 | G13 | Ausgang | G13, unverändert |
 | Motor | M1 → A4988 MS2 | G14 | Ausgang | G14, unverändert |
 | Motor | M2 → A4988 MS3 | G4 | Ausgang | G4, unverändert |
-| Motor | 🔴 A4988 !SLEEP / SLP, mit !RESET verbunden | **G32** | Ausgang | **10 kΩ Pull-down nach GND**; rote LED bei LOW an (gemeinsames Plus), Pegel im Reset wegen LED-Strom **noch nachzuweisen** |
+| Motor | 🔴 A4988 !SLEEP / SLP, mit !RESET verbunden | **G32** | Ausgang | **10 kΩ Pull-down nach GND**; rote LED bei LOW an (gemeinsames Plus); Resetpegel mit LED nachzuweisen |
 | Sensor | Lichtschranke REF / LSREF | **G34** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G32 |
 | Sensor | Lichtschranke 2 / Riemen / LS4 | **G35** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G33 |
 | Sensor | Endschalter links / LSL | **G36 / SENSOR_VP** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G16 |
@@ -70,24 +70,24 @@ GPIO-Zahlen sind **GPIO-Nummern, keine Steckerpositionsnummern**. Die beiden rei
 
 ## HW3-Motortreiber: Diagnose-LEDs und Farben
 
-Die vier Diagnose-LEDs hängen direkt an den Motor-Steuersignalen; dafür sind **keine zusätzlichen ESP32-GPIOs** erforderlich. Die tatsächlich verlöteten LEDs haben **gemeinsames Plus an 3,3 V** (jeweils mit eigenem LED-Vorwiderstand zum GPIO): **GPIO LOW = LED leuchtet**. Diese Bestückung weicht von den früheren Überlegungen mit aktiver-HIGH-LED ab.
+**Alle vier verlöteten Diagnose-LEDs haben gemeinsames Plus an 3,3 V; jede besitzt einen eigenen Vorwiderstand.** Damit gilt für **alle**: GPIO LOW = LED AN, GPIO HIGH = LED AUS. Insbesondere gilt das **auch für Rot an G32** (abweichende frühere Beschreibung verworfen).
 
-| LED-Farbe | Signal | GPIO (HW3) | Aussage bei leuchtender LED | Elektrischer Bezug |
+| LED-Farbe | Signal | GPIO (HW3) | Aussage bei leuchtender LED | Anschluss |
 |---|---|---|---|---|
-| **🔴 Rot** | !SLEEP + !RESET, verbunden | **G32** | **LOW: Schlaf/Reset aktiv** (nicht „wach“) | gemeinsames Plus → Vorwiderstand → LED → G32; **Pegelkonflikt mit 10-kΩ-Pull-down beachten** |
-| **🔵 Blau** | !ENABLE / EN | **G25** | **LOW: Endstufen freigegeben** (nicht automatisch Bewegung) | gemeinsames Plus → Vorwiderstand → LED → G25 |
-| **🟡 Gelb** | DIR | **G26** | **LOW: Richtungssignal LOW** | gemeinsames Plus → Vorwiderstand → LED → G26 |
-| **⚪ Weiß** | STEP | **G27** | **LOW: STEP LOW**; bei Ruhe daher möglicherweise dauerhaft AN, kurze HIGH-Pulse kaum sichtbar | gemeinsames Plus → Vorwiderstand → LED → G27 |
+| **🔴 Rot** | !SLEEP + !RESET, verbunden | **G32** | **LOW: Sleep/Reset aktiv**; nach initialem Aufwecken bei HIGH AUS | 3,3 V → LED mit Vorwiderstand → G32 |
+| **🔵 Blau** | !ENABLE / EN | **G25** | **LOW: Endstufen freigegeben**, keine Aussage über Bewegung | 3,3 V → LED mit Vorwiderstand → G25 |
+| **🟡 Gelb** | DIR | **G26** | **LOW: Richtungssignal LOW** | 3,3 V → LED mit Vorwiderstand → G26 |
+| **⚪ Weiß** | STEP | **G27** | **LOW: STEP LOW**; bei Ruhe ggf. dauerhaft AN, kurze HIGH-Impulse kaum sichtbar | 3,3 V → LED mit Vorwiderstand → G27 |
 
-**Sicherheitshinweis Rot/G32:** Der rote LED-Zweig liegt von **3,3 V nach G32** und kann über die LED und den LED-Vorwiderstand Strom **in den 10-kΩ-Pull-down** einspeisen, wenn G32 während Reset/Flash hochohmig ist. Der gemessene 97-kΩ-Modul-Pull-up verstärkt dies. Daher kann ohne aktive Firmware **ein Zwischenpegel um 1 V** entstehen; **die Wirkung der SLEEP-/RESET-Sperre ist noch nicht nachgewiesen!** Bei 3,3 V **ohne VMOT** G32 direkt gegen GND bei Reset/Boot messen und LED-Zweig/Pull-down nötigenfalls elektrisch ändern. **Keine 12-V-Motorversorgung vor erfolgreicher Messung**. Siehe [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153) und [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155).
+**Startschutz am G32 messen:** Der **rote LED-Zweig von fest +3,3 V nach G32** kann Strom in den **10-kΩ-Pull-down** einspeisen, wenn G32 während Reset/Flash hochohmig ist. Zusammen mit dem am A4988 gemessenen **97-kΩ-Pull-up** kann ein undefinierter Zwischenpegel entstehen. Die geplante SLEEP-/RESET-Sperre ist deshalb **erst nach Pegelmessung** bei Reset und Power-on nachgewiesen. **Bis dahin kein VMOT.** Siehe [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153) und [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155).
 
-Die STEP-LED belastet außerdem das Pulssignal; Timing und LOW/HIGH-Pegel am tatsächlichen A4988-Eingang prüfen. LED-Vorwiderstände separat prüfen; sie sind keine Pull-Widerstände.
+Die weiße STEP-LED belastet außerdem das Pulssignal; Timing und HIGH/LOW-Pegel am realen A4988-Eingang prüfen. LED-Vorwiderstände sind keine Pull-Widerstände.
 
 **I²C:** 4,7 kΩ sind der festgelegte **Zielwert je Busleitung**, nicht zusätzlich blind einzulötende Widerstände. Haben OLED/PCF8574 bereits wirksame Pull-ups, werden diese für den Gesamtwiderstand berücksichtigt; der tatsächlich erreichte Bus-Pull-up wird vor der Bestückung gemessen und dokumentiert.
 
 **A4988:** Die R100-Aufdrucke bezeichnen die beiden **Strommesswiderstände (je 0,1 Ω)** und sagen nichts über die Pull-Widerstände aus. Beim Pololu-Referenzcarrier sind 100 kΩ Pull-up an !SLEEP und 100 kΩ Pull-down an !ENABLE beschrieben. Auf unserem R100-Modul wurde der !SLEEP-Pull-up nach 3,3 V inzwischen mit **ca. 97 kΩ** gemessen; die übrigen Modul-Pulls sind nicht abschließend nachgewiesen. Die **am G32-Netz und an den Sensoren vorgesehenen 10-kΩ-Widerstände** bleiben HW3-Soll-Beschaltung; für G25/G26/G27 werden vorerst **keine zusätzlichen Pulls** eingesetzt. Die tatsächlichen Pegel und ihre Wirksamkeit sind am aufgebauten HW3 zu prüfen. !RESET ist **nicht** mit ESP32-EN verbunden.
 
-**A4988-Start und Betrieb (HW3-Softwarestand 23.10.2026):** VDD = 3,3 V; VMOT = separat schaltbare 12 V, mit mindestens 47 µF nahe VMOT/GND. In `setup()` wird G32 zunächst LOW als OUTPUT initialisiert; STEP G27 LOW, ENABLE G25 HIGH, DIR G26 und MS1–3 werden initialisiert. Das POR-STOP-Latch ist zunächst aktiv. `STOP AA 55` entriegelt, ohne aufzuwecken; erst `GO AA 55` setzt bei gesperrtem ENABLE und STEP LOW G32 auf HIGH, wartet **1,5 ms** außerhalb der ISR und gibt danach ENABLE mit LOW frei. `GO 55 AA` und beide `STOP`-Varianten setzen ENABLE HIGH, stoppen STEP und setzen G32 LOW. Das gemeinsame !SLEEP/!RESET setzt den A4988-Translator zurück; die Referenz-/Positionsgültigkeit muss entsprechend neu geprüft werden. **Implementiert, noch nicht auf HW3 gebuildet oder physisch abgenommen.**
+**A4988-Start und Betrieb (HW3-Softwarestand 23.10.2026):** VDD = 3,3 V; VMOT = separat schaltbare 12 V, mit mindestens 47 µF nahe VMOT/GND. In `setup()` wird G32 zunächst LOW als OUTPUT initialisiert; STEP G27 LOW, ENABLE G25 HIGH, DIR G26 und MS1–3 werden initialisiert. Am Ende von `Muninn_initMotorMock()` wird **G32 einmalig HIGH** gesetzt und anschließend **1,5 ms** gewartet, bevor die Motor-/UART-Tasks angelegt werden. Die Wartezeit liegt außerhalb der ISR und garantiert bei erfolgreicher Initialisierung die erforderliche A4988-Aufwachzeit vor einer STEP-Flanke. `STOP AA 55` entriegelt die POR-STOP-Sperre, setzt ENABLE jedoch nicht LOW. `GO AA 55` setzt ENABLE LOW (Freigabe); `GO 55 AA` und beide `STOP`-Varianten setzen ENABLE HIGH und stoppen STEP. **G32 bleibt bei GO/STOP HIGH**: Sleep/Reset wird nur als Startabsicherung eingesetzt. **Im Code implementiert, noch nicht auf HW3 gebaut oder physisch abgenommen.**
 
 **Sicherheitsgrenze:** Pull-Widerstände bestimmen Pegel nur bei hochohmigen Ausgängen; sie überstimmen keinen aktiv falsch getriebenen ESP32-Pin. Die HW3-Beschaltung ist noch kein geprüfter Boot-/Flash-/OTA-Interlock. VMOT-Trennung und Messungen nach [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155) / [#161](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/161) bleiben erforderlich.
 
@@ -145,18 +145,18 @@ Ein drittes CS ist **nicht zugesichert**. Dafür wäre eine gesonderte Entscheid
 
 ## Umstellung und Nachweis
 
-Die bisherige HW2-Motorbelegung bleibt im Nano-/HW2-Stand erhalten. **HW3-Änderung 23.10.2026:** STEP=G27 und !ENABLE=G25 gemäß physischer HW3-Verdrahtung; DIR=G26 unverändert; !RESET/!SLEEP als gemeinsames G32-Netz, Sensor-Pin-Aliase und tatsächliche LED-Polarität dokumentiert. Frühere Bench-Beobachtungen: STEP am losen NEMA11 erprobt, DIR beobachtet, ENABLE-Pegel getestet; Mikroschrittpegel mit dem jeweils aktuellen Build nachmessen. Bench-Modus/Normalmodus siehe [MOTOR_TIMER_BENCH.md](../MOTOR_TIMER_BENCH.md). Das ist keine Freigabe der FY-Endlagen.
+Die bisherige HW2-Motorbelegung bleibt im Nano-/HW2-Stand erhalten. **HW3-Änderung 23.10.2026:** STEP=G27 und !ENABLE=G25 gemäß physischer HW3-Verdrahtung; DIR=G26 unverändert; !RESET/!SLEEP als gemeinsames G32-Netz, Sensor-Pin-Aliase und alle LED-Polaritäten (gemeinsames Plus) dokumentiert. Frühere Bench-Beobachtungen: STEP am losen NEMA11 erprobt, DIR beobachtet, ENABLE-Pegel getestet; Mikroschrittpegel mit dem jeweils aktuellen Build nachmessen. Bench-Modus/Normalmodus siehe [MOTOR_TIMER_BENCH.md](../MOTOR_TIMER_BENCH.md). Das ist keine Freigabe der FY-Endlagen.
 
-**Code-Ist:** [HW_Config.h](../../include/HW_Config.h) enthält die HW3-Sensorpins und Konstanten für SLEEP sowie SPI einschließlich beider CS und DC. Die Datei ist nach Muninn/Kern 1 und Huginn/Kern 0 gegliedert. `MOTOR_SLEEP_PIN` wird jetzt in `setup()` auf LOW initialisiert und in Muninn bei GO ON/OFF und STOP gesteuert; die elektrische Abnahme inklusive roter LED ist offen. Sensor-Schutzpfad und SPI-Ansteuerung fehlen weiterhin. Alte HW2-Verdrahtung und neue Sensor-Konstanten dürfen nicht als kompatibel angenommen werden.
+**Code-Ist:** [HW_Config.h](../../include/HW_Config.h) enthält die HW3-Sensorpins und Konstanten für SLEEP sowie SPI einschließlich beider CS und DC. Die Datei ist nach Muninn/Kern 1 und Huginn/Kern 0 gegliedert. `MOTOR_SLEEP_PIN` wird in `setup()` zunächst LOW initialisiert und in `Muninn_initMotorMock()` einmalig freigegeben; GO/STOP verändern G32 nicht. Die elektrische Abnahme inklusive roter LED ist offen. Sensor-Schutzpfad und SPI-Ansteuerung fehlen weiterhin. Alte HW2-Verdrahtung und neue Sensor-Konstanten dürfen nicht als kompatibel angenommen werden.
 
 - [x] Sensor-Konstanten gezielt auf HW3 umgestellt; SLEEP und SPI-Steuersignale definiert, nach Kernen gegliedert.
-- [x] SLEEP-Initialisierung und GO-/STOP-Steuerung mit mindestens 1,5 ms Aufwachzeit im Code ergänzt (nicht ISR).
-- [ ] SLEEP-Pegel und Aufwachzeit an HW3 prüfen; Rot-LED-Einspeisung bei hochohmigem G32 beheben/bewerten; Referenzgültigkeit nach Reset/Sleep prüfen.
+- [x] SLEEP-Initialisierung und einmalige Freigabe in `Muninn_initMotorMock()` mit 1,5 ms Aufwachzeit vor Taskstart implementiert (nicht ISR); GO/STOP verändern SLEEP nicht.
+- [ ] SLEEP-Pegel vor/nach Initialisierung und Aufwachzeit an HW3 prüfen; mögliche Einspeisung der roten LED bei hochohmigem G32 bewerten; Referenzgültigkeit nach Reset prüfen.
 - [ ] G36/G39 als Pegel im unmittelbaren Motor-Schutzpfad integrieren; Stopplatenz prüfen.
 - [x] SPI einschließlich CS/DC als Konstanten für #165 übernommen.
 - [ ] SPI-Initialisierung und tatsächliche Geräteansteuerung für #165 implementieren.
 - [ ] A4988-Modul-Pulls (SLEEP: ca. 97 kΩ gemessen), gemeinsame RESET/SLEEP-Verdrahtung, externe HW3-Pulls, Sensorpegel und tatsächliche Boardrevision prüfen.
-- [ ] Vier Diagnose-LEDs Rot/Blau/Gelb/Weiß (gemeinsames Plus, LOW=AN) samt Pegeln, Vorwiderständen und STEP-Signalbelastung überprüfen; Boot-Sicherheit ohne zusätzliche STEP-/DIR-/ENABLE-Pulls messen.
+- [ ] Vier Diagnose-LEDs Rot/Blau/Gelb/Weiß (alle gemeinsames Plus, LOW=AN) samt Pegeln, Vorwiderständen und STEP-Signalbelastung überprüfen; Boot-Sicherheit ohne zusätzliche STEP-/DIR-/ENABLE-Pulls messen.
 - [ ] Versorgungsauswahl gemäß [HW3_STROMVERSORGUNG.md](HW3_STROMVERSORGUNG.md) aufbauen und messen.
 - [ ] Power-on, Reset, USB-Flash und später OTA samt STEP/ENABLE/SLEEP am realen Aufbau prüfen.
 
