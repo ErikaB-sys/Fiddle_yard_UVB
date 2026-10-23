@@ -13,10 +13,11 @@
 // ============================================================================
 
 // A4988: bestehende STEP/DIR/ENABLE-Belegung bleibt erhalten.
-// Hardware-Grundzustand: STEP LOW, ENABLE HIGH (Treiber gesperrt).
-constexpr uint8_t MOTOR_PWM_PIN    = 25; // G25 -> STEP / PULS (Ausgang)
+// Firmware-Grundzustand: STEP LOW, ENABLE HIGH; SLEEP/RESET LOW.
+// Auf HW3 wurden STEP und ENABLE gegenueber HW2 vertauscht: G27/G25.
+constexpr uint8_t MOTOR_PWM_PIN    = 27; // G27 -> STEP / PULS (Ausgang), weisse LED
 constexpr uint8_t MOTOR_DIR_PIN    = 26; // G26 -> DIR (Ausgang)
-constexpr uint8_t MOTOR_ENABLE_PIN = 27; // G27 -> !ENABLE (LOW = Freigabe)
+constexpr uint8_t MOTOR_ENABLE_PIN = 25; // G25 -> !ENABLE (LOW = Freigabe), blaue LED
 
 // Mikroschritte: M0/M1/M2 entsprechen beim A4988 MS1/MS2/MS3.
 // HIGH/HIGH/HIGH = 1/16; Bench-Aufloesung siehe Motor-Modul.
@@ -24,12 +25,14 @@ constexpr uint8_t MOTOR_MS0_PIN = 13; // G13 -> MS1 (Ausgang)
 constexpr uint8_t MOTOR_MS1_PIN = 14; // G14 -> MS2 (Ausgang)
 constexpr uint8_t MOTOR_MS2_PIN =  4; // G4  -> MS3 (Ausgang)
 
-// Neu reserviert: die SLEEP-Ansteuerung ist noch NICHT implementiert.
-// Hardware-Pulldown -> LOW; nach Aufwecken mindestens 1 ms vor erstem STEP.
+// HW3-SLEEP: G32 startet LOW, wird erst bei freigegebenem GO HIGH.
+// Nach Aufwecken mindestens 1 ms vor erstem STEP warten.
 // HW3: !RESET und !SLEEP verbunden an G32, gemeinsamer 10-kOhm-Pulldown.
-// !ENABLE 10-kOhm-Pullup; STEP/DIR in HW3-Testbestueckung ohne Pulls.
-// Diagnose-LEDs: rot SLEEP/RESET G32, blau !ENABLE G27 (LOW=an),
-// gelb DIR G26, weiss STEP G25 (schnelle Pulse ggf. nicht sichtbar).
+// HW3: G25 (!ENABLE), G26 (DIR), G27 (STEP) ohne Zusatz-Pulls.
+// HW3-LEDs haben gemeinsames PLUS, sind bei GPIO LOW AN:
+// rot !SLEEP/!RESET G32, blau !ENABLE G25, gelb DIR G26, weiss STEP G27.
+// ACHTUNG: Rote LED von +3,3 V nach G32 kann den 10-kOhm-Pulldown
+// bei hochohmigem GPIO uebersteuern. LOW-Pegel vor VMOT pruefen (#153).
 // Pulls ersetzen keinen geprueften Boot-/Flash-/OTA-Interlock.
 constexpr uint8_t MOTOR_SLEEP_PIN = 32; // G32 -> !SLEEP (HIGH = wach)
 
