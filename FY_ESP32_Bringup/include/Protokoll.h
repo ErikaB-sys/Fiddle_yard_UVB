@@ -110,6 +110,11 @@ constexpr uint8_t STATUS_Keyboard               = 0x51;
 constexpr uint8_t STATUS_Firmware               = 0x28;
 constexpr uint8_t STATUS_SELECTOR_SYSTEM        = 0x10;
 constexpr uint8_t STATUS_SELECTOR_MOTOR         = 0x20;
+// ESP32 extension: STATUS 30 queries reference truth (not a command).
+constexpr uint8_t STATUS_SELECTOR_REFERENCE     = 0x30;
+constexpr uint8_t REFERENCE_UNKNOWN             = 0x00;
+constexpr uint8_t REFERENCE_REAL                = 0x01;
+constexpr uint8_t REFERENCE_BENCH_FAKE          = 0x02;
 constexpr uint8_t STATUS_SELECTOR_SWITCHES      = 0x40;
 constexpr uint8_t STATUS_SELECTOR_KEYBOARD      = 0x50;
 /**
@@ -221,7 +226,7 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_System,    2, ResponseContainer::Data }, // Issue: #136 | Status: Code working
 { STATUS_CMD,       1, ResponseContainer::Data }, // Issue: #137 | Status: Code working
 { STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Code constructed (snapshot wired; runtime refresh depends on motor loop)
-{ STATUS_Reference, 1, ResponseContainer::Data }, // Issue: #139 | Status: Defined
+{ STATUS_Reference, 1, ResponseContainer::Data }, // STATUS 30: 0 none, 1 physically referenced, 2 bench-only FAKE
 { STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Code constructed (track snapshot connection pending)
 { STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Code working
 { STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
