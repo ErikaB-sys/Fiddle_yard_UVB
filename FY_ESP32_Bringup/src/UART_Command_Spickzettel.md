@@ -23,7 +23,7 @@
 | SET_POSITION mit gültiger REF | Fahrt nur im kalibrierten Bewegungsraum. | 🟠 Reale REF/Grenzen fehlen. Vorhandener synthetischer Positionspfad funktioniert. |
 | Kurze REF | Erst mit gültigen Kalibrierdaten erfolgreich. | 🟠 Heute nur FAKE-REF 00, kein realer Ablauf. |
 | SET_TRACK | Gleis 1..5; kalibriert **und** aktuelle REF gültig. | 🟢 Track→Position/Fahrt geprüft; 🟠 reale Kalibrier-/Referenzanbindung offen. |
-| STOP / GO | STOP verwirft Job, Antrieb aus, REF ungültig. Entriegeln/GO aktiviert nur den Antrieb; danach für normale Fahrt neu mindestens kurz referenzieren. | Grundpfad vorhanden; konkrete STOP-/Antwortblockaden [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152) schließen. |
+| STOP / GO | STOP verwirft Job, Antrieb aus, REF ungültig. Entriegeln/GO aktiviert nur den Antrieb; danach für normale Fahrt neu mindestens kurz referenzieren. | Grundpfad vorhanden; gezielte Prüfung des STOP-/Antworttransports [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152) schließen. |
 
 Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Positionszähler sind davon getrennt. Ein gültiger neuer Fahrbefehl startet nach Prepare OK unmittelbar, kein GO je Fahrjob. Kein Pause/Resume.
 
@@ -33,7 +33,7 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 
 | Command | ID | Eingabe / DATA | Stand | Funktionsumfang / konkreter Rest |
 | --- | ---: | --- | --- | --- |
-| STOP / STOPP | 01 | `STOP 55 AA`; `STOP AA 55` entriegeln | 🟡 | Abschalten/Verriegeln/Verwerfen vorhanden und Grundweg geprüft. Volle gemeinsame Pending-Slots bzw. blockierende Event-Antwort können STOP verzögern/abweisen: [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152). |
+| STOP / STOPP | 01 | `STOP 55 AA`; `STOP AA 55` entriegeln | 🟡 | Abschalten/Verriegeln/Verwerfen vorhanden und Grundweg geprüft. Eigene Priority-Queue vorhanden. Frühere Pending-voll-Fehlerbehauptung präzisiert: im gültigen aktuellen UART-Pfad nicht erreichbar; Antworttransport bei Stau gezielt beurteilen: [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152). |
 | GO | 07 | `GO AA 55` EIN; `GO 55 AA` AUS | 🟢 | Treiberfreigabe ohne automatisches Losfahren geprüft. Kein Wiederaufnehmen eines alten Jobs. |
 | MOVE | 0F | `MOVE 21 32 00` = 50 Viertelschritte rechts | 🟢 | Einziger relativer Fahrbefehl, mit Richtung/Mikroschritt/Schritten. Profilfahrt geprüft; 1..10000 je aktuellem Testauftrag. |
 | SET_POSITION – vorhandener Positionspfad | 13 | nach FAKE-REF: `SET_POSITION 15 06` = 1557 | 🟢 | Prepare-/Profil-/STEP-Funktion geprüft, auch über SET_TRACK genutzt. Neue Koordinaten benötigen keinen zweiten identischen Funktionsabschluss. |
@@ -59,7 +59,7 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 
 - 🟢 ACK `60 <Command-ID> <CRC>` bestätigt Annahme; NACK `70 <Ort/Grund> <CRC>` ist unmittelbare Ablehnung. Ort im hohen, NackReason im niedrigen Nibble.
 - 🟢 Abschluss wird mit STATUS 20 bis IDLE abgefragt; keine spontane DONE-Sendung.
-- 🟡 Queue-/Pending-/Event-Robustheit: konkrete Lücken [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152). Das ist ein Funktionsrest, nicht lediglich ein fehlender großer Test.
+- 🟡 Queue-/Pending-/Event-Robustheit: gezielte Prüfung [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152). Kein nachgewiesener STOP-Ausfall im normalen UART-Ablauf; Pending wird bereits mit ACK/NACK frei. Stau-/Mehrquellenfälle gesondert beurteilen.
 - 🟣 Benannte STEP-/Rampen-/Lastmessungen [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153); reale Bühnenintegration [#159](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/159) getrennt von erledigter Logik.
 - Der aktuelle serielle **Eingang ist ASCII/BabelFish**; erzeugte/geprüfte CRC innerhalb dieser Kette belegt keinen vollständigen binären RX-/Leitungsfehler-Test. Empfangsumfang [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) klären.
 

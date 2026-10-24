@@ -13,7 +13,7 @@
 | I²C-Keyboard im Code | Vorhandene REF-/STOP-/Richtungsbedienung, Entprellung, Startverriegelung, LEDs/OLED und gemeinsamer Befehls-/Statusweg implementiert; fehlendes Gerät blockiert die Motorsteuerung nicht. Physisch angeschlossen/geprüft nur nach tatsächlicher Beobachtung angeben. |
 | Bewegung mit HW3 | Bestehenden Profil-/STEP-Pfad weiterverwenden; reale Sensor-/REF-/Kalibrieranbindung ergänzen. FAKE-REF belegt weiterhin die benannte Softwarefunktion, ersetzt jedoch nicht die echte Referenzfunktion. |
 
-**Reihenfolge in kleinen Schritten:** (1) ersten Parameterumfang/IDs und Restentscheidungen unten klären → (2) STOP-/Antwortblockaden #152 schließen → (3) Parameter/SAVE/Laden #158 → (4) reale Sensorik/Referenz und Fahrbedingungen #155/#154 → (5) UART-Reste und vereinbarte Stillstandsumschaltung #156/#157 → (6) Keyboard #157 integrieren. Nach jedem Schritt kurz bauen/praktisch prüfen und den Spickzettel nachführen. Bestehendes HW_TEST-Verhalten übernehmen; keine neue Framework- oder Nano-Paritätsrunde.
+**Reihenfolge in kleinen Schritten:** (1) ersten Parameterumfang/IDs und Restentscheidungen unten klären → (2) STOP-/Antwortpfad #152 gezielt beurteilen; nur belegte Funktionsfehler korrigieren → (3) Parameter/SAVE/Laden #158 → (4) reale Sensorik/Referenz und Fahrbedingungen #155/#154 → (5) UART-Reste und vereinbarte Stillstandsumschaltung #156/#157 → (6) Keyboard #157 integrieren. Nach jedem Schritt kurz bauen/praktisch prüfen und den Spickzettel nachführen. Bestehendes HW_TEST-Verhalten übernehmen; keine neue Framework- oder Nano-Paritätsrunde.
 
 **Größter Terminrest:** Echte Referenz/Sensorik und Parameter/SAVE sind noch keine ausführbaren ESP32-Funktionen; auch Keyboard-Code fehlt. Bei Resten am Abend exakt Funktion/Blocker nennen, keine Platzhalter als fertig markieren. Die Verdrahtung kann parallel erfolgen.
 
@@ -64,7 +64,7 @@ Der heutige Positions-Testpfad verwendet explizite FAKE-REF mit Start 1000. Die 
 | Auftrag | Konkreter Rest |
 | --- | --- |
 | [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) Fahrt | Beschlossene Trennung MOVE relativ / SET_POSITION und SET_TRACK nur mit gültiger REF in die produktiven Bedingungen übernehmen. |
-| [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152) STOP / Antworten | STOP darf nicht an vollen gemeinsamen Pending-Slots scheitern; `emit(...portMAX_DELAY)` darf Muninn nicht unbefristet blockieren. |
+| [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152) STOP / Antworten | Eigene STOP-Queue vorhanden; Pending-voll ist im heutigen gültigen UART-Pfad kein belegter Fehler. Stockenden Antworttransport und spätere zusätzliche Quellen gezielt beurteilen; keine neue Architektur allein aus hypothetischer Sättigung. |
 | [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) UART | GET_TRACK-Vertrag, echte System-/Sensor-/Keyboardwerte statt Platzhalter; HELP-Link korrigieren. |
 | [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158) Parameter / Diagnose | SET_PARAM tatsächlich übernehmen, SAVE/Laden, Git-Identität und zentrale Fehlerweitergabe. |
 | [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155) REF / Sensorik | HW_TEST-Referenzablauf, Kalibrierraum und direkte Endlagenreaktion in Muninn übernehmen. |
