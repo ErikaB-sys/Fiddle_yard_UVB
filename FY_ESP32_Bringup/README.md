@@ -21,6 +21,6 @@ Dort gehen wir von den Bedienfällen über das System zum Motorverhalten und ers
 
 UART/BabelFish, Queues, STEP-Profile und Positions-/Gleisfahrten sind im benannten Tisch-Funktionsumfang geprüft. Der Spickzettel unterscheidet fertige Funktionen, offene Fälle und spätere Bühnenintegration.
 
-Relative Fahrt erfolgt über **MOVE mit Richtungsangabe**. LEFT/RIGHT entfallen. Ob SET_POSITION ohne gültige Referenz zusätzlich gebraucht wird, ist [zur Konzeptprüfung offen](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154); es ist kein bereits verpflichtender Zusatzumfang.
+Relative Fahrt erfolgt über **MOVE mit Richtungsangabe**. LEFT/RIGHT entfallen. SET_POSITION und SET_TRACK sind nur kalibriert und mit gültiger REF zulässig. SET_POSITION ohne REF und ein zusätzlicher POR-Mittenanker entfallen; [Befehlsvertrag #154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154).
 
 Historische HW2-Build- und Testabläufe stehen in den [Berichten](docs/reports/) und im [Testprotokoll](docs/MOTOR_TIMER_BENCH.md). Die frühere lange Projekt-README bleibt über die Git-Historie zugänglich; ihre Startwerte und damaligen nächsten Schritte sind kein aktueller Arbeitsplan.

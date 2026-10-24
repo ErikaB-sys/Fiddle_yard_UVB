@@ -4,13 +4,13 @@
 
 ## Fahrvertrag
 
-**Aktueller Reviewpunkt:** SET_POSITION ohne REF/POR-Mitte ist erneut in Konzeptprüfung und kein zusätzlicher Pflichtumfang. Empfehlung zur Abstimmung: begrenzte relative Inbetriebnahmefahrt über MOVE; SET_POSITION nur mit gültigem Lagebezug. [Hier beginnen](../README.md), Detailentscheidung #154. MOVE mit Richtung ersetzt LEFT/RIGHT verbindlich.
+**Verbindlicher Beschluss:** MOVE fährt relativ begrenzt auch ohne REF. SET_POSITION fährt absolut nur im kalibrierten Bewegungsraum mit gültiger REF; SET_TRACK benötigt ebenfalls beides. SET_POSITION ohne REF/POR-Mitte entfällt. [Hier beginnen](../README.md), Detailvertrag #154. MOVE mit Richtung ersetzt LEFT/RIGHT.
 
 Muninn besitzt Motorzustand und Peripherie. Ein Fahrbefehl wird nach erfolgreicher Prepare-Prüfung ausgeführt. GO ist die Antriebsfreigabe, kein zusätzlicher Startbefehl je Job.
 
 | Voraussetzung | SET_POSITION | SET_TRACK |
 | --- | --- | --- |
-| Keine gültige REF | Zusätzlicher absoluter Sonderfall in Prüfung; bisherige POR-Mittenvariante vorerst kein Pflichtauftrag. Empfehlung: relative Fahrt über MOVE. | Nicht zulässig. |
+| Keine gültige REF | Nicht zulässig; begrenzte relative Inbetriebnahmefahrt erfolgt über MOVE. | Nicht zulässig. |
 | Kalibriert und mindestens kurz gültig referenziert | Ziel innerhalb des kalibrierten Bewegungsraums. | Gleisnummer 1..5 → gespeicherte Position → gleicher Prepare-/Profilpfad. |
 
 Kurze REF kann erst mit gültiger Kalibrierung erfolgreich sein. **Kalibrierdaten, aktuelle Referenzgültigkeit und Positionszähler sind getrennte Informationen.** Ein virtueller Zählerstart ist keine Referenz.
@@ -20,7 +20,7 @@ Kurze REF kann erst mit gültiger Kalibrierung erfolgreich sein. **Kalibrierdate
 - STOP stoppt die Ausführung, verwirft den Auftrag samt vorgemerkter Fahrjobs und deaktiviert den Antrieb.
 - Weil reale Bühne und Positionszähler danach voneinander abweichen können, wird die aktuelle REF ungültig. Kalibrierdaten bleiben erhalten.
 - `STOP AA 55` entriegelt nur; `GO AA 55` aktiviert nur den Antrieb. Kein alter Auftrag, keine automatische Referenz und kein Wiederaufnehmen.
-- Vor normaler kalibrierter Positions-/Gleisfahrt danach neu referenzieren, mindestens kurz. Für Inbetriebnahme ohne REF ist MOVE vorgesehen; ob zusätzlich ein unreferenzierter SET_POSITION-Fall gebraucht wird, ist offen.
+- Vor normaler kalibrierter Positions-/Gleisfahrt danach neu referenzieren, mindestens kurz. Für Inbetriebnahme ohne REF ist ausschließlich die begrenzte relative MOVE-Fahrt unter ihren Betriebsbedingungen vorgesehen.
 
 ## Zustandsübersicht – vereinbartes Verhalten
 
@@ -52,7 +52,7 @@ Dies ist das **Soll**, keine Behauptung, dass CONF/REFRUN/alle Fehlerpfade berei
 
 - **Vorhanden:** [Motor.h/.cpp](../../lib/Motor/Motor.h), [STEP-Timer](../../lib/Motor/StepTimer.h), sechsphasige Profilberechnung/-ausführung, MOVE, SET_POSITION und SET_TRACK im gekennzeichneten Tischpfad; atomare Status-/Positionsabfragen.
 - **Geprüft:** SET_POSITION-Fahrten/Positionsantworten 20.10.; HW3-MOVE, FAKE-REF und SET_TRACK/GET_TRACK 23.10. Diese Softwarefunktion bleibt im genannten Umfang fertig.
-- **Konzeptvariante noch in Prüfung:** der heutige Positionspfad verwendet explizite FAKE-`REFERENCE 00` mit Start 1000. SET_POSITION ohne diesen Anker wird abgewiesen. Ob POR-Mitte/unreferenzierte absolute Einzelfahrt zusätzlich benötigt werden, entscheiden wir erst anhand des Bedienfalls; MOVE existiert bereits.
+- **Aktuelle Testanbindung:** der Positionspfad verwendet explizite FAKE-`REFERENCE 00` mit Start 1000. SET_POSITION ohne diesen Anker wird abgewiesen. Der beschlossene Produktvertrag benötigt reale Kalibrierung und gültige REF; kein zusätzlicher unreferenzierter Absolutpfad wird ergänzt.
 - **Offen:** echter Kalibriert-/Kurz-REF-Vertrag, reale Referenz-/Endlageneingänge und Bewegungsraum, SET_PARAM/CONF; STOP-Robustheit bei voller Pending-/Event-Verwaltung. Kein namensgleicher Nachbau von Nano-setJob/Update nötig.
 
 Pinwerte ausschließlich im [zentralen Pinout](../pinouts/README.md). [Spickzettel](../../src/UART_Command_Spickzettel.md) nennt aktuelle Telegramme und Ampeln; [Testprotokoll](../MOTOR_TIMER_BENCH.md) die Beobachtungen. Alte Nano-Diagramme unter [archive/](archive/) sind Historie und keine zweite aktive Spezifikation.

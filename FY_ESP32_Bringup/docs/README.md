@@ -16,23 +16,21 @@ Die Bühne soll auf Anforderung ein Gleis oder eine Position anfahren, sich loka
 
 Kalibrierdaten bleiben nach STOP erhalten. Vor normaler Positions-/Gleisfahrt wird neu mindestens kurz referenziert. Kalibrierung und aktuelle Referenzgültigkeit sind verschiedene Informationen.
 
-## 2. Erste Konzeptfrage: relativ oder absolut?
+## 2. Verbindliche Befehlsaufteilung
 
-**Fest entschieden:** `MOVE` enthält Richtung und Schrittzahl. Separate `LEFT`-/`RIGHT`-Kommandos entfallen; lokale Richtungstasten liefern entsprechende MOVE-Aufträge.
+**Beschlossen am 24.10.2026:**
 
-**Empfehlung zur gemeinsamen Entscheidung, noch kein neuer Implementierungsbeschluss:**
-
-| Befehl | Empfohlener Zweck |
+| Befehl | Zweck und Voraussetzungen |
 | --- | --- |
-| MOVE | Relative, begrenzte Fahrt; damit auch Inbetriebnahme ohne gültige REF. Jeweils nötige Betriebs- und Grenzbedingungen prüfen. |
-| SET_POSITION | Absolute Koordinate im kalibrierten Bewegungsraum; nur mit gültiger REF. |
-| SET_TRACK | Gleis 1..5 auf die hinterlegte Position abbilden; kalibriert und aktuell referenziert. |
+| MOVE | Relativ eine begrenzte Schrittzahl in eine Richtung fahren; auch für Inbetriebnahme ohne gültige REF. Prepare prüft die jeweils geltenden Betriebs- und Grenzbedingungen. |
+| SET_POSITION | Absolute Position im kalibrierten Bewegungsraum anfahren; nur mit gültiger REF. |
+| SET_TRACK | Gespeicherte Gleisposition 1..5 anfahren; nur kalibriert und aktuell referenziert. |
 
-Ohne Referenz ist eine absolute Zahl kein bekannter Ort auf der Bühne. Eine virtuelle POR-Mitte wäre rechnerisch möglich, liefert für die relative Inbetriebnahme aber keinen zusätzlichen Bediennutzen gegenüber MOVE.
+Separate LEFT-/RIGHT-Kommandos entfallen; lokale Richtungstasten liefern entsprechende MOVE-Aufträge.
 
-**Deshalb zunächst prüfen, ob SET_POSITION ohne REF überhaupt gebraucht wird.** Die bisher beschriebene POR-Mitten-/Einzelfahrtvariante ist vorerst **kein zusätzlicher Pflichtauftrag**. Falls sie gebraucht wird, ist sie eine Adaption des vorhandenen MOVE-/Prepare-/Positionspfads und kein neuer Bewegungskern. Details und Entscheidung stehen in [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154).
+**SET_POSITION ohne REF und ein dafür benötigter virtueller POR-Mittenanker entfallen.** Die begrenzte relative Inbetriebnahmefahrt ist durch MOVE abgedeckt. Der vorhandene geprüfte Positions-/Profilpfad bleibt für referenzierte Positions- und Gleisfahrten erhalten.
 
-Der vorhandene geprüfte SET_POSITION-/SET_TRACK-Fahrtpfad bleibt bestehen. Diese Konzeptfrage setzt keine abgeschlossene Rechen- oder Fahrfunktion zurück.
+Verbindlicher Detailvertrag: [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154). Die heutige FAKE-Referenz ist ein gekennzeichneter Testpfad; die reale Referenz-/Kalibrieranbindung bleibt eine konkrete Restarbeit.
 
 ## 3. Unser Lesepfad – nur den nächsten Schritt öffnen
 

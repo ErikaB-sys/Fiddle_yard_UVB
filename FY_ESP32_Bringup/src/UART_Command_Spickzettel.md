@@ -14,11 +14,12 @@
 - 🟣 benannter Prüf-/Messnachweis fehlt; kein pauschales Zurückstufen fertiger Funktionen.
 - ⚪ Legacy-/Option: derzeit nicht aktiv; kein zusätzlicher Pflichtumfang ohne Entscheidung.
 
-## Fahrregeln und offene Konzeptvariante
+## Verbindliche Fahrregeln
 
 | Fall | Vereinbartes Verhalten | Heute |
 | --- | --- | --- |
-| SET_POSITION ohne REF | **In Konzeptprüfung:** ist ein absoluter Sonderfall neben begrenztem MOVE überhaupt nötig? POR-Mitte vorerst kein zusätzlicher Pflichtauftrag. | Heute abgewiesen bis FAKE-REF; noch keine Entscheidung für zusätzliche Implementierung. |
+| MOVE ohne REF | Relativ eine begrenzte Schrittzahl in eine Richtung; für Inbetriebnahme zulässig. | 🟢 Vorhandener begrenzter MOVE-Pfad. |
+| SET_POSITION ohne REF | Nicht zulässig; POR-Mitten-/Einzelfahrtvariante entfällt. | Kein zusätzlicher Implementierungsauftrag. |
 | SET_POSITION mit gültiger REF | Fahrt nur im kalibrierten Bewegungsraum. | 🟠 Reale REF/Grenzen fehlen. Vorhandener synthetischer Positionspfad funktioniert. |
 | Kurze REF | Erst mit gültigen Kalibrierdaten erfolgreich. | 🟠 Heute nur FAKE-REF 00, kein realer Ablauf. |
 | SET_TRACK | Gleis 1..5; kalibriert **und** aktuelle REF gültig. | 🟢 Track→Position/Fahrt geprüft; 🟠 reale Kalibrier-/Referenzanbindung offen. |
@@ -143,7 +144,7 @@ Huginn validiert → typisierte Queue → Muninn prüft Betriebsbedingungen/Prep
 | Funktion | Stand | Rest |
 | --- | --- | --- |
 | calcProfile / prepareMove | 🟢 geprüfter Funktionsumfang | Konkrete Timer-/Lastnachweise [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153). |
-| prepareSetPosition | 🟢 vorhandener synthetischer Pfad | POR-Mitte/Einzelfahrt ohne REF in Konzeptprüfung; 🟠 reale Raumgrenzen [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154)/[#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
+| prepareSetPosition | 🟢 vorhandener synthetischer Pfad | 🟠 Reale Kalibrier-/REF-Anbindung und Raumgrenzen; kein unreferenzierter Absolutpfad [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154)/[#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
 | prepareSetTrack | 🟢 Track→Position/Fahrt | 🟠 Kalibriert-/REF-Gate anschließen [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154)/[#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
 | prepareReference | 🟢 Testanker / 🟠 real | Kalibrierfahrt und kurze REF aus HW_TEST [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
 | Parameter / SAVE | 🟠 | Übernahme und Persistenz [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158). |
