@@ -1,27 +1,22 @@
 # Modulzustände – ESP32-Systemüberblick
 
-**Ziel:** [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154), [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155), [#162](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/162). **Kein vollständiger technischer State-Machine-Vertrag.** Historischer Nano-Ursprung: [archive/ModuleStates_Nano.md](archive/ModuleStates_Nano.md).
+**Stand: 24.10.2026.** Fachliche Quellen: [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154)/[#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155); Dokumentationspflege [#12](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/12).
 
-## Motor – fachliche Oberstufe
+## Motor
 
-```mermaid
-stateDiagram-v2
-    [*] --> IDLE
-    IDLE --> CONF : CMD
-    CONF --> IDLE : DONE
-    IDLE --> MOVING : CMD
-    IDLE --> REFRUN : CMD
-    MOVING --> IDLE : DONE
-    MOVING --> IDLE : STOP (CMD / Button)
-    MOVING --> ERROR : Problem
-    REFRUN --> IDLE : DONE
-    REFRUN --> IDLE : STOP (CMD / Button)
-    REFRUN --> ERROR : Problem
-    ERROR --> IDLE : Quittierung / Reset
-```
+Die verbindliche [Motor-Zustandsübersicht](../Motor/README.md#zustandsübersicht--vereinbartes-verhalten) steht beim Motor-Modul. Sie wird hier nicht ein zweites Mal gezeichnet.
 
-Das Diagramm zeigt **Zusammenhänge**, keine vollständigen Guard-Bedingungen. `DONE` und `STOP` sind Ereignisse, keine Zustände. Der reale C++-`MotorState_t` in [Motor.h](../../lib/Motor/Motor.h) enthält zusätzlich `STOPPED` (verriegelter POR-/STOP-Zustand) und beginnt dort; Freigabe/GO sind nicht als eigene Übersichtspfeile gezeigt. Ebenfalls ausgelassen: gültige Referenz, Stillstand bei Parametrierung, automatische Treiberabschaltung/Referenzverlust, Fehler-/Sicherheitsdetails. **Die tatsächliche Zustandstabelle ist im Motor-Issue bzw. Modul zu prüfen.**
+| Übergang | Bedeutung |
+| --- | --- |
+| POR → STOPPED | Antrieb aus, STOP verriegelt, Referenz ungültig. Gewünschter virtueller POR-Zähler 32767 ist noch umzusetzen. |
+| STOP entriegeln | Bleibt STOPPED; Antrieb bleibt aus. |
+| GO EIN bei entriegeltem Stop → IDLE | Antrieb frei; kein alter Auftrag und keine Referenz entstehen. |
+| IDLE → MOVING nach Prepare OK | Neuer gültiger Auftrag wird ausgeführt. |
+| MOVING → IDLE am Ziel | Job fertig, Abschluss auf Anfrage. |
+| STOP → STOPPED | Job verwerfen, Antrieb aus, REF ungültig; vor normaler Fahrt erneut mindestens kurz referenzieren. |
+
+STOP-Verriegelung, Kalibrierzustand und Referenzgültigkeit sind zusätzlich zum Motor-State zu führen. Das Moduldiagramm beschreibt den vereinbarten Sollumfang; die dortige Ist-Liste nennt noch nicht implementierte REF-/CONF-/Fehlerpfade.
 
 ## Andere Maschinen
 
-UART-Parser- und Nano-`FY_SystemState_t`-Diagramme aus dem alten Mini-Scheduler sind **nicht** automatisch aktive ESP32-Systemautomaten. Aktiver Datenfluss: [UART](../UART/README.md) und [SYSTEM_ARCHITECTURE](../SYSTEM_ARCHITECTURE.md). Referenzlauf / Sensorik erst nach #155 wirklich implementieren. Offene Abgleiche: [D07](../VERIFICATION_GAPS.md).
+Nano-Parser-/Mini-Scheduler-Diagramme sind kein automatischer ESP32-Vertrag. Aktueller Datenfluss: [UART](../UART/README.md), [Systemarchitektur](../SYSTEM_ARCHITECTURE.md). Historische Nano-Diagramme bleiben im [Archiv](archive/ModuleStates_Nano.md).
