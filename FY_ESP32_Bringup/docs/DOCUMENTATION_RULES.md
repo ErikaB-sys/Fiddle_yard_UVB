@@ -57,7 +57,7 @@ Jedes Modul nennt: (1) Issue-Quellen und Ziel/Abgrenzung, (2) Funktion und Diagr
 
 ## 5. MISRA-/Cppcheck-Check (#163)
 
-Portierung des Nano-Ansatzes, für ESP32-eigene `src/`, `lib/`, `include/`, ohne ESP-IDF/Arduino/FreeRTOS-Fremdcode als FY-Befund zu behandeln. Tool per `pio run -t misra` oder `python scripts/misra_check.py` aus `FY_ESP32_Bringup/` starten; lokal installiertes `cppcheck` erforderlich. Berichte unter `reports/`; zunächst **separater Prüfaufruf**, kein automatisches Gate bei jedem Build, bis Baseline und Ausnahmen bewertet sind. Ein MISRA-C:2012-Addon auf C++ ersetzt **keine** vollständige MISRA-C++-Konformitätsprüfung. **Erster ESP32-Prüflauf noch nicht nachgewiesen**; Status in [#163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163) verifizieren.
+Portierung des Nano-Ansatzes, für ESP32-eigene `src/`, `lib/`, `include/`, ohne ESP-IDF/Arduino/FreeRTOS-Fremdcode als FY-Befund zu behandeln. Tool per `pio run -t misra` oder `python scripts/misra_check.py` aus `FY_ESP32_Bringup/` starten; lokal installiertes `cppcheck` erforderlich. Berichte unter `reports/`; zunächst **separater Prüfaufruf**, kein automatisches Gate bei jedem Build, bis Baseline und Ausnahmen bewertet sind. Ein MISRA-C:2012-Addon auf C++ ersetzt **keine** vollständige MISRA-C++-Konformitätsprüfung. **Nachweisstand aktualisiert 24.10.2026:** lokale ESP32-Läufe und Reports vom 21.10. liegen vor (0 Codebefunde, 45 Konfigurationshinweise, 55 Meldungen insgesamt). Analysekonfiguration und separater PlatformIO-Aufruf bleiben offen; aktueller Reststand in [#163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163).
 
 ## 6. Diagramme, Doxygen und Round-up
 
