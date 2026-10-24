@@ -8,7 +8,7 @@ Die verbindliche [Motor-Zustandsübersicht](../Motor/README.md#zustandsübersich
 
 | Übergang | Bedeutung |
 | --- | --- |
-| POR → STOPPED | Antrieb aus, STOP verriegelt, Referenz ungültig. Gewünschter virtueller POR-Zähler 32767 ist noch umzusetzen. |
+| POR → STOPPED | Antrieb aus, STOP verriegelt, Referenz ungültig. Virtueller POR-Mittenanker für SET_POSITION ist in Konzeptprüfung und kein zusätzlicher Pflichtauftrag. |
 | STOP entriegeln | Bleibt STOPPED; Antrieb bleibt aus. |
 | GO EIN bei entriegeltem Stop → IDLE | Antrieb frei; kein alter Auftrag und keine Referenz entstehen. |
 | IDLE → MOVING nach Prepare OK | Neuer gültiger Auftrag wird ausgeführt. |

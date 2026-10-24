@@ -14,11 +14,11 @@
 - 🟣 benannter Prüf-/Messnachweis fehlt; kein pauschales Zurückstufen fertiger Funktionen.
 - ⚪ Legacy-/Option: derzeit nicht aktiv; kein zusätzlicher Pflichtumfang ohne Entscheidung.
 
-## Festgelegt, aber noch umzusetzen
+## Fahrregeln und offene Konzeptvariante
 
 | Fall | Vereinbartes Verhalten | Heute |
 | --- | --- | --- |
-| SET_POSITION ohne REF | POR-Zähler `UINT16_MAX/2 = 32767`; begrenzte **Einzelfahrt** zur Inbetriebnahme. Vorschlag maximal ein Gleisabstand, 1600 Viertelschritte noch bestätigen. | 🟠 Dieser Fall wird aktuell bis zur ausdrücklichen FAKE-REF abgewiesen. |
+| SET_POSITION ohne REF | **In Konzeptprüfung:** ist ein absoluter Sonderfall neben begrenztem MOVE überhaupt nötig? POR-Mitte vorerst kein zusätzlicher Pflichtauftrag. | Heute abgewiesen bis FAKE-REF; noch keine Entscheidung für zusätzliche Implementierung. |
 | SET_POSITION mit gültiger REF | Fahrt nur im kalibrierten Bewegungsraum. | 🟠 Reale REF/Grenzen fehlen. Vorhandener synthetischer Positionspfad funktioniert. |
 | Kurze REF | Erst mit gültigen Kalibrierdaten erfolgreich. | 🟠 Heute nur FAKE-REF 00, kein realer Ablauf. |
 | SET_TRACK | Gleis 1..5; kalibriert **und** aktuelle REF gültig. | 🟢 Track→Position/Fahrt geprüft; 🟠 reale Kalibrier-/Referenzanbindung offen. |
@@ -34,9 +34,8 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 | --- | ---: | --- | --- | --- |
 | STOP / STOPP | 01 | `STOP 55 AA`; `STOP AA 55` entriegeln | 🟡 | Abschalten/Verriegeln/Verwerfen vorhanden und Grundweg geprüft. Volle gemeinsame Pending-Slots bzw. blockierende Event-Antwort können STOP verzögern/abweisen: [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152). |
 | GO | 07 | `GO AA 55` EIN; `GO 55 AA` AUS | 🟢 | Treiberfreigabe ohne automatisches Losfahren geprüft. Kein Wiederaufnehmen eines alten Jobs. |
-| MOVE | 0F | `MOVE 21 32 00` = 50 Viertelschritte rechts | 🟢 | Richtung/Mikroschritt/Schritte und Profilfahrt geprüft; 1..10000 je aktuellem Testauftrag. Endgültiger Umfang gegenüber LEFT/RIGHT noch entscheiden. |
+| MOVE | 0F | `MOVE 21 32 00` = 50 Viertelschritte rechts | 🟢 | Einziger relativer Fahrbefehl, mit Richtung/Mikroschritt/Schritten. Profilfahrt geprüft; 1..10000 je aktuellem Testauftrag. |
 | SET_POSITION – vorhandener Positionspfad | 13 | nach FAKE-REF: `SET_POSITION 15 06` = 1557 | 🟢 | Prepare-/Profil-/STEP-Funktion geprüft, auch über SET_TRACK genutzt. Neue Koordinaten benötigen keinen zweiten identischen Funktionsabschluss. |
-| SET_POSITION – POR-Mitte ohne REF | 13 | gleiches 2-Byte-LE-Format | 🟠 | Neu festgelegter Fall oben: Start 32767 und begrenzte Einzelfahrt fehlen im aktuellen Code. |
 | GET_POSITION / POSITION | 15 | `POSITION` | 🟢 | Antwort 20 + 4 LE-Bytes + CRC; laufender Muninn-Snapshot. Bit16 kennzeichnet synthetische Position. |
 | GET_STATUS Motor | 19 | `STATUS 20` | 🟢 | Antwort 50, ENABLE/MOVING plus MotorState; IDLE nach Fahrt dokumentiert. |
 | GET_STATUS Referenz | 19 | `STATUS 30` | 🟢 | Antwort 30: 00 ungültig, 01 echt, 02 FAKE. FAKE-Wert dokumentiert. |
@@ -50,9 +49,10 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 | REFERENCE – real kurz/lang | 16 | `REFERENCE 00` / `REFERENCE 01` | 🟠 | Echter Ablauf/Sensorik und Kalibriervoraussetzung fehlen. |
 | SET_PARAM | 2B | 4 DATA-Bytes: ID + 24-Bit-LE-Wert | 🟠 | Telegramm vorhanden, keine Parameterübernahme/SAVE; IDs und erster Umfang festlegen. |
 | SET_MODE | 26 | `SET_MODE 55 AA` / `SET_MODE AA 55` | 🟠 | Muster geprüft, derzeit NOT_READY. Bedienhoheit/Stillstandsumschaltung noch umsetzen. |
-| LEFT / RIGHT (Legacy) | 0B / 0D | `LEFT` / `RIGHT` | ⚪ | Absichtlich INVALID_COMMAND. Ob zusätzlich zu MOVE benötigt, ist offen. |
 | HELP | 25 | `HELP` | 🟡 | Stringantwort 18 vorhanden; Link zeigt noch auf Nano-Spickzettel. |
 | GET_FIRMWARE / FIRMWARE | 27 | `FIRMWARE` | 🟡 | Stringantwort 28 vorhanden; Git-Hash fällt noch auf unknown zurück. |
+
+**Entfallen:** separate LEFT-/RIGHT-Kommandos. MOVE mit Richtungsangabe übernimmt die relative Fahrt; die historischen IDs 0B/0D werden im heutigen Code abgewiesen. [Konzept-Einstieg](../docs/README.md).
 
 ### Antworten und offene Nachweise
 
@@ -143,7 +143,7 @@ Huginn validiert → typisierte Queue → Muninn prüft Betriebsbedingungen/Prep
 | Funktion | Stand | Rest |
 | --- | --- | --- |
 | calcProfile / prepareMove | 🟢 geprüfter Funktionsumfang | Konkrete Timer-/Lastnachweise [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153). |
-| prepareSetPosition | 🟢 vorhandener synthetischer Pfad | 🟠 POR-Mitte/Einzelfahrt ohne REF, reale Raumgrenzen [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154)/[#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
+| prepareSetPosition | 🟢 vorhandener synthetischer Pfad | POR-Mitte/Einzelfahrt ohne REF in Konzeptprüfung; 🟠 reale Raumgrenzen [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154)/[#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
 | prepareSetTrack | 🟢 Track→Position/Fahrt | 🟠 Kalibriert-/REF-Gate anschließen [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154)/[#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
 | prepareReference | 🟢 Testanker / 🟠 real | Kalibrierfahrt und kurze REF aus HW_TEST [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
 | Parameter / SAVE | 🟠 | Übernahme und Persistenz [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158). |

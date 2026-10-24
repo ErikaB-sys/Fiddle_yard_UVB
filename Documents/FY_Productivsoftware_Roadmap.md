@@ -4,6 +4,8 @@
 
 ## Ziel für die nächste Arbeitsrunde am 25.10.
 
+**Zuerst Konzepte top-down prüfen:** [Hier beginnen](../FY_ESP32_Bringup/docs/README.md). Danach den kleinsten sinnvollen Befehlsumfang ableiten. MOVE mit Richtungsangabe ist entschieden; LEFT/RIGHT entfallen. SET_POSITION ohne REF ist erneut in Prüfung, kein zusätzlicher Pflichtumfang.
+
 Den vereinbarten ESP32-Befehlsumfang über die serielle Schnittstelle benutzbar machen: offene Entscheidungen nacheinander klären, einen kleinen Funktionsschritt umsetzen, kurz prüfen und dokumentieren. Heute erfolgen ausschließlich Issue-/Dokumentationsänderungen.
 
 **Grün = Softwarefunktion im benannten Umfang geprüft und dokumentiert.** Die spätere Kalibrierung und Prüfung auf der Bühne bleibt ein eigener Auftrag. Kein Nachbau alter Nano-Funktionsnamen und keine pauschale vollständige Testsuite als Voraussetzung.
@@ -12,7 +14,7 @@ Den vereinbarten ESP32-Befehlsumfang über die serielle Schnittstelle benutzbar 
 
 | Fall | Verbindliches Verhalten |
 | --- | --- |
-| SET_POSITION ohne gültige REF | POR-Zählerstart `UINT16_MAX/2 = 32767`; begrenzte Einzelfahrt für die Inbetriebnahme. Konkreter maximaler Weg noch bestätigen. |
+| SET_POSITION ohne gültige REF | Variante zur erneuten Prüfung: Braucht es diesen absoluten Sonderfall neben dem vorhandenen relativen MOVE? POR-Mitte vorerst kein Pflichtauftrag. |
 | SET_POSITION mit gültiger REF | Ziel innerhalb des durch Kalibrierung erfassten Bewegungsraums. |
 | Kurze REF | Kann nur mit gültigen Kalibrierdaten erfolgreich sein; stellt den aktuellen Lagebezug wieder her. |
 | SET_TRACK | Gleisnummer 1..5; nur kalibriert UND aktuell referenziert. Derselbe Positionierungs-/Profilpfad. |
@@ -20,7 +22,7 @@ Den vereinbarten ESP32-Befehlsumfang über die serielle Schnittstelle benutzbar 
 | STOP | Auftrag und vorgemerkte Fahrjobs verwerfen, Antrieb deaktivieren, aktuelle REF ungültig. Kein Pause/Resume. |
 | STOP entriegeln → GO | Entriegelt und aktiviert nur den Antrieb. Kein alter Job und keine Referenz werden wiederhergestellt; für normalen Fahrbetrieb neu mindestens kurz referenzieren. Kalibrierdaten bleiben erhalten. |
 
-Der heutige Testpfad verwendet noch explizite FAKE-REF mit Start 1000. POR-Mitte und unreferenziertes SET_POSITION sind deshalb **noch umzusetzende Solländerungen**. Die vorhandene geprüfte Positionsfunktion bleibt fertig.
+Der heutige Positions-Testpfad verwendet explizite FAKE-REF mit Start 1000. Die geprüfte Positionsfunktion bleibt fertig. Eine Adaption für unreferenziertes SET_POSITION wird nur geplant, falls der Bedienfall nach dem Konzeptreview tatsächlich zusätzlich zu MOVE gebraucht wird.
 
 ## Bereits erledigt
 
@@ -34,17 +36,16 @@ Der heutige Testpfad verwendet noch explizite FAKE-REF mit Start 1000. POR-Mitte
 
 | Reihenfolge | Frage | Vorschlag / Zuständigkeit |
 | --- | --- | --- |
-| 1 | Maximaler SET_POSITION-Weg ohne REF? | Ein Gleisabstand, derzeit 1600 Viertelschritte; noch nicht beschlossen. [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) |
-| 2 | Reicht MOVE für beide Richtungen oder zusätzlich LEFT/RIGHT? | Legacy-Befehle werden heute abgewiesen; keine doppelte Pflicht ohne Bedarf. [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154)/[#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) |
-| 3 | GET_TRACK während Fahrt: letzte Bestätigung oder 0? | Code setzt 0, ältere Definition behält die letzte Bestätigung. [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) |
-| 4 | Erster Parameterumfang und IDs einschließlich SAVE? | Konkrete IDs/Wertebereiche schrittweise festlegen; RAM/SAVE-Semantik steht bereits. [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158) |
-| 5 | Wer fordert LOCAL/FERN an und wer gibt frei? | Nur im Stillstand; Netzverbindung allein erteilt keine Bedienhoheit. [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157)/[#166](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/166) |
+| 1 | Braucht SET_POSITION ohne REF einen eigenen Bedienfall? | Empfehlung: Inbetriebnahme relativ über MOVE, absolute Position erst referenziert. [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) |
+| 2 | GET_TRACK während Fahrt: letzte Bestätigung oder 0? | Code setzt 0, ältere Definition behält die letzte Bestätigung. [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) |
+| 3 | Erster Parameterumfang und IDs einschließlich SAVE? | Konkrete IDs/Wertebereiche schrittweise festlegen; RAM/SAVE-Semantik steht bereits. [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158) |
+| 4 | Wer fordert LOCAL/FERN an und wer gibt frei? | Nur im Stillstand; Netzverbindung allein erteilt keine Bedienhoheit. [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157)/[#166](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/166) |
 
 ## Offene Umsetzung – je einen kleinen Punkt abschließen
 
 | Auftrag | Konkreter Rest |
 | --- | --- |
-| [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) Fahrt | POR-Mitte, begrenztes unreferenziertes SET_POSITION, Referenz-/Kalibrierbedingungen anschließen. |
+| [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) Fahrt | Zuerst Bedienfälle und Notwendigkeit von SET_POSITION ohne REF prüfen; bestätigte Referenz-/Kalibrierbedingungen anschließen. |
 | [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152) STOP / Antworten | STOP darf nicht an vollen gemeinsamen Pending-Slots scheitern; `emit(...portMAX_DELAY)` darf Muninn nicht unbefristet blockieren. |
 | [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) UART | GET_TRACK-Vertrag, echte System-/Sensor-/Keyboardwerte statt Platzhalter; HELP-Link korrigieren. |
 | [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158) Parameter / Diagnose | SET_PARAM tatsächlich übernehmen, SAVE/Laden, Git-Identität und zentrale Fehlerweitergabe. |
