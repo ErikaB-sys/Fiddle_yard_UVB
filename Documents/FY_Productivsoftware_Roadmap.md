@@ -2,13 +2,31 @@
 
 **Stand: 24.10.2026.** Aktiver Branch `feature/FY_ESP32_Port`, Projekt `FY_ESP32_Bringup/`. C++-Iststand dieses Abgleichs: `342cdd35`. Head: [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150).
 
-## Ziel für die nächste Arbeitsrunde am 25.10.
+## Lieferziel für Sonntagabend, 25.10.2026
 
-**Zuerst Konzepte top-down prüfen:** [Hier beginnen](../FY_ESP32_Bringup/docs/README.md). Danach den kleinsten sinnvollen Befehlsumfang ableiten. MOVE mit Richtungsangabe ist entschieden; LEFT/RIGHT entfallen. SET_POSITION und SET_TRACK benötigen Kalibrierung/gültige REF; SET_POSITION ohne REF/POR-Mitte entfällt.
+**Ziel:** HW3-Firmware mit benutzbarem seriellem Befehlsumfang, Parameterliste einschließlich Speichern/Laden und implementiertem I²C-Keyboard. Die Bühne soll damit bewegt werden können. Physischer Keyboard-Anschluss hängt von Eris Bus-/Keyboard-Verdrahtung ab; Code und tatsächliche Hardwareerprobung getrennt ausweisen. Das ist das angestrebte Ergebnis, keine bereits erreichte Funktion oder Termingarantie.
 
-Den vereinbarten ESP32-Befehlsumfang über die serielle Schnittstelle benutzbar machen: offene Entscheidungen nacheinander klären, einen kleinen Funktionsschritt umsetzen, kurz prüfen und dokumentieren. Heute erfolgen ausschließlich Issue-/Dokumentationsänderungen.
+| Lieferung | Woran wir sie erkennen |
+| --- | --- |
+| Parameterliste und Speicherung | Je Parameter ID, Name, Einheit, Typ/Wertebereich, Default und RAM/persistent festgehalten; SET_PARAM übernimmt gültige Werte, SAVE speichert ausdrücklich, Start lädt gültige Daten oder sichere Defaults. Aktuelle REF wird durch Laden nicht gültig. |
+| Vereinbarte serielle Befehle | STOP/GO, MOVE, SET_POSITION, SET_TRACK, kurze/lange REFERENCE, SET_PARAM/SAVE, SET_MODE sowie Abfragen/HELP/Firmware führen ihre vereinbarte Funktion aus oder lehnen fachlich unzulässige Aufträge nachvollziehbar ab. Ein NOT_READY-Platzhalter allein ist kein Funktionsabschluss. LEFT/RIGHT und unbeauftragte DONE/ALIVE gehören nicht dazu. |
+| I²C-Keyboard im Code | Vorhandene REF-/STOP-/Richtungsbedienung, Entprellung, Startverriegelung, LEDs/OLED und gemeinsamer Befehls-/Statusweg implementiert; fehlendes Gerät blockiert die Motorsteuerung nicht. Physisch angeschlossen/geprüft nur nach tatsächlicher Beobachtung angeben. |
+| Bewegung mit HW3 | Bestehenden Profil-/STEP-Pfad weiterverwenden; reale Sensor-/REF-/Kalibrieranbindung ergänzen. FAKE-REF belegt weiterhin die benannte Softwarefunktion, ersetzt jedoch nicht die echte Referenzfunktion. |
 
-**Grün = Softwarefunktion im benannten Umfang geprüft und dokumentiert.** Die spätere Kalibrierung und Prüfung auf der Bühne bleibt ein eigener Auftrag. Kein Nachbau alter Nano-Funktionsnamen und keine pauschale vollständige Testsuite als Voraussetzung.
+**Reihenfolge in kleinen Schritten:** (1) ersten Parameterumfang/IDs und Restentscheidungen unten klären → (2) STOP-/Antwortblockaden #152 schließen → (3) Parameter/SAVE/Laden #158 → (4) reale Sensorik/Referenz und Fahrbedingungen #155/#154 → (5) UART-Reste und vereinbarte Stillstandsumschaltung #156/#157 → (6) Keyboard #157 integrieren. Nach jedem Schritt kurz bauen/praktisch prüfen und den Spickzettel nachführen. Bestehendes HW_TEST-Verhalten übernehmen; keine neue Framework- oder Nano-Paritätsrunde.
+
+**Größter Terminrest:** Echte Referenz/Sensorik und Parameter/SAVE sind noch keine ausführbaren ESP32-Funktionen; auch Keyboard-Code fehlt. Bei Resten am Abend exakt Funktion/Blocker nennen, keine Platzhalter als fertig markieren. Die Verdrahtung kann parallel erfolgen.
+
+## Schlanke Prüfung und Dokumentation
+
+- Keine vollständige Unit-/White-/Black-Box-Suite, Coverage-Vorgabe oder formale Automotive-SPICE-Einführung als Voraussetzung für dieses Lieferziel. Keine zweite Implementierungsrunde nur für ein Testgerüst.
+- Je geändertem Funktionspfad ein kurzer dokumentierter Durchlauf plus naheliegende Ablehnungen: z. B. ungültiger Parameter/Änderung während Fahrt, SAVE–Neustart–Laden, STOP–Entriegeln–GO ohne Wiederaufnahme, Absolutfahrt ohne REF abgelehnt. Vorhandene bestandene Funktionsnachweise wiederverwenden, unveränderte Pfade nicht pauschal neu aufrollen.
+- Gewünschter Standard: Build mit Compilerwarnungen und automatisch mitlaufender Cppcheck-/MISRA-orientierter Analyse des eigenen Codes (#163). Heute existiert nur der separate Aufruf; dessen Konfiguration/Einbindung ist noch zu reparieren. Befunde und Werkzeugfehler sichtbar ausgeben; der genaue Fehler-/Baseline-Umgang wird bei der Einrichtung festgelegt. Keine vollständige MISRA-Konformität behaupten.
+- **Sprachvorschlag:** aktive Erklärtexte und Doxygen auf Deutsch, Befehle/Bezeichner weiter wie im Code. Neue/geänderte APIs dokumentieren Zweck, Parameter/Einheiten, Voraussetzungen, Rückgabe/Fehler und ggf. Core-/Task-Zuständigkeit; keine flächige Altcode-Kommentierung als Zusatzblock.
+- Doxygen-Erzeugung, danach optional [Doxygen Awesome](https://github.com/jothepro/doxygen-awesome-css), sind nachrangige Werkzeugpflege; keine Voraussetzung für Fahrbetrieb.
+- **Hardwareerprobungen:** konkrete offene Fälle bleiben in #153/#155/#159/#161 erhalten. Ihre Priorisierung für morgen gegenüber späterer Bühnen-/Gesamterprobung ist noch abzustimmen.
+
+**Grün = Softwarefunktion im benannten Umfang geprüft und dokumentiert.** Die spätere Kalibrierung/Prüfung auf der Bühne bleibt ein eigener Auftrag; das Ziel einer realen Referenzfunktion wird dadurch nicht gestrichen. Einstieg für den fachlichen Faden: [Hier beginnen](../FY_ESP32_Bringup/docs/README.md).
 
 ## Fachlich festgelegt
 
