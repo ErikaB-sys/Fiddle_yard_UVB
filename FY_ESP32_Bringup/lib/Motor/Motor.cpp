@@ -643,6 +643,7 @@ void Muninn_motorMockTask(void* arg) {
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
             reference.cancel();
+            track3Automatic = false; // GO OFF aborts pending BG3 just like STOP.
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
             realReferencePosition.store(kPositionUnknown, std::memory_order_release);
@@ -810,7 +811,7 @@ void Muninn_motorMockTask(void* arg) {
             }
 #endif
         } else {
-            // Real SET_TRACK still requires persisted calibration/teach-in.
+            // Other unimplemented real commands remain rejected.
             emit(context, cmd, false, nackData(NackReason::NOT_READY));
         }
 
