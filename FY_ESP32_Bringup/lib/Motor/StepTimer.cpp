@@ -123,11 +123,10 @@ void IRAM_ATTR stepTimerIsr() {
         }
 
         if (profileActive) {
-            // LSL/LSR/LSREF: reserved ISR hook until real 3.3V sensors
-            // have been electrically verified. Do not fabricate a REF.
-            // const bool limitLeft = ...;
-            // const bool limitRight = ...;
-            // const bool reference = ...;
+            // Profile timing is unchanged. A reference-profile movement
+            // additionally checks its destination endstop before STEP rising
+            // and captures LSREF flanks above on each completed STEP.
+            // Normal bench profiles still lack independent endstop gating.
 
             if (phaseRemaining > 0U)
                 --phaseRemaining;
