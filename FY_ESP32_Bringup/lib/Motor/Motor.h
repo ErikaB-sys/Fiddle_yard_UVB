@@ -51,6 +51,17 @@ public:
     void onReferenceStarted();
     void onReferenceFinished(bool success);
     MotorCommandResult_t prepareReference(uint8_t mode);
+    // Nano HW_TEST reference_run() port: state and calibration belong to Motor.
+    // StepTimer is the only ESP32-specific sensor/STEP bridge.
+    bool referenceBegin(bool full);
+    void referenceCancel();
+    void referenceUpdate();
+    bool referenceCalibrated() const { return _calibrated; }
+    bool referenceActive() const { return _active; }
+    bool referenceSuccessful() const { return _stage == RefRunState::DONE; }
+    uint32_t referencePosition() const { return _position; }
+    uint32_t referenceOppositeEnd() const { return _oppositeEnd; }
+
     // Synthetic short REF (without motion) is BENCH ONLY, never sets _ReferenceValid.
     void resetBenchPosition();  // Called exclusively after accepted fake REFERENCE 00.
     void invalidateBenchPosition();
@@ -66,6 +77,26 @@ public:
     const Profilelement_t* profile() const { return Motor_profil; }
     const MotorProfileParam_t& profileParams() const { return _ProfileParam; }
 private:
+
+    enum class RefRunState : uint8_t {
+        IDLE, SEEK_MOTOR, SEEK_OPPOSITE, APPROACH, FIRST_PASS,
+        BACKOFF, SECOND_PASS, DONE, ERROR
+    };
+    bool referenceLaunch(bool away, uint16_t hz, bool stopAtExit,
+                         bool coarse, uint16_t steps = UINT16_MAX);
+    void referenceFinish();
+    void referenceFail();
+    RefRunState _stage = RefRunState::IDLE;
+    bool _active = false;
+    bool _full = false;
+    bool _calibrated = false;
+    uint32_t _position = 0U;
+    uint32_t _coarse = 0U;
+    uint32_t _oppositeEnd = 0U;
+    uint32_t _refLeft = 0U;
+    uint32_t _refRight = 0U;
+    uint32_t _refLeftReverse = 0U;
+    uint32_t _refRightReverse = 0U;
     MotorState_t _State = MotorState_t::STOPPED; // POR/STOP latch.
     bool _ReferenceValid = false; // Real LS reference remains invalid.
     bool _BenchPositionValid = false;
