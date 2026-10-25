@@ -78,6 +78,9 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 
 ### Referenzfahrt aus Nano-HW_TEST – Portstatus 25.10.2026
 
+**Nacharbeit nach HW3-Fehlversuch:** Für die Phasenübergänge wurden zusätzliche gegenüber Nano eingeführte Plausibilitätsabweisungen zurückgenommen. Die Suchgeschwindigkeit beträgt vorläufig **160 Hz zur Motorseite / 200 Hz zur Gegenseite und zurück zur Fahne** (vorher 120/140); die beiden präzisen Fahnenmessungen bleiben bei **80 Hz**. Bei `REF: ERROR` erscheint einmalig `phase=<Stufe> pos=<Koordinate>` auf der seriellen Diagnose. Keine zusätzlichen Timeouts/Wegbegrenzungen eingeführt; der Referenzlauf ist nach dieser Änderung **noch nicht erneut hardwaregeprüft**.
+
+
 Die gesamte Referenz-Zustandsmaschine liegt in `Motor.h/.cpp`. STEP und Sensorflanken liegen ausschließlich in der ESP32-Timer-ISR; die Core-Grenze bleibt Muninn/Huginn. Die separate `ReferenceRun.h` wurde entfernt.
 
 
