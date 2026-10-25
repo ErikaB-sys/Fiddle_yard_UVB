@@ -9,3 +9,4 @@
 # Lokale Cppcheck-Berichte und Build-Caches
 .cppcheck/
 reports/*.csv
+fy_flash_backup.bin
