@@ -18,9 +18,12 @@ enum class MoveMicrostep : uint8_t {
     FULL = 0U, HALF = 1U, QUARTER = 2U, EIGHTH = 3U, SIXTEENTH = 4U
 };
 
+// Fixed hardware resolution: MS pins are configured once at motor startup.
+constexpr MoveMicrostep FY_MOTOR_MICROSTEP_MODE = MoveMicrostep::EIGHTH;
+
 struct MoveRequest {
     bool directionRight = false; // 0=LEFT, 1=RIGHT
-    MoveMicrostep mode = MoveMicrostep::HALF;
+    MoveMicrostep mode = FY_MOTOR_MICROSTEP_MODE;
     uint16_t steps = 0U;
 };
 
