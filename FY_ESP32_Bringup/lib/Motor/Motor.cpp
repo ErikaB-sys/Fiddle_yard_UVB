@@ -364,7 +364,7 @@ bool Motor::isProfileValid(uint16_t distance) const {
 }
 
 // Pure payload validation. Command length and CRC are checked by Huginn.
-inline bool decodeMovePayload(const uint8_t* data, MoveRequest& result) {
+bool decodeMovePayload(const uint8_t* data, MoveRequest& result) {
     if (data == nullptr) return false;
     const uint8_t flags = data[0];
     const uint8_t mode = static_cast<uint8_t>(flags >> 4U);
