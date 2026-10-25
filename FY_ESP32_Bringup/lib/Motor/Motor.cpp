@@ -551,7 +551,7 @@ void Muninn_motorMockTask(void* arg) {
     auto* context = static_cast<BringupContext*>(arg);
     CommandMessage cmd{};
     Motor motor{};
-    bool track3Automatic = false; // Nano: after every successful REF -> BG3
+    bool realTrackProfileActive = false; // Real profiled motion: REF->BG3 / SET_TRACK
     bool ledState = false;
     // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
     bool stopActive = true; // Mirrors Motor state for the existing STOP path.
@@ -607,7 +607,7 @@ void Muninn_motorMockTask(void* arg) {
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
             motor.referenceCancel();
-            track3Automatic = false;
+            realTrackProfileActive = false;
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
             realReferencePosition.store(kPositionUnknown, std::memory_order_release);
@@ -689,7 +689,7 @@ void Muninn_motorMockTask(void* arg) {
                         if (stepTimerStartReferenceProfile(
                                 static_cast<uint16_t>(distance),
                                 kTrack3 > start, stages)) {
-                            track3Automatic = true;
+                            realTrackProfileActive = true;
                             targetTrack = 3U;
                             confirmedTrack = 0U;
                             motorMoving.store(true, std::memory_order_release);
@@ -717,18 +717,19 @@ void Muninn_motorMockTask(void* arg) {
                 }
             }
         }
-        if (track3Automatic) {
+        if (realTrackProfileActive) {
             ReferenceTimerSample atTrack{};
             if (stepTimerTakeReferenceDone(atTrack)) {
-                track3Automatic = false;
+                realTrackProfileActive = false;
                 motorMoving.store(false, std::memory_order_release);
                 if (atTrack.reason == ReferenceEnd::STEP_LIMIT &&
-                    atTrack.position == FY_BENCH_TRACK_POSITIONS[2]) {
+                    targetTrack >= 1U && targetTrack <= FY_BENCH_TRACK_COUNT &&
+                    atTrack.position == FY_BENCH_TRACK_POSITIONS[targetTrack - 1U]) {
                     realReferencePosition.store(atTrack.position,
                                                 std::memory_order_release);
                     motor.onMoveFinished();
-                    confirmedTrack = 3U;
-                    publishTrack(3U, 3U, TRACK_STATUS_REACHED);
+                    confirmedTrack = targetTrack;
+                    publishTrack(targetTrack, confirmedTrack, TRACK_STATUS_REACHED);
                 } else {
                     motor.onProfileError();
                     realReferencePosition.store(kPositionUnknown,
@@ -763,7 +764,7 @@ void Muninn_motorMockTask(void* arg) {
             }
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
         } else if (motorMoving.load(std::memory_order_acquire) &&
-                   !track3Automatic && !motor.referenceActive()) {
+                   !realTrackProfileActive && !motor.referenceActive()) {
             // Position is a core-1 snapshot, never read straight from UART/ISR.
             motor.onMotionProgress(stepTimerCompletedSteps());
             publishPosition(motor);
@@ -782,7 +783,7 @@ void Muninn_motorMockTask(void* arg) {
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
             motor.referenceCancel();
-            track3Automatic = false; // GO OFF aborts pending BG3 just like STOP.
+            realTrackProfileActive = false; // GO OFF aborts pending BG3 just like STOP.
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
             realReferencePosition.store(kPositionUnknown, std::memory_order_release);
@@ -840,6 +841,71 @@ void Muninn_motorMockTask(void* arg) {
                     motorStateSnapshot.store(static_cast<uint8_t>(motor.state()),
                                              std::memory_order_release);
                     emit(context, cmd, true, cmd.id);
+                }
+            }
+        } else if (cmd.id == CMD_SET_TRACK && motor.referenced()) {
+            // Real position moves reuse the already HW-tested REF->BG3
+            // profile path, including STEP position and endstop sampling.
+            const uint8_t track = cmd.data[0];
+            if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
+                emit(context, cmd, false, nackData(NackReason::NOT_READY));
+            } else if (stepTimerRunning() || realTrackProfileActive ||
+                       motor.referenceActive() ||
+                       motor.state() != MotorState_t::IDLE) {
+                emit(context, cmd, false, nackData(NackReason::BUSY));
+            } else if (track < 1U || track > FY_BENCH_TRACK_COUNT) {
+                emit(context, cmd, false, nackData(NackReason::INVALID_PARAMETER));
+            } else {
+                const uint32_t destination = FY_BENCH_TRACK_POSITIONS[track - 1U];
+                const uint32_t current = realReferencePosition.load(
+                    std::memory_order_acquire);
+                const uint32_t end = motor.referenceOppositeEnd();
+                if (current == kPositionUnknown || current <= 1000U ||
+                    current >= end || destination <= 1000U ||
+                    destination >= end) {
+                    emit(context, cmd, false, nackData(NackReason::NOT_READY));
+                } else {
+                    const uint32_t distance = destination > current
+                        ? destination - current : current - destination;
+                    if (distance == 0U) {
+                        targetTrack = track;
+                        confirmedTrack = track;
+                        publishTrack(track, track, TRACK_STATUS_REACHED);
+                        emit(context, cmd, true, cmd.id);
+                    } else if (distance > UINT16_MAX ||
+                               !motor.calcProfile(static_cast<uint16_t>(distance)) ||
+                               !motor.isProfileValid(static_cast<uint16_t>(distance))) {
+                        emit(context, cmd, false, nackData(NackReason::INVALID_PARAMETER));
+                    } else {
+                        StepProfileSegment stages[STEP_PROFILE_PHASES]{};
+                        const auto& p = motor.profileParams();
+                        const uint16_t intervals[STEP_PROFILE_PHASES]{
+                            p.Acc1RampInterval, p.Acc2RampInterval, 1U,
+                            p.Bre1RampInterval, p.Bre2RampInterval, 1U
+                        };
+                        for (uint8_t i = 0U; i < STEP_PROFILE_PHASES; ++i) {
+                            stages[i].steps = motor.profile()[i].Steps;
+                            stages[i].accel = motor.profile()[i].Accel;
+                            stages[i].rampEvery = intervals[i];
+                        }
+                        stepTimerReferenceSetPosition(current);
+                        if (!stepTimerStartReferenceProfile(
+                                static_cast<uint16_t>(distance),
+                                destination > current, stages)) {
+                            emit(context, cmd, false, nackData(NackReason::NOT_READY));
+                        } else {
+                            realTrackProfileActive = true;
+                            targetTrack = track;
+                            confirmedTrack = 0U;
+                            motorMoving.store(true, std::memory_order_release);
+                            motor.onMoveStarted();
+                            publishTrack(track, 0U, TRACK_STATUS_MOVING);
+                            motorStateSnapshot.store(
+                                static_cast<uint8_t>(motor.state()),
+                                std::memory_order_release);
+                            emit(context, cmd, true, cmd.id);
+                        }
+                    }
                 }
             }
 #if FY_MOTOR_BENCH_TEST
