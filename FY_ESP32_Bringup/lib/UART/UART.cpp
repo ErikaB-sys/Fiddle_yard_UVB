@@ -48,7 +48,8 @@ void UART::begin(BringupContext* context) {
     Serial.println(F("Hello my friend"));
 #if defined(FY_MOTOR_BENCH_TEST) && FY_MOTOR_BENCH_TEST
     Serial.println(F("FY ESP32: Huginn ready, Muninn PROFILE BENCH (120..800 Hz)"));
-    Serial.println(F("BENCH: REFERENCE 00 -> FAKE position 1000; STATUS 30 = 02 (NOT real REF)"));
+    Serial.println(F("HW3 REF: 01=LONG calibration; 00=SHORT requires RAM calibration"));
+    Serial.println(F("HW3 REF: on success proceed to BG3; NO NVS YET; test carefully"));
 #else
     Serial.println(F("FY ESP32: Huginn UART ready, motor backend not ready"));
 #endif
