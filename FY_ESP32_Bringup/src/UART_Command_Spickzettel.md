@@ -1,6 +1,6 @@
 # FY ESP32 – UART-Spickzettel und Umsetzungsgrad
 
-**Stand: 24.10.2026.** Codebasis `342cdd35`, Branch `feature/FY_ESP32_Port/FY_ESP32_Bringup`. Dokumentationsupdate nach Issue-Bereinigung und Klarstellung der Fahrregeln; **keine C++-Änderung**.
+**Stand: 25.10.2026.** Branch `feature/FY_ESP32_Port/FY_ESP32_Bringup`. Echte Kurz-/Langreferenz in Arbeit: Quellcode für Muninn/STEP-ISR eingebunden, **noch nicht gebaut oder an HW3 abgefahren**. Hinweise zum alten Fake-REF-Bench-Test sind historisch!
 
 **Grün heißt: Softwarefunktion im genannten Umfang geprüft und dokumentiert.** Die Tisch-Funktionsnachweise zählen. Echte Kalibrierung, Sensorik und Bühnenintegration sind separate Restpunkte in [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155)/[#159](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/159).
 
@@ -14,6 +14,8 @@
 - 🟣 benannter Prüf-/Messnachweis fehlt; kein pauschales Zurückstufen fertiger Funktionen.
 - ⚪ Legacy-/Option: derzeit nicht aktiv; kein zusätzlicher Pflichtumfang ohne Entscheidung.
 
+**ACHTUNG VOR DEM NÄCHSTEN UPLOAD:** `REFERENCE 00` ist **nicht mehr der synthetische Fake-Anker**, sondern eine **echte Referenzfahrt** mit STEP-Pulsen; `REFERENCE 01` beginnt die lange Kalibrierfahrt. Beide können die Brücke bewegen. Der Code ist **ungebaut/ungetestet**; bei Sensorfehler können die vorbereitenden Suchbewegungen den Fahrweg überschreiten. Mechanik erst nach kontrolliertem Test mit funktionierender unmittelbarer Antriebsabschaltung und unabhängigem Anschlagschutz koppeln.
+
 ## Verbindliche Fahrregeln
 
 | Fall | Vereinbartes Verhalten | Heute |
@@ -21,7 +23,7 @@
 | MOVE ohne REF | Relativ eine begrenzte Schrittzahl in eine Richtung; für Inbetriebnahme zulässig. | 🟢 Vorhandener begrenzter MOVE-Pfad. |
 | SET_POSITION ohne REF | Nicht zulässig; POR-Mitten-/Einzelfahrtvariante entfällt. | Kein zusätzlicher Implementierungsauftrag. |
 | SET_POSITION mit gültiger REF | Fahrt nur im kalibrierten Bewegungsraum. | 🟠 Reale REF/Grenzen fehlen. Vorhandener synthetischer Positionspfad funktioniert. |
-| Kurze REF | Erst mit gültigen Kalibrierdaten erfolgreich. | 🟠 Heute nur FAKE-REF 00, kein realer Ablauf. |
+| Kurze REF | Erst mit gültigen Kalibrierdaten erfolgreich. | 🟡 Reale Motorfahrt zur Motorseite und Koordinate 1000 im Code; nur nach erfolgreicher langer Kalibrierfahrt derselben Laufzeit. HW3-Test und NVS-Laden fehlen. |
 | SET_TRACK | Gleis 1..5; kalibriert **und** aktuelle REF gültig. | 🟢 Track→Position/Fahrt geprüft; 🟠 reale Kalibrier-/Referenzanbindung offen. |
 | STOP / GO | STOP verwirft Job, Antrieb aus, REF ungültig. Entriegeln/GO aktiviert nur den Antrieb; danach für normale Fahrt neu mindestens kurz referenzieren. | Grundpfad vorhanden; gezielte Prüfung des STOP-/Antworttransports [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152) schließen. |
 
@@ -46,8 +48,8 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 | GET_ERROR / ERROR | 1A | `ERROR` | 🟡 | Antwort F0, Systembyte + drei Fehlerbytes; UART-Fehler vorhanden, zentrale Motor-/Sensoraggregation fehlt. |
 | GET_TRACK / TRACK | 23 | `TRACK 00` | 🟢 Ist-Abfrage | Ziel/fährt/erreicht geprüft. Während Fahrt setzt Code bestätigtes Gleis auf 0; Bedeutung gegenüber alter letzter Bestätigung noch in [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) klären. |
 | SET_TRACK | 1C | `SET_TRACK 03` | 🟢 Zuordnung/Fahrt | 1..5 auf Positionen abgebildet; Fahrten 01/03/05 dokumentiert. Reale Kalibriert-/REF-Prüfung noch ergänzen. |
-| REFERENCE – Testanker | 16 | `REFERENCE 00` | 🟢 Testpfad | Setzt synthetische Position 1000 ohne Bewegung; STATUS 30=02. |
-| REFERENCE – real kurz/lang | 16 | `REFERENCE 00` / `REFERENCE 01` | 🟠 | Echter Ablauf/Sensorik und Kalibriervoraussetzung fehlen. |
+| REFERENCE – Testanker (historisch) | 16 | `REFERENCE 00` | ⚪ ersetzt | **Alter Bench-Fake-Test vom 23.10.** Im neuen Code führt `REFERENCE 00` eine **echte Motorfahrt** aus; nicht mehr als No-Motion-Test verwenden! |
+| REFERENCE – real kurz/lang | 16 | `REFERENCE 00` / `REFERENCE 01` | 🟡 HW3-Test offen | `01`: Motorseite → Gegenseite, REF-Fahne in beiden Richtungen ausmessen; `00`: Motorseite suchen und 1000 setzen, **nur bei RAM-Kalibrierung**. Beide starten nach Erfolg die Profilfahrt nach **BG3=4757**. ISR erfasst REF-Flanken und Endlagen; keine NVS/CRC, kein unabhängiger Ausfallschutz für defekte Endschalter. |
 | SET_PARAM | 2B | 4 DATA-Bytes: ID + 24-Bit-LE-Wert | 🟠 | Telegramm vorhanden, keine Parameterübernahme/SAVE; IDs und erster Umfang festlegen. |
 | SET_MODE | 26 | `SET_MODE 55 AA` / `SET_MODE AA 55` | 🟠 | Muster geprüft, derzeit NOT_READY. Bedienhoheit/Stillstandsumschaltung noch umsetzen. |
 | HELP | 25 | `HELP` | 🟡 | Stringantwort 18 vorhanden; Link zeigt noch auf Nano-Spickzettel. |
@@ -74,42 +76,18 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 - Bench-`GET_POSITION`: `0x00010000 | virtuelle_16bit_position`, also DATA[2] = `01`; **kein echter REF-Nachweis**. `POSITION_UNKNOWN` (ohne Bench-Bit) = `0x00007FFF`.
 - NACK-Typen: `1 BUSY`, `2 NOT_READY`, `3 INVALID_COMMAND`, `4 INVALID_PARAMETER`, `5 EXECUTION_ERROR`, `6 INVALID_TELEGRAM`. Fehlerort z. B. UART `0x10`, Motor `0x20`.
 
-### Neu: Fake-Kurz-REF und SET_TRACK aus HW_TEST (nur loser Motor)
+### Referenzfahrt aus Nano-HW_TEST – Portstatus 25.10.2026
 
-Gemessene Tabelle aus `FY_HW_TEST/FY_HW_TEST/src/main.cpp`, **unveränderte absolute HW_TEST-Koordinaten im 1/4-Schritt-Testmaßstab**:
+Gemessene Tracktabelle in **1/4-Schritt-Koordinaten**: BG1 1557, BG2 3157, **BG3 4757**, BG4 6357, BG5 7957. **Motorseite = vom Einfahrtsgleis aus RECHTS / GPIO36 (Code-Alias LSL)**. Bei Erreichen des Motor-Endschalters setzt die STEP-ISR den Referenzanker auf **1000**. In alter Nano-Koordinatenrichtung werden die Positionen zur Gegenseite größer (GPIO39, Code-Alias LSR).
 
-| Gleis | BG1 | BG2 | BG3 | BG4 | BG5 |
-|---|---:|---:|---:|---:|---:|
-| Position | **1557** | **3157** | **4757** | **6357** | **7957** |
+- `REFERENCE 01` (lange Kalibrierfahrt): Motorseite suchen → 1000 setzen → Gegenseite suchen und Schritte/Fahnenkante erfassen → Fahne zurück langsam ausmessen → zurücksetzen → Fahne in Gegenrichtung ein zweites Mal ausmessen (mechanisches Spiel). **Gültige Kalibrierung zunächst nur RAM, NVS/CRC aus #158 nicht integriert.**
+- `REFERENCE 00` (kurze Referenzfahrt): nur mit gültiger Kalibrierung derselben Laufzeit, zur Motorseite und bei Sensorflanke 1000 setzen.
+- **Nach erfolgreichem `REFERENCE 00` oder `01`:** automatisch BG3 = 4757 mit dem vorhandenen 6-Phasen-Profil anfahren. Der letzte Endschalter wird im STEP-Timer geprüft; bei vorzeitigem Endanschlag gilt der Vorgang als fehlgeschlagen.
+- Im UART: `STATUS 30` → 00 keine aktuelle Referenz, 01 echte REF; `STATUS 20` zeigt REFRUN / MOVING / IDLE; `TRACK 00` meldet BG3 erst bei tatsächlichem Erreichen. **Kein spontanes DONE.**
 
-`REFERENCE 00` ist im `FY_MOTOR_BENCH_TEST=1` **rein synthetisch**: Es gibt keine Motorfahrt, keine Sensorprüfung und keine echte Referenzfreigabe. Es setzt **1000** als Startposition und `STATUS 30` auf **02=simuliert**. Erst damit erlaubt `Motor::prepareSetTrack()` die Gleisauswahl; sie nutzt unverändert die `prepareSetPosition()`-/Profil-/STEP-Implementierung. Eine Änderung der Auflösung durch freies `MOVE`, STOP oder GO OFF löscht die simulierte Referenz. `REFERENCE 01` ist nicht implementiert; **außerhalb des Bench-Modus sind beide gesperrt**.
+**Nicht vorgetäuscht:** Echte kurze REF direkt nach ESP32-Neustart wird bis zur NVS-Integration abgelehnt. Nach einer realen REF blockiert die bisherige Bench-SET_TRACK-Implementation weitere manuelle Gleisfahrten – diese Anbindung ist ein Folgeschritt und kein Hardwaretest-Ergebnis. Die früheren Fake-REF-Antworttelegramme sind nur historische HW3-Mitschnitte.
 
-```text
-stop aa 55            # Boot-STOP entriegeln
-go aa 55              # Endstufen freigeben
-status 30             # vor Fake-REF: STATUS_Reference 30 00 <CRC>
-reference 00          # FAKE Kurzreferenz: Position = 1000, kein STEP!
-status 30             # STATUS_Reference 30 02 <CRC>
-position              # STATUS_Position: Low16=1000 und Bit16=1 (nur BENCH)
-set_track 01          # Ziel BG1=1557, Differenz +557 in 1/4-Schritt
-status 20             # poll bis IDLE
-track 00              # STATUS_Track 40: Ziel, bestätigt, Status
-set_track 05          # Ziel BG5=7957
-```
-
-**Am 23.10.2026 auf HW3 mit losem Motor gefahren:** `REFERENCE 00`, `SET_TRACK 01/03/05`, `GET_TRACK` während der Fahrt und nach Ankunft. Simulierte Referenz, **keine** reale FY-Referenzierung. `GO/STOP`-Verriegelung und echte Sensor-/Endlagenüberwachung bleiben separate Aufgaben. Keine ungefragte DONE-UART-Meldung; Abschluss abfragen.
-
-### HW3-Prüfprotokoll vom 23.10.2026
-
-- Lose Motorwelle: A4988 bei 1/4- und 1/16-Mikroschritt gedreht, 1/16 hörbar ruhiger.
-- `STOP AA 55` → `60 01 20`; `GO AA 55` → `60 07 32`.
-- `REFERENCE 00` → `60 16 45` und `STATUS 30` → `30 02 9E` (simuliert).
-- `SET_TRACK 01/03/05` → jeweils `60 1C 73`. Beobachtete `TRACK 00`-Antwort BG1 erreicht: `40 01 01 00 F8`; nach Auftrag BG5: `40 05 00 01 41` (unterwegs), später `40 05 05 00 07` (erreicht).
-- Absichtlich falsches Kommando `TRACK` ohne erforderliches Datenbyte → `70 14 3B` (Parameter fehlt); UART-Validierung funktioniert.
-- 12-V-Versorgung während Firmware-Upload eingeschaltet: beim beobachteten Versuch **kein Motorzucken**. Ältere Zuck-Beobachtungen werden dadurch nicht widerlegt; Boot-/Flash-Interlock weiter offen.
-- Bench-Grenze: keine echte REF, keine LS/Endlagenprüfung, keine unabhängige Messung der absoluten Mechanikposition, keine Hardware-Freigabe für gekoppelte Schiebebühne.
-
-**Neue verbindliche Richtungskonvention (Blick vom Einfahrtsgleis): RECHTS = Motorseite (GPIO36/VP, altes Nano-`LSL`/D12), LINKS = Gegenseite (GPIO39/VN, altes Nano-`LSR`/D9).** Referenzsensor = GPIO34 (Nano D11); G35 bleibt frei. Die historischen Bezeichner `LSL`/`LSR` in Code und Sensorbitbeschreibung folgen noch der alten Nano-Richtung. **Keine Drähte vertauschen:** Bit 0/G36 ist nun physisch rechts, Bit 1/G39 physisch links, Bit 2/G34 REF. Beim Fahrtest fuhr `MOVE 21 64 00` von der Motorseite weg, also **aus neuer Sicht nach links**, obwohl Bit 0 im MOVE-Protokoll bislang als „rechts“ beschrieben ist. Vor Implementierung von Fahrtrichtungs-/Endlagenschutz diese Begriffsverwendung im Code **einheitlich** anpassen; bis dahin bleibt die bestehende Fahrlogik unverändert.
+**Noch offen:** echter PlatformIO-Build, physische Tests beider Sensorfolgen, vorab definierte Ausfallbegrenzung bei defekten Sensoren, persistente Kalibrierung/CRC und die produktive Freigabe der absoluten Gleisfahrt. Das implizite Limit des STEP-Zählertyps ist **kein** sicherheitstechnischer Timeout/Ersatz für den Endanschlag.
 
 ### HW3-Sensor-Snapshot (im Code, Hardwaretest offen)
 
