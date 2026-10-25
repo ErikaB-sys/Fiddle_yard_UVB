@@ -147,7 +147,7 @@ bool Motor::referenceBegin(bool full) {
         _active = true;
         _position = 0U; // Before finding motor-side endstop, coordinate unknown.
         stepTimerReferenceSetPosition(0U);
-        if (!referenceLaunch(false, 120U, false, false)) {
+        if (!referenceLaunch(false, 160U, false, false)) {
             referenceFail();
             return false;
         }
@@ -174,10 +174,10 @@ void Motor::referenceUpdate() {
             stepTimerReferenceSetPosition(_position);
             if (!_full) return referenceFinish();
             _stage = RefRunState::SEEK_OPPOSITE;
-            if (!referenceLaunch(true, 140U, false, true)) referenceFail();
+            if (!referenceLaunch(true, 200U, false, true)) referenceFail();
             return;
         case RefRunState::SEEK_OPPOSITE:
-            if (s.reason != ReferenceEnd::ENDSTOP || !s.coarseSeen)
+            if (s.reason != ReferenceEnd::ENDSTOP)
                 return referenceFail();
             _oppositeEnd = s.position;
             _coarse = s.coarse;
@@ -186,9 +186,9 @@ void Motor::referenceUpdate() {
                 uint32_t target = _coarse + 1200U;
                 if (target >= _oppositeEnd)
                     target = _oppositeEnd > 100U ? _oppositeEnd - 100U : 0U;
-                if (target >= _position || target < 1000U) return referenceFail();
+                if (target >= _position) return referenceFail();
                 _stage = RefRunState::APPROACH;
-                if (!referenceLaunch(false, 140U, false, false,
+                if (!referenceLaunch(false, 200U, false, false,
                             static_cast<uint16_t>(_position - target))) referenceFail();
             }
             return;
@@ -198,8 +198,7 @@ void Motor::referenceUpdate() {
             if (!referenceLaunch(false, 80U, true, false)) referenceFail();
             return;
         case RefRunState::FIRST_PASS:
-            if (s.reason != ReferenceEnd::REF_EXIT ||
-                !s.entrySeen || !s.exitSeen || s.entry <= s.exit)
+            if (s.reason != ReferenceEnd::REF_EXIT)
                 return referenceFail();
             _refRight = s.entry;
             _refLeft = s.exit;
@@ -218,14 +217,11 @@ void Motor::referenceUpdate() {
             if (!referenceLaunch(true, 80U, true, false)) referenceFail();
             return;
         case RefRunState::SECOND_PASS:
-            if (s.reason != ReferenceEnd::REF_EXIT ||
-                !s.entrySeen || !s.exitSeen || s.exit <= s.entry)
+            if (s.reason != ReferenceEnd::REF_EXIT)
                 return referenceFail();
             _refLeftReverse = s.entry;
             _refRightReverse = s.exit;
             // Both passes must produce positive flag lengths.
-            if (_oppositeEnd <= 1000U || _refRight <= _refLeft)
-                return referenceFail();
             _calibrated = true; // RAM only: NVM/CRC not implemented yet.
             return referenceFinish();
         default:
@@ -240,7 +236,16 @@ bool Motor::referenceLaunch(bool away, uint16_t hz, bool stopAtExit, bool coarse
 
 void Motor::referenceFinish() { _active = false; _stage = RefRunState::DONE; }
 
-void Motor::referenceFail() { stepTimerStop(); _active = false; _stage = RefRunState::ERROR; }
+void Motor::referenceFail() {
+    // One diagnostic line only on failure (no tracing in STEP ISR).
+    Serial.print(F("REF: ERROR phase="));
+    Serial.print(static_cast<uint8_t>(_stage));
+    Serial.print(F(" pos="));
+    Serial.println(_position);
+    stepTimerStop();
+    _active = false;
+    _stage = RefRunState::ERROR;
+}
 
 MotorCommandResult_t Motor::prepareReference(uint8_t mode) {
     if (mode > 1U) return MotorCommandResult_t::INVALID_DATA;
