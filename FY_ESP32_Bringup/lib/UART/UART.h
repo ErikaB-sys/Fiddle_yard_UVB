@@ -28,6 +28,8 @@ private:
     ResponseBuffer_t _response{};
     Error _errors;
     uint32_t _nextSequence = 0;
+    uint8_t _sensorSnapshot = 0U;
+    bool _sensorSnapshotValid = false;
     // Internal event correlation. Wire protocol itself has no sequence field.
     struct PendingCommand { uint32_t sequence = 0; uint8_t id = 0; bool active = false; };
     PendingCommand _pending[16]{};
@@ -39,6 +41,7 @@ private:
     void decodeExecute();
     void decodePriority();
     void collectMotorResponses();
+    void collectSensorSnapshot();
     bool queueMotorCommand(bool priority);
 
     void handleGetStatus();
