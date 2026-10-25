@@ -109,6 +109,8 @@ set_track 05          # Ziel BG5=7957
 - 12-V-Versorgung während Firmware-Upload eingeschaltet: beim beobachteten Versuch **kein Motorzucken**. Ältere Zuck-Beobachtungen werden dadurch nicht widerlegt; Boot-/Flash-Interlock weiter offen.
 - Bench-Grenze: keine echte REF, keine LS/Endlagenprüfung, keine unabhängige Messung der absoluten Mechanikposition, keine Hardware-Freigabe für gekoppelte Schiebebühne.
 
+**Verbindliche Richtungskonvention (HW_TEST/HW3): LINKS = Motorseite (LSL/G36, zuvor Nano D12); RECHTS = gegenüberliegende Seite (LSR/G39, zuvor Nano D9).** LSREF/G34 (Nano D11) ist die Referenzlichtschranke; LS4/G35 bleibt frei. Die HW3-Sensorprüfung vom 25.10.2026 ergab die erwarteten Rohbits `01`/`02`/`04`. Keine Verdrahtungsänderung erforderlich. Links/rechts bezieht sich auf die Mechanik, **nicht auf die Blickrichtung**.
+
 ### HW3-Sensor-Snapshot (im Code, Hardwaretest offen)
 
 `status 40` fragt Huginns zuletzt empfangenen Sensorstatus ab. Muninn sendet beim ersten Einlesen **einmal den vollständigen Rohzustand**, danach ausschließlich bei Änderung. Transport: **eigene Queue der Länge 1** mit `xQueueOverwrite()`, unabhängig von Motorantworten.
