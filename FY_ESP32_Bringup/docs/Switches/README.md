@@ -8,14 +8,16 @@ Physische REF-/Endlagen- und Riemensignale gehören Muninn. **Unmittelbarer Schu
 flowchart LR
   GPIO["Sensor-GPIO"] --> S["Switches (Muninn)"]
   S --> H["Direkte Stop-/Grenzreaktion"]
-  S -.-> Q["geplanter Snapshot an Huginn"]
+  S -.-> Q["Sensor-Snapshot an Huginn (aktiv, Queue Länge 1)"]
 ```
 
-**Ist:** Im aktuellen Git-Stand gibt es noch kein ausführbares ESP32-`lib/Switches/`-Modul; die alte MD-Arbeitsnotiz wurde archiviert. Die Sensor-Konstanten in [HW_Config.h](../../include/HW_Config.h) wurden am 22.10.2026 auf den [HW3-Pinplan](../pinouts/01_PINOUT_ESP32.md) umgestellt und Muninn/Kern 1 zugeordnet; **noch nicht als Sensorsystem implementiert oder abgenommen**. 2-Byte-Snapshot und 1-Slot-Mailbox sind Entwurf.
+**Ist, 25.10.2026:** Die Sensorik ist **funktionsfähig in den Muninn-Motorpfad integriert** (noch keine eigenständige `lib/Switches/`-Klasse nötig). Sensor-GPIOs G36/G39/G34 werden initialisiert und gelesen; Muninn publiziert beim Start und nach Pegelwechsel einen **1-Byte-Snapshot über eine Queue der Länge 1** an Huginn (`STATUS 40`). Die zeitkritische REF-/Endlagenauswertung erfolgt im StepTimer-/Motorpfad, ohne auf die UART-Diagnosequeue zu warten. **Lange und kurze reale Referenz am Prüfaufbau am 25.10. erfolgreich getestet.** Die frühere Aussage, Sensoren seien noch nicht implementiert, ist überholt. Zuletzt gemessener Ausgangszustand und Motorraumgrenzen sind getrennt von sicherheitskritischer Freigabe zu beurteilen.
 
 - [x] Soll-/Istgrenze beschrieben.
-- [ ] GPIO-/Pegel-/Sensorverdrahtung, Referenzfahrt und Endlagenlogik implementieren.
+- [x] GPIO-Einbindung G36/G39/G34, Sensor-Snapshot sowie reale lange/kurze Referenzfahrt am Prüfaufbau geprüft (25.10.).
+- [ ] Fehler-/Grenzfälle einschließlich defekter/fehlender Sensoren, Timeout, unerwarteter Endlage und STOP während Referenz gezielt nachweisen.
 - [ ] zeitkritische Motorabschaltung bei realen Fehlerfällen nachweisen.
-- [ ] Snapshot/Diagnose-Abbildung und MISRA-/Reviewstand prüfen.
+- [x] Sensor-Snapshot/Diagnoseweg im UART mit `STATUS 40` praktisch geprüft.
+- [ ] MISRA-/Reviewstand und Robustheit der Diagnosenachrichten unter Last prüfen.
 
 Offen: [VERIFICATION_GAPS.md](../VERIFICATION_GAPS.md). Historischer Entwurf: [archive/Switches.md](archive/Switches.md).
