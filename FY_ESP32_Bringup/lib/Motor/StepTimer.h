@@ -26,6 +26,25 @@ bool stepTimerStart(uint16_t steps, bool directionRight, uint16_t stepHz);
 // directly (IRAM-safe) without calling timerAlarmWrite inside the ISR.
 bool stepTimerStartProfile(uint16_t steps, bool directionRight,
                            const StepProfileSegment (&segments)[STEP_PROFILE_PHASES]);
+// Sensor-aware, fixed-speed movement used ONLY by the reference state machine.
+// Old Nano direction: awayMotor=true means increasing position (G39 side).
+enum class ReferenceEnd : uint8_t { NONE, ENDSTOP, REF_EXIT, STEP_LIMIT };
+struct ReferenceTimerSample {
+    uint32_t position = 0U;
+    uint32_t coarse = 0U;
+    uint32_t entry = 0U;
+    uint32_t exit = 0U;
+    ReferenceEnd reason = ReferenceEnd::NONE;
+    bool coarseSeen = false;
+    bool entrySeen = false;
+    bool exitSeen = false;
+};
+void stepTimerReferenceSetPosition(uint32_t position);
+bool stepTimerStartReference(bool awayMotor, uint16_t stepHz,
+                             bool stopOnRefExit, bool captureCoarse);
+bool stepTimerTakeReferenceDone(ReferenceTimerSample& sample);
+ReferenceTimerSample stepTimerReferenceSnapshot();
+
 void stepTimerStop();
 bool stepTimerRunning();
 uint32_t stepTimerCompletedSteps();
