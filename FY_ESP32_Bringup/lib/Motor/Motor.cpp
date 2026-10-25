@@ -397,6 +397,17 @@ void Muninn_initMotorMock() {
     delayMicroseconds(1500U); // A4988 tWAKE >= 1 ms, outside timer ISR.
 }
 
+namespace {
+// Raw active-HIGH input levels, as in Nano HW_TEST. LS4/G35 not connected:
+// reserve bit 3 and do not sample the floating pin.
+uint8_t readSensorLevels() {
+    return static_cast<uint8_t>(
+        ((digitalRead(LSL_PIN) == HIGH) ? 0x01U : 0U) |
+        ((digitalRead(LSR_PIN) == HIGH) ? 0x02U : 0U) |
+        ((digitalRead(LSREF_PIN) == HIGH) ? 0x04U : 0U));
+}
+} // anonymous namespace
+
 void Muninn_motorMockTask(void* arg) {
     auto* context = static_cast<BringupContext*>(arg);
     CommandMessage cmd{};
@@ -409,6 +420,15 @@ void Muninn_motorMockTask(void* arg) {
 #if FY_MOTOR_BENCH_TEST
     MoveMicrostep activeMicrostepMode = MoveMicrostep::QUARTER;
 #endif
+
+    // Sensor inputs belong exclusively to Muninn. External 10k pull-ups.
+    pinMode(LSL_PIN, INPUT);
+    pinMode(LSR_PIN, INPUT);
+    pinMode(LSREF_PIN, INPUT);
+    uint8_t lastSensorLevels = readSensorLevels();
+    uint8_t sensorChangeCount = 0U; // high nibble 0..E; F reserved
+    uint8_t sensorMessage = lastSensorLevels;
+    (void)xQueueOverwrite(context->sensorSnapshots, &sensorMessage); // initial snapshot
 
     // POR STOP stays latched; the driver is awake after init but disabled.
     // !SLEEP/!RESET (G32) stays HIGH throughout normal GO/STOP operation.
@@ -423,6 +443,16 @@ void Muninn_motorMockTask(void* arg) {
     motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
 
     for (;;) {
+        // Latest-value mailbox: never block STOP or motor event delivery.
+        const uint8_t sensorLevels = readSensorLevels();
+        if (sensorLevels != lastSensorLevels) {
+            lastSensorLevels = sensorLevels;
+            sensorChangeCount = (sensorChangeCount == 0x0EU)
+                ? 0U : static_cast<uint8_t>(sensorChangeCount + 1U);
+            sensorMessage = static_cast<uint8_t>(
+                (sensorChangeCount << 4U) | sensorLevels);
+            (void)xQueueOverwrite(context->sensorSnapshots, &sensorMessage);
+        }
         // STOP has its own mailbox and is always checked before normal jobs.
         if (xQueueReceive(context->priorityCommands, &cmd, 0) == pdTRUE) {
             const bool activate = cmd.data[0] == 0x55U && cmd.data[1] == 0xAAU;
