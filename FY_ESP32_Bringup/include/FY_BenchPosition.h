@@ -4,7 +4,7 @@
 namespace fy {
 
 // BENCH ONLY: coordinates copied from FY_HW_TEST/FY_HW_TEST/src/main.cpp,
-// trackPosition[] after physical measurement. Unit: HW_TEST quarter steps.
+// trackPosition[] after physical measurement. Unit: HW_TEST eighth steps.
 // A fake short reference has no sensor movement and sets coordinate 1000.
 // Never use the following values as proof of a real reference.
 constexpr uint16_t FY_BENCH_REFERENCE_POSITION = 1000U;
