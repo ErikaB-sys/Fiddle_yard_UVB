@@ -234,7 +234,7 @@ void Motor::referenceUpdate() {
     }
 
 bool Motor::referenceLaunch(bool away, uint16_t hz, bool stopAtExit, bool coarse,
-                uint16_t steps = UINT16_MAX) {
+                uint16_t steps) {
         return stepTimerStartReference(away, hz, stopAtExit, coarse, steps);
     }
 
