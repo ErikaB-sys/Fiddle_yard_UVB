@@ -1,5 +1,6 @@
 #include "Motor.h"
 #include "StepTimer.h"
+#include "ReferenceRun.h"
 #include "FY_BenchPosition.h"
 #include "HW_Config.h"
 #include "Error.h"
@@ -131,15 +132,20 @@ void Motor::onProfileError() {
     invalidateBenchPosition();
     _State = MotorState_t::ERROR;
 }
+void Motor::onReferenceStarted() {
+    _ReferenceValid = false;
+    invalidateBenchPosition();
+    _State = MotorState_t::REFRUN;
+}
+void Motor::onReferenceFinished(bool success) {
+    _ReferenceValid = success;
+    _State = success ? MotorState_t::IDLE : MotorState_t::ERROR;
+}
 MotorCommandResult_t Motor::prepareReference(uint8_t mode) {
     if (mode > 1U) return MotorCommandResult_t::INVALID_DATA;
     if (_StopActive || _State != MotorState_t::IDLE)
         return MotorCommandResult_t::STOP_ACTIVE;
-#if FY_MOTOR_BENCH_TEST
-    // Only short REF 00 is simulated. Long REF and all real REF remain off.
-    if (mode == 0U) return MotorCommandResult_t::ACCEPTED;
-#endif
-    return MotorCommandResult_t::STOP_ACTIVE;
+    return MotorCommandResult_t::ACCEPTED;
 }
 void Motor::invalidateBenchPosition() {
     _BenchReferenceValid = false;
@@ -279,12 +285,18 @@ std::atomic<uint8_t> motorStateSnapshot{static_cast<uint8_t>(MotorState_t::STOPP
 constexpr uint32_t kPositionUnknown = 0x00007FFFU;
 constexpr uint32_t kPositionBenchFlag = 0x00010000U;
 std::atomic<uint32_t> positionSnapshot{kPositionUnknown};
+std::atomic<uint32_t> realReferencePosition{kPositionUnknown};
 std::atomic<uint8_t> referenceStatusSnapshot{0U}; // 0 none, 1 real, 2 fake
 std::atomic<uint32_t> trackSnapshot{
     static_cast<uint32_t>(TRACK_STATUS_ERROR) << 16U
 }; // target, confirmed, status encoded atomically
 
 void publishPosition(const Motor& motor) {
+    if (motor.referenced()) {
+        positionSnapshot.store(realReferencePosition.load(std::memory_order_acquire),
+                               std::memory_order_release);
+        return;
+    }
 #if FY_MOTOR_BENCH_TEST
     const uint32_t position = motor.benchPositionValid()
         ? (kPositionBenchFlag | static_cast<uint32_t>(motor.benchPosition()))
@@ -412,6 +424,7 @@ void Muninn_motorMockTask(void* arg) {
     auto* context = static_cast<BringupContext*>(arg);
     CommandMessage cmd{};
     Motor motor{};
+    ReferenceRun reference{};
     bool ledState = false;
     // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
     bool stopActive = true; // Mirrors Motor state for the existing STOP path.
@@ -467,8 +480,10 @@ void Muninn_motorMockTask(void* arg) {
             // STOP and release both remain non-resuming, Nano semantics.
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
+            reference.cancel();
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
+            realReferencePosition.store(kPositionUnknown, std::memory_order_release);
             stopActive = activate;
             motor.onStop(activate);
             targetTrack = 0U;
@@ -488,6 +503,22 @@ void Muninn_motorMockTask(void* arg) {
             ledState = !ledState;
             setLed(ledState);
             continue;
+        }
+
+        // Physical Nano REF state machine: STOP above always wins.
+        if (reference.active()) {
+            reference.update();
+            if (!reference.active()) {
+                motor.onReferenceFinished(reference.successful());
+                motorMoving.store(false, std::memory_order_release);
+                realReferencePosition.store(
+                    reference.successful() ? reference.position() : kPositionUnknown,
+                    std::memory_order_release);
+                publishPosition(motor);
+                publishReference(motor);
+                motorStateSnapshot.store(static_cast<uint8_t>(motor.state()),
+                                         std::memory_order_release);
+            }
         }
 
         // A completed pulse train is a motor event, not a new UART ACK.
@@ -522,8 +553,10 @@ void Muninn_motorMockTask(void* arg) {
             // STOP latch is not affected.
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
+            reference.cancel();
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
+            realReferencePosition.store(kPositionUnknown, std::memory_order_release);
             motor.onStop(stopActive);
             targetTrack = 0U;
             confirmedTrack = 0U;
@@ -536,8 +569,9 @@ void Muninn_motorMockTask(void* arg) {
                    cmd.data[0] == 0xAAU && cmd.data[1] == 0x55U) {
             // GO AA 55: idempotent enable, without generating any STEP.
             // Never overwrite STEP while an already-accepted train is running.
-            if (stopActive) {
-                emit(context, cmd, false, nackData(NackReason::NOT_READY));
+            if (stopActive || reference.active()) {
+                emit(context, cmd, false, nackData(
+                    reference.active() ? NackReason::BUSY : NackReason::NOT_READY));
             } else {
                 if (!driverEnabled.load(std::memory_order_acquire)) {
                     // HW3 driver was awakened in Muninn_initMotorMock()
@@ -550,28 +584,40 @@ void Muninn_motorMockTask(void* arg) {
                 motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
                 emit(context, cmd, true, cmd.id);
             }
-#if FY_MOTOR_BENCH_TEST
         } else if (cmd.id == CMD_REFERENCE) {
-            // BENCH ONLY: explicit simulated short REFRUN without motor motion.
-            // REFERENCE 01 (long) stays NOT_READY, never fake real sensors.
+            // Real physical REF 00=short (requires calibration), 01=long.
             if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
-            } else if (stepTimerRunning() || motor.state() != MotorState_t::IDLE) {
+            } else if (stepTimerRunning() || reference.active() ||
+                       motor.state() != MotorState_t::IDLE) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
+            } else if (motor.prepareReference(cmd.data[0]) !=
+                       MotorCommandResult_t::ACCEPTED ||
+                       (cmd.data[0] == 0U && !reference.calibrated())) {
+                emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else {
-                const MotorCommandResult_t prep = motor.prepareReference(cmd.data[0]);
-                if (prep != MotorCommandResult_t::ACCEPTED) {
+                applyMicrostepMode(MoveMicrostep::QUARTER);
+#if FY_MOTOR_BENCH_TEST
+                activeMicrostepMode = MoveMicrostep::QUARTER;
+#endif
+                if (!reference.begin(cmd.data[0] == 1U)) {
                     emit(context, cmd, false, nackData(NackReason::NOT_READY));
                 } else {
-                    motor.resetBenchPosition(); // FAKE: coordinate 1000; no STEP.
+                    motor.onReferenceStarted();
                     targetTrack = 0U;
                     confirmedTrack = 0U;
+                    realReferencePosition.store(kPositionUnknown,
+                                                std::memory_order_release);
+                    motorMoving.store(true, std::memory_order_release);
                     publishPosition(motor);
                     publishReference(motor);
                     publishTrack(0U, 0U, TRACK_STATUS_ERROR);
+                    motorStateSnapshot.store(static_cast<uint8_t>(motor.state()),
+                                             std::memory_order_release);
                     emit(context, cmd, true, cmd.id);
                 }
             }
+#if FY_MOTOR_BENCH_TEST
         } else if (cmd.id == CMD_MOVE || cmd.id == CMD_SET_POSITION ||
                    cmd.id == CMD_SET_TRACK) {
             // BENCH ONLY. SET_TRACK uses physically measured HW_TEST positions,
@@ -672,7 +718,7 @@ void Muninn_motorMockTask(void* arg) {
             }
 #endif
         } else {
-            // Real REFERENCE and SET_TRACK require sensors/calibration.
+            // Real SET_TRACK still requires persisted calibration/teach-in.
             emit(context, cmd, false, nackData(NackReason::NOT_READY));
         }
 
