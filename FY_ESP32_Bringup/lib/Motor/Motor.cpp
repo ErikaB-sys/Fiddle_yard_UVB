@@ -307,7 +307,7 @@ MotorCommandResult_t Motor::prepareSetPosition(uint16_t target,
     if (steps != 0U &&
         !benchCanMove(_BenchPosition, steps, target > _BenchPosition))
         return MotorCommandResult_t::INVALID_DATA;
-    request.mode = MoveMicrostep::EIGHTH;
+    request.mode = FY_MOTOR_MICROSTEP_MODE;
     request.directionRight = target > _BenchPosition;
     request.steps = steps;
     if (steps > 0U &&
@@ -326,7 +326,7 @@ void Motor::onMotionAccepted(const MoveRequest& request) {
 #if FY_MOTOR_BENCH_TEST
     // Eighth-step positions are meaningful only while resolution stays 1/8.
     _MotionPositionTracked =
-        _BenchPositionValid && request.mode == MoveMicrostep::EIGHTH &&
+        _BenchPositionValid && request.mode == FY_MOTOR_MICROSTEP_MODE &&
         benchCanMove(_BenchPosition, request.steps, request.directionRight);
     _MotionStartPosition = _BenchPosition;
     _MotionStepCount = request.steps;
@@ -368,9 +368,12 @@ MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
                                         MoveRequest& request) {
     if (!decodeMovePayload(data, request))
         return MotorCommandResult_t::INVALID_DATA;
+    // Driver MS pins never change after initialization.
+    if (request.mode != FY_MOTOR_MICROSTEP_MODE)
+        return MotorCommandResult_t::INVALID_DATA;
     // Guard the virtual position against overflow/underflow.
 #if FY_MOTOR_BENCH_TEST
-    if (_BenchPositionValid && request.mode == MoveMicrostep::EIGHTH &&
+    if (_BenchPositionValid && request.mode == FY_MOTOR_MICROSTEP_MODE &&
         !benchCanMove(_BenchPosition, request.steps, request.directionRight))
         return MotorCommandResult_t::INVALID_DATA;
 #endif
@@ -497,11 +500,7 @@ void Muninn_initMotorMock() {
     pinMode(MOTOR_MS0_PIN, OUTPUT);
     pinMode(MOTOR_MS1_PIN, OUTPUT);
     pinMode(MOTOR_MS2_PIN, OUTPUT);
-#if FY_MOTOR_BENCH_TEST
-    applyMicrostepMode(MoveMicrostep::EIGHTH);
-#else
-    applyMicrostepMode(MoveMicrostep::SIXTEENTH);
-#endif
+    applyMicrostepMode(FY_MOTOR_MICROSTEP_MODE);
     // Timer is armed ONLY when a bounded motion test is accepted.
     (void)stepTimerBegin();
 #if FY_STATUS_LED_PIN >= 0
@@ -537,7 +536,6 @@ void Muninn_motorMockTask(void* arg) {
     uint8_t targetTrack = 0U; // 0 = unknown, only Muninn changes these.
     uint8_t confirmedTrack = 0U;
 #if FY_MOTOR_BENCH_TEST
-    MoveMicrostep activeMicrostepMode = MoveMicrostep::EIGHTH;
 #endif
 
     // Sensor inputs belong exclusively to Muninn. External 10k pull-ups.
@@ -805,10 +803,6 @@ void Muninn_motorMockTask(void* arg) {
                        (cmd.data[0] == 0U && !motor.referenceCalibrated())) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else {
-                applyMicrostepMode(MoveMicrostep::EIGHTH);
-#if FY_MOTOR_BENCH_TEST
-                activeMicrostepMode = MoveMicrostep::EIGHTH;
-#endif
                 if (!motor.referenceBegin(cmd.data[0] == 1U)) {
                     emit(context, cmd, false, nackData(NackReason::NOT_READY));
                 } else {
@@ -867,19 +861,7 @@ void Muninn_motorMockTask(void* arg) {
                     publishReference(motor);
                     emit(context, cmd, true, cmd.id);
                 } else {
-                    // Change microstepping only when the STEP timer is idle.
-                    if (request.mode != activeMicrostepMode) {
-                        applyMicrostepMode(request.mode);
-                        activeMicrostepMode = request.mode;
-                        // The measured table is only calibrated in 1/8.
-                        // Changing to another microstep mode must invalidate
-                        // the fake reference even if timer start fails later.
-                        if (request.mode != MoveMicrostep::EIGHTH) {
-                            motor.invalidateBenchPosition();
-                            publishPosition(motor);
-                            publishReference(motor);
-                        }
-                    }
+                    // MS pins are fixed at init; no runtime mode switching.
                     // Nano ACC1,ACC2,KONST,BRE1,BRE2,POSI prepared in
                     // Motor::calcProfile(). Timer alone owns the ISR copy.
                     StepProfileSegment stages[STEP_PROFILE_PHASES]{};
