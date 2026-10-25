@@ -55,6 +55,7 @@ void UART::begin(BringupContext* context) {
 }
 
 void UART::update() {
+    collectSensorSnapshot();
     collectMotorResponses();
     receive();
     collectMotorResponses();
@@ -227,6 +228,15 @@ bool UART::queueMotorCommand(bool priority) {
     return true;
 }
 
+void UART::collectSensorSnapshot() {
+    if (_context == nullptr || _context->sensorSnapshots == nullptr) return;
+    uint8_t next = 0U;
+    while (xQueueReceive(_context->sensorSnapshots, &next, 0) == pdTRUE) {
+        _sensorSnapshot = next;
+        _sensorSnapshotValid = true;
+    }
+}
+
 void UART::collectMotorResponses() {
     if (_context == nullptr || _context->events == nullptr) return;
     MotorEvent event{};
@@ -281,9 +291,13 @@ void UART::handleGetStatus() {
         break;
     }
     case STATUS_SELECTOR_SWITCHES: {
-        // Placeholder until Switches supplies real input snapshots.
-        const uint8_t data = 0U;
-        setResponse(STATUS_Switches, &data, 1U);
+        // Read only the Huginn-owned snapshot, never Muninn GPIOs.
+        collectSensorSnapshot();
+        if (!_sensorSnapshotValid) {
+            nack(FY_ERROR_LOCATION_UART, NackReason::NOT_READY);
+            break;
+        }
+        setResponse(STATUS_Switches, &_sensorSnapshot, 1U);
         break;
     }
     case STATUS_SELECTOR_KEYBOARD: {
