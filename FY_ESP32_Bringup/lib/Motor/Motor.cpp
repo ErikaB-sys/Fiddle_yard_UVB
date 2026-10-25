@@ -1,6 +1,5 @@
 #include "Motor.h"
 #include "StepTimer.h"
-#include "ReferenceRun.h"
 #include "FY_BenchPosition.h"
 #include "HW_Config.h"
 #include "Error.h"
@@ -141,6 +140,108 @@ void Motor::onReferenceFinished(bool success) {
     _ReferenceValid = success;
     _State = success ? MotorState_t::IDLE : MotorState_t::ERROR;
 }
+bool Motor::referenceBegin(bool full) {
+        if (_active || (!full && !_calibrated)) return false;
+        _full = full;
+        _stage = RefRunState::SEEK_MOTOR;
+        _active = true;
+        _position = 0U; // Before finding motor-side endstop, coordinate unknown.
+        stepTimerReferenceSetPosition(0U);
+        if (!referenceLaunch(false, 120U, false, false)) {
+            referenceFail();
+            return false;
+        }
+        return true;
+    }
+
+void Motor::referenceCancel() {
+        if (_active) stepTimerStop();
+        _active = false;
+        _stage = RefRunState::IDLE;
+        // Calibration (as distinct from current reference) survives STOP.
+    }
+
+void Motor::referenceUpdate() {
+        if (!_active) return;
+        ReferenceTimerSample s{};
+        if (!stepTimerTakeReferenceDone(s)) return;
+        _position = s.position;
+        switch (_stage) {
+        case RefRunState::SEEK_MOTOR:
+            if (s.reason != ReferenceEnd::ENDSTOP) return referenceFail();
+            // Nano short reference establishes this position at LSL.
+            _position = 1000U;
+            stepTimerReferenceSetPosition(_position);
+            if (!_full) return referenceFinish();
+            _stage = RefRunState::SEEK_OPPOSITE;
+            if (!referenceLaunch(true, 140U, false, true)) referenceFail();
+            return;
+        case RefRunState::SEEK_OPPOSITE:
+            if (s.reason != ReferenceEnd::ENDSTOP || !s.coarseSeen)
+                return referenceFail();
+            _oppositeEnd = s.position;
+            _coarse = s.coarse;
+            // Nano's coarse+1200 approach with right-end clearance.
+            {
+                uint32_t target = _coarse + 1200U;
+                if (target >= _oppositeEnd)
+                    target = _oppositeEnd > 100U ? _oppositeEnd - 100U : 0U;
+                if (target >= _position || target < 1000U) return referenceFail();
+                _stage = RefRunState::APPROACH;
+                if (!referenceLaunch(false, 140U, false, false,
+                            static_cast<uint16_t>(_position - target))) referenceFail();
+            }
+            return;
+        case RefRunState::APPROACH:
+            if (s.reason != ReferenceEnd::STEP_LIMIT) return referenceFail();
+            _stage = RefRunState::FIRST_PASS;
+            if (!referenceLaunch(false, 80U, true, false)) referenceFail();
+            return;
+        case RefRunState::FIRST_PASS:
+            if (s.reason != ReferenceEnd::REF_EXIT ||
+                !s.entrySeen || !s.exitSeen || s.entry <= s.exit)
+                return referenceFail();
+            _refRight = s.entry;
+            _refLeft = s.exit;
+            {
+                const uint32_t target = _refLeft > 500U ? _refLeft - 500U : 0U;
+                if (target >= _position || _position - target > UINT16_MAX)
+                    return referenceFail();
+                _stage = RefRunState::BACKOFF;
+                if (!referenceLaunch(false, 80U, false, false,
+                            static_cast<uint16_t>(_position - target))) referenceFail();
+            }
+            return;
+        case RefRunState::BACKOFF:
+            if (s.reason != ReferenceEnd::STEP_LIMIT) return referenceFail();
+            _stage = RefRunState::SECOND_PASS;
+            if (!referenceLaunch(true, 80U, true, false)) referenceFail();
+            return;
+        case RefRunState::SECOND_PASS:
+            if (s.reason != ReferenceEnd::REF_EXIT ||
+                !s.entrySeen || !s.exitSeen || s.exit <= s.entry)
+                return referenceFail();
+            _refLeftReverse = s.entry;
+            _refRightReverse = s.exit;
+            // Both passes must produce positive flag lengths.
+            if (_oppositeEnd <= 1000U || _refRight <= _refLeft)
+                return referenceFail();
+            _calibrated = true; // RAM only: NVM/CRC not implemented yet.
+            return referenceFinish();
+        default:
+            return referenceFail();
+        }
+    }
+
+bool Motor::referenceLaunch(bool away, uint16_t hz, bool stopAtExit, bool coarse,
+                uint16_t steps = UINT16_MAX) {
+        return stepTimerStartReference(away, hz, stopAtExit, coarse, steps);
+    }
+
+void Motor::referenceFinish() { _active = false; _stage = RefRunState::DONE; }
+
+void Motor::referenceFail() { stepTimerStop(); _active = false; _stage = RefRunState::ERROR; }
+
 MotorCommandResult_t Motor::prepareReference(uint8_t mode) {
     if (mode > 1U) return MotorCommandResult_t::INVALID_DATA;
     if (_StopActive || _State != MotorState_t::IDLE)
@@ -424,7 +525,6 @@ void Muninn_motorMockTask(void* arg) {
     auto* context = static_cast<BringupContext*>(arg);
     CommandMessage cmd{};
     Motor motor{};
-    ReferenceRun reference{};
     bool track3Automatic = false; // Nano: after every successful REF -> BG3
     bool ledState = false;
     // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
@@ -481,7 +581,7 @@ void Muninn_motorMockTask(void* arg) {
             // STOP and release both remain non-resuming, Nano semantics.
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
-            reference.cancel();
+            motor.referenceCancel();
             track3Automatic = false;
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
@@ -508,14 +608,14 @@ void Muninn_motorMockTask(void* arg) {
         }
 
         // Physical Nano REF state machine: STOP above always wins.
-        if (reference.active()) {
-            reference.update();
-            if (!reference.active()) {
-                const bool success = reference.successful();
+        if (motor.referenceActive()) {
+            motor.referenceUpdate();
+            if (!motor.referenceActive()) {
+                const bool success = motor.referenceSuccessful();
                 motor.onReferenceFinished(success);
                 motorMoving.store(false, std::memory_order_release);
                 realReferencePosition.store(
-                    success ? reference.position() : kPositionUnknown,
+                    success ? motor.referencePosition() : kPositionUnknown,
                     std::memory_order_release);
                 publishPosition(motor);
                 publishReference(motor);
@@ -526,8 +626,8 @@ void Muninn_motorMockTask(void* arg) {
                     // The same intended post-condition now applies after
                     // successful long calibration as well.
                     constexpr uint32_t kTrack3 = FY_BENCH_TRACK_POSITIONS[2];
-                    const uint32_t start = reference.position();
-                    const uint32_t rightEnd = reference.oppositeEnd();
+                    const uint32_t start = motor.referencePosition();
+                    const uint32_t rightEnd = motor.referenceOppositeEnd();
                     const uint32_t distance = start >= kTrack3
                         ? start - kTrack3 : kTrack3 - start;
                     if (rightEnd <= kTrack3 || kTrack3 <= 1000U ||
@@ -624,7 +724,7 @@ void Muninn_motorMockTask(void* arg) {
             }
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
         } else if (motorMoving.load(std::memory_order_acquire) &&
-                   !track3Automatic && !reference.active()) {
+                   !track3Automatic && !motor.referenceActive()) {
             // Position is a core-1 snapshot, never read straight from UART/ISR.
             motor.onMotionProgress(stepTimerCompletedSteps());
             publishPosition(motor);
@@ -642,7 +742,7 @@ void Muninn_motorMockTask(void* arg) {
             // STOP latch is not affected.
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
-            reference.cancel();
+            motor.referenceCancel();
             track3Automatic = false; // GO OFF aborts pending BG3 just like STOP.
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
@@ -659,9 +759,9 @@ void Muninn_motorMockTask(void* arg) {
                    cmd.data[0] == 0xAAU && cmd.data[1] == 0x55U) {
             // GO AA 55: idempotent enable, without generating any STEP.
             // Never overwrite STEP while an already-accepted train is running.
-            if (stopActive || reference.active()) {
+            if (stopActive || motor.referenceActive()) {
                 emit(context, cmd, false, nackData(
-                    reference.active() ? NackReason::BUSY : NackReason::NOT_READY));
+                    motor.referenceActive() ? NackReason::BUSY : NackReason::NOT_READY));
             } else {
                 if (!driverEnabled.load(std::memory_order_acquire)) {
                     // HW3 driver was awakened in Muninn_initMotorMock()
@@ -678,19 +778,19 @@ void Muninn_motorMockTask(void* arg) {
             // Real physical REF 00=short (requires calibration), 01=long.
             if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
-            } else if (stepTimerRunning() || reference.active() ||
+            } else if (stepTimerRunning() || motor.referenceActive() ||
                        motor.state() != MotorState_t::IDLE) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
             } else if (motor.prepareReference(cmd.data[0]) !=
                        MotorCommandResult_t::ACCEPTED ||
-                       (cmd.data[0] == 0U && !reference.calibrated())) {
+                       (cmd.data[0] == 0U && !motor.referenceCalibrated())) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else {
                 applyMicrostepMode(MoveMicrostep::QUARTER);
 #if FY_MOTOR_BENCH_TEST
                 activeMicrostepMode = MoveMicrostep::QUARTER;
 #endif
-                if (!reference.begin(cmd.data[0] == 1U)) {
+                if (!motor.referenceBegin(cmd.data[0] == 1U)) {
                     emit(context, cmd, false, nackData(NackReason::NOT_READY));
                 } else {
                     motor.onReferenceStarted();
@@ -717,7 +817,7 @@ void Muninn_motorMockTask(void* arg) {
                 // No untracked manual moves after real REF. Real absolute
                 // motion needs its own bounded calibrated implementation.
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
-            } else if (stepTimerRunning() || reference.active() ||
+            } else if (stepTimerRunning() || motor.referenceActive() ||
                        motor.state() != MotorState_t::IDLE) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
             } else {
