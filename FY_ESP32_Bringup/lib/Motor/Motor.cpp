@@ -425,6 +425,7 @@ void Muninn_motorMockTask(void* arg) {
     CommandMessage cmd{};
     Motor motor{};
     ReferenceRun reference{};
+    bool track3Automatic = false; // Nano: after every successful REF -> BG3
     bool ledState = false;
     // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
     bool stopActive = true; // Mirrors Motor state for the existing STOP path.
@@ -481,6 +482,7 @@ void Muninn_motorMockTask(void* arg) {
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
             reference.cancel();
+            track3Automatic = false;
             stepTimerStop();
             motorMoving.store(false, std::memory_order_release);
             realReferencePosition.store(kPositionUnknown, std::memory_order_release);
@@ -509,15 +511,101 @@ void Muninn_motorMockTask(void* arg) {
         if (reference.active()) {
             reference.update();
             if (!reference.active()) {
-                motor.onReferenceFinished(reference.successful());
+                const bool success = reference.successful();
+                motor.onReferenceFinished(success);
                 motorMoving.store(false, std::memory_order_release);
                 realReferencePosition.store(
-                    reference.successful() ? reference.position() : kPositionUnknown,
+                    success ? reference.position() : kPositionUnknown,
                     std::memory_order_release);
                 publishPosition(motor);
                 publishReference(motor);
                 motorStateSnapshot.store(static_cast<uint8_t>(motor.state()),
                                          std::memory_order_release);
+                if (success) {
+                    // Nano HW_TEST always selected BG3 after short REF.
+                    // The same intended post-condition now applies after
+                    // successful long calibration as well.
+                    constexpr uint32_t kTrack3 = FY_BENCH_TRACK_POSITIONS[2];
+                    const uint32_t start = reference.position();
+                    const uint32_t rightEnd = reference.oppositeEnd();
+                    const uint32_t distance = start >= kTrack3
+                        ? start - kTrack3 : kTrack3 - start;
+                    if (rightEnd <= kTrack3 || kTrack3 <= 1000U ||
+                        distance > UINT16_MAX) {
+                        motor.onProfileError();
+                    } else if (distance == 0U) {
+                        targetTrack = 3U;
+                        confirmedTrack = 3U;
+                        publishTrack(3U, 3U, TRACK_STATUS_REACHED);
+                    } else if (motor.calcProfile(static_cast<uint16_t>(distance)) &&
+                               motor.isProfileValid(static_cast<uint16_t>(distance))) {
+                        StepProfileSegment stages[STEP_PROFILE_PHASES]{};
+                        const auto& p = motor.profileParams();
+                        const uint16_t intervals[STEP_PROFILE_PHASES]{
+                            p.Acc1RampInterval, p.Acc2RampInterval, 1U,
+                            p.Bre1RampInterval, p.Bre2RampInterval, 1U
+                        };
+                        for (uint8_t i = 0U; i < STEP_PROFILE_PHASES; ++i) {
+                            stages[i].steps = motor.profile()[i].Steps;
+                            stages[i].accel = motor.profile()[i].Accel;
+                            stages[i].rampEvery = intervals[i];
+                        }
+                        if (stepTimerStartReferenceProfile(
+                                static_cast<uint16_t>(distance),
+                                kTrack3 > start, stages)) {
+                            track3Automatic = true;
+                            targetTrack = 3U;
+                            confirmedTrack = 0U;
+                            motorMoving.store(true, std::memory_order_release);
+                            motor.onMoveStarted();
+                            publishTrack(3U, 0U, TRACK_STATUS_MOVING);
+                        } else {
+                            motor.onProfileError();
+                        }
+                    } else {
+                        motor.onProfileError();
+                    }
+                    if (motor.state() == MotorState_t::ERROR) {
+                        realReferencePosition.store(kPositionUnknown,
+                                                    std::memory_order_release);
+                        motorMoving.store(false, std::memory_order_release);
+                        publishTrack(0U, 0U, TRACK_STATUS_ERROR);
+                        publishPosition(motor);
+                        publishReference(motor);
+                    }
+                    motorStateSnapshot.store(static_cast<uint8_t>(motor.state()),
+                                             std::memory_order_release);
+                }
+            }
+        }
+        if (track3Automatic) {
+            ReferenceTimerSample atTrack{};
+            if (stepTimerTakeReferenceDone(atTrack)) {
+                track3Automatic = false;
+                motorMoving.store(false, std::memory_order_release);
+                if (atTrack.reason == ReferenceEnd::STEP_LIMIT &&
+                    atTrack.position == FY_BENCH_TRACK_POSITIONS[2]) {
+                    realReferencePosition.store(atTrack.position,
+                                                std::memory_order_release);
+                    motor.onMoveFinished();
+                    confirmedTrack = 3U;
+                    publishTrack(3U, 3U, TRACK_STATUS_REACHED);
+                } else {
+                    motor.onProfileError();
+                    realReferencePosition.store(kPositionUnknown,
+                                                std::memory_order_release);
+                    targetTrack = 0U;
+                    confirmedTrack = 0U;
+                    publishTrack(0U, 0U, TRACK_STATUS_ERROR);
+                }
+                publishPosition(motor);
+                publishReference(motor);
+                motorStateSnapshot.store(static_cast<uint8_t>(motor.state()),
+                                         std::memory_order_release);
+            } else {
+                realReferencePosition.store(stepTimerReferenceSnapshot().position,
+                                            std::memory_order_release);
+                publishPosition(motor);
             }
         }
 
@@ -535,7 +623,8 @@ void Muninn_motorMockTask(void* arg) {
                 publishTrack(targetTrack, confirmedTrack, TRACK_STATUS_REACHED);
             }
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
-        } else if (motorMoving.load(std::memory_order_acquire)) {
+        } else if (motorMoving.load(std::memory_order_acquire) &&
+                   !track3Automatic && !reference.active()) {
             // Position is a core-1 snapshot, never read straight from UART/ISR.
             motor.onMotionProgress(stepTimerCompletedSteps());
             publishPosition(motor);
@@ -622,10 +711,13 @@ void Muninn_motorMockTask(void* arg) {
                    cmd.id == CMD_SET_TRACK) {
             // BENCH ONLY. SET_TRACK uses physically measured HW_TEST positions,
             // but the reference is synthetic and MUST remain visibly fake.
-            if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
+            if (stopActive || !driverEnabled.load(std::memory_order_acquire) ||
+                motor.referenced()) {
+                // No untracked manual moves after real REF. Real absolute
+                // motion needs its own bounded calibrated implementation.
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
-            } else if (stepTimerRunning() ||
-                       motor.state() == MotorState_t::MOVING) {
+            } else if (stepTimerRunning() || reference.active() ||
+                       motor.state() != MotorState_t::IDLE) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
             } else {
                 MoveRequest request{};
