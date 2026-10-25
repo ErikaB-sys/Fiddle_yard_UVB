@@ -48,6 +48,8 @@ public:
     void onMoveStarted();
     void onMoveFinished();
     void onProfileError();
+    void onReferenceStarted();
+    void onReferenceFinished(bool success);
     MotorCommandResult_t prepareReference(uint8_t mode);
     // Synthetic short REF (without motion) is BENCH ONLY, never sets _ReferenceValid.
     void resetBenchPosition();  // Called exclusively after accepted fake REFERENCE 00.
