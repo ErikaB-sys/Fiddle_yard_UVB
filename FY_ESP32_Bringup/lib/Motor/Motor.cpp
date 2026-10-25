@@ -307,7 +307,7 @@ MotorCommandResult_t Motor::prepareSetPosition(uint16_t target,
     if (steps != 0U &&
         !benchCanMove(_BenchPosition, steps, target > _BenchPosition))
         return MotorCommandResult_t::INVALID_DATA;
-    request.mode = MoveMicrostep::QUARTER;
+    request.mode = MoveMicrostep::EIGHTH;
     request.directionRight = target > _BenchPosition;
     request.steps = steps;
     if (steps > 0U &&
@@ -324,9 +324,9 @@ MotorCommandResult_t Motor::prepareSetPosition(uint16_t target,
 
 void Motor::onMotionAccepted(const MoveRequest& request) {
 #if FY_MOTOR_BENCH_TEST
-    // Quarter-step positions are meaningful only while resolution stays 1/4.
+    // Eighth-step positions are meaningful only while resolution stays 1/8.
     _MotionPositionTracked =
-        _BenchPositionValid && request.mode == MoveMicrostep::QUARTER &&
+        _BenchPositionValid && request.mode == MoveMicrostep::EIGHTH &&
         benchCanMove(_BenchPosition, request.steps, request.directionRight);
     _MotionStartPosition = _BenchPosition;
     _MotionStepCount = request.steps;
@@ -370,7 +370,7 @@ MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
         return MotorCommandResult_t::INVALID_DATA;
     // Guard the virtual position against overflow/underflow.
 #if FY_MOTOR_BENCH_TEST
-    if (_BenchPositionValid && request.mode == MoveMicrostep::QUARTER &&
+    if (_BenchPositionValid && request.mode == MoveMicrostep::EIGHTH &&
         !benchCanMove(_BenchPosition, request.steps, request.directionRight))
         return MotorCommandResult_t::INVALID_DATA;
 #endif
@@ -498,7 +498,7 @@ void Muninn_initMotorMock() {
     pinMode(MOTOR_MS1_PIN, OUTPUT);
     pinMode(MOTOR_MS2_PIN, OUTPUT);
 #if FY_MOTOR_BENCH_TEST
-    applyMicrostepMode(MoveMicrostep::QUARTER);
+    applyMicrostepMode(MoveMicrostep::EIGHTH);
 #else
     applyMicrostepMode(MoveMicrostep::SIXTEENTH);
 #endif
@@ -537,7 +537,7 @@ void Muninn_motorMockTask(void* arg) {
     uint8_t targetTrack = 0U; // 0 = unknown, only Muninn changes these.
     uint8_t confirmedTrack = 0U;
 #if FY_MOTOR_BENCH_TEST
-    MoveMicrostep activeMicrostepMode = MoveMicrostep::QUARTER;
+    MoveMicrostep activeMicrostepMode = MoveMicrostep::EIGHTH;
 #endif
 
     // Sensor inputs belong exclusively to Muninn. External 10k pull-ups.
@@ -805,9 +805,9 @@ void Muninn_motorMockTask(void* arg) {
                        (cmd.data[0] == 0U && !motor.referenceCalibrated())) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else {
-                applyMicrostepMode(MoveMicrostep::QUARTER);
+                applyMicrostepMode(MoveMicrostep::EIGHTH);
 #if FY_MOTOR_BENCH_TEST
-                activeMicrostepMode = MoveMicrostep::QUARTER;
+                activeMicrostepMode = MoveMicrostep::EIGHTH;
 #endif
                 if (!motor.referenceBegin(cmd.data[0] == 1U)) {
                     emit(context, cmd, false, nackData(NackReason::NOT_READY));
@@ -871,10 +871,10 @@ void Muninn_motorMockTask(void* arg) {
                     if (request.mode != activeMicrostepMode) {
                         applyMicrostepMode(request.mode);
                         activeMicrostepMode = request.mode;
-                        // The measured table is only calibrated in 1/4.
+                        // The measured table is only calibrated in 1/8.
                         // Changing to another microstep mode must invalidate
                         // the fake reference even if timer start fails later.
-                        if (request.mode != MoveMicrostep::QUARTER) {
+                        if (request.mode != MoveMicrostep::EIGHTH) {
                             motor.invalidateBenchPosition();
                             publishPosition(motor);
                             publishReference(motor);
