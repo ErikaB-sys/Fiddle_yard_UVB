@@ -6,7 +6,7 @@ Die Haupttabelle entspricht den neuen Pin-Konstanten in [HW_Config.h](../../incl
 
 **Software-Zuständigkeit:** Muninn / Kern 1 besitzt Motor, SLEEP, Sensoren und die bisherige Diagnose-LED. Huginn / Kern 0 besitzt I²C-Bedienung, SPI-Anzeige/Licht und UART-Kommunikation. Die Zuordnung beschreibt den Software-Owner; GPIOs sind nicht elektrisch an einen Kern gebunden. `CORE_MUNINN=1` und `CORE_HUGINN=0` sowie das Task-Pinning bleiben erhalten.
 
-**Verbindliche Orientierung (HW_TEST → HW3, physisch geprüft 25.10.2026):** **LINKS ist die Motorseite**, **RECHTS die vom Motor abgewandte Seite**. Nicht aus der Blickrichtung des Bedieners ableiten. Nano **D12 / LSL → ESP32 G36 (VP)** = Endschalter **an der Motorseite**; Nano **D9 / LSR → ESP32 G39 (VN)** = Endschalter **gegenüber**; Nano **D11 / LSREF → ESP32 G34** = Referenzlichtschranke. G35/LS4 ist reserviert und noch nicht angeschlossen. Beim HW3-Test ergaben die Rohbits 0x01 (Motorseite/LSL), 0x02 (gegenüber/LSR), 0x04 (LSREF). **Keine Leitungen tauschen.**
+**Verbindliche neue Blickrichtung (25.10.2026): Vom Einfahrtsgleis aus betrachtet ist RECHTS die Motorseite, LINKS die vom Motor abgewandte Seite.** Physische Belegung bleibt **unverändert**: Nano D12 → ESP32 G36 (VP) = **Motorseite / neu rechts**; Nano D9 → ESP32 G39 (VN) = **Gegenseite / neu links**; Nano D11 → ESP32 G34 = Referenzsensor; G35 bleibt frei. Die alten Quellcode-Namen `LSL` (G36) und `LSR` (G39) stammen aus der **alten Nano-Richtungskonvention** und bezeichnen bis zur konsistenten Code-Umbenennung die jeweils **andere** physische Seite. STATUS 40: Bit 0 = G36/Motorseite/rechts, Bit 1 = G39/Gegenseite/links, Bit 2 = G34/REF. Keine Kabel tauschen. `MOVE 21` fährt laut HW3-Test von der Motorseite **weg** = aus Einfahrtsblick **nach links**. **Motorlogik/ISR derzeit noch alte Software-Richtungsnamen – vor realem Endlagenschutz konsistent umbenennen/pruefen.**
 
 ## Anforderungen und Quellen
 
@@ -34,8 +34,8 @@ GPIO-Zahlen sind **GPIO-Nummern, keine Steckerpositionsnummern**. Die beiden rei
 | Motor | 🔴 A4988 !SLEEP / SLP, mit !RESET verbunden | **G32** | Ausgang | **10 kΩ Pull-down nach GND**; rote LED bei HIGH an (Anode an G32); Resetpegel noch nachzuweisen |
 | Sensor | Lichtschranke REF / LSREF | **G34** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G32 |
 | Sensor | Lichtschranke 2 / Riemen / LS4 | **G35** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G33 |
-| Sensor | Endschalter links / LSL | **G36 / SENSOR_VP** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G16 |
-| Sensor | Endschalter rechts / LSR | **G39 / SENSOR_VN** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G17 |
+| Sensor | Endschalter Motorseite / neu RECHTS (Code noch `LSL`) | **G36 / SENSOR_VP** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G16 |
+| Sensor | Endschalter Gegenseite / neu LINKS (Code noch `LSR`) | **G39 / SENSOR_VN** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G17 |
 | I²C | SDA – PCF8574 und OLED | G21 | bidirektional | **4,7 kΩ Pull-up nach 3,3 V am Bus**; G21, unverändert |
 | I²C | SCL – PCF8574 und OLED | G22 | Open-Drain-Bus | **4,7 kΩ Pull-up nach 3,3 V am Bus**; G22, unverändert |
 | SPI | SCLK – gemeinsam | G18 | Ausgang | Konstante reserviert; SPI-Ansteuerung offen |
@@ -62,8 +62,8 @@ GPIO-Zahlen sind **GPIO-Nummern, keine Steckerpositionsnummern**. Die beiden rei
 | A4988 !SLEEP + !RESET / G32 | **SLP und RST miteinander verbinden; gemeinsamer 10 kΩ Pull-down an GND** | LOW: Treiber schläft und bleibt im Reset |
 | Lichtschranke REF / G34 | **10 kΩ Pull-up an 3,3 V** | HIGH |
 | Lichtschranke 2 / G35 | **10 kΩ Pull-up an 3,3 V** | HIGH |
-| Endschalter links / G36 | **10 kΩ Pull-up an 3,3 V** | HIGH |
-| Endschalter rechts / G39 | **10 kΩ Pull-up an 3,3 V** | HIGH |
+| Endschalter Motorseite/rechts / G36 | **10 kΩ Pull-up an 3,3 V** | HIGH |
+| Endschalter Gegenseite/links / G39 | **10 kΩ Pull-up an 3,3 V** | HIGH |
 | I²C SDA / G21 | **4,7 kΩ Pull-up an 3,3 V, einmal je Bus** | HIGH |
 | I²C SCL / G22 | **4,7 kΩ Pull-up an 3,3 V, einmal je Bus** | HIGH |
 | SPI !CS_DISPLAY / G16 | **10 kΩ Pull-up an 3,3 V** | HIGH: Display abgewählt |
