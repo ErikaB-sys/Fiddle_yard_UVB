@@ -31,8 +31,8 @@ flowchart LR
 
 - [x] Ziel-/Iststand und Datenweg dokumentiert.
 - [x] Binäre ACK/NACK-/Statusantworten laut [HW2-Tests](../UART_PORT_STEP2.md) und [Spickzettel](../../src/UART_Command_Spickzettel.md) beobachtet.
-- [ ] Nano-Kommandoparität einschließlich MOVE/LEFT/RIGHT prüfen.
+- [x] Nano-Kommandoparität einschließlich MOVE/LEFT/RIGHT prüfen.
 - [ ] Busy/Queue-voll, STOP-Latenz und Antwortkorrelation unter Last testen.
-- [ ] MISRA-Lauf erfassen, Dokumentationsreview durchführen.
+- [/] MISRA-Lauf erfassen, Dokumentationsreview durchführen.
 
 Offene Abweichungen: [VERIFICATION_GAPS.md](../VERIFICATION_GAPS.md).
