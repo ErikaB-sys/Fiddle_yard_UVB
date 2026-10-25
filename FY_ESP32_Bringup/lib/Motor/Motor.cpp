@@ -299,13 +299,8 @@ MotorCommandResult_t Motor::prepareSetTrack(uint8_t track, MoveRequest& request)
             return MotorCommandResult_t::INVALID_DATA;
         return MotorCommandResult_t::ACCEPTED;
     }
-#if FY_MOTOR_BENCH_TEST
-    if (!benchReferenceValid())
-        return MotorCommandResult_t::STOP_ACTIVE;
-    return prepareSetPosition(destination, request);
-#else
+    // Fake reference must never enable SET_TRACK.
     return MotorCommandResult_t::STOP_ACTIVE;
-#endif
 }
 
 MotorCommandResult_t Motor::prepareSetPosition(uint16_t target,
