@@ -174,7 +174,7 @@ void Motor::referenceUpdate() {
             stepTimerReferenceSetPosition(_position);
             if (!_full) return referenceFinish();
             _stage = RefRunState::SEEK_OPPOSITE;
-            if (!referenceLaunch(true, 200U, false, true)) referenceFail();
+            if (!referenceLaunch(true, 300U, false, true)) referenceFail();
             return;
         case RefRunState::SEEK_OPPOSITE:
             if (s.reason != ReferenceEnd::ENDSTOP)
