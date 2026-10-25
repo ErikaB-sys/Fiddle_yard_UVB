@@ -363,6 +363,28 @@ bool Motor::isProfileValid(uint16_t distance) const {
     return sum == distance;
 }
 
+// Pure payload validation. Command length and CRC are checked by Huginn.
+inline bool decodeMovePayload(const uint8_t* data, MoveRequest& result) {
+    if (data == nullptr) return false;
+    const uint8_t flags = data[0];
+    const uint8_t mode = static_cast<uint8_t>(flags >> 4U);
+    if ((flags & 0x0EU) != 0U ||
+        mode > static_cast<uint8_t>(MoveMicrostep::SIXTEENTH))
+        return false;
+
+    const uint16_t steps = static_cast<uint16_t>(
+        static_cast<uint16_t>(data[1]) |
+        (static_cast<uint16_t>(data[2]) << 8U));
+    if (steps == 0U || steps > FY_MOVE_MAX_UNREFERENCED_STEPS)
+        return false;
+
+    result.directionRight = (flags & 0x01U) != 0U;
+    result.mode = static_cast<MoveMicrostep>(mode);
+    result.steps = steps;
+    return true;
+}
+
+
 // Parameter validation is kept in Motor (prepare path), not in the ISR.
 MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
                                         MoveRequest& request) {
