@@ -275,17 +275,35 @@ void Motor::resetBenchPosition() {
 }
 
 MotorCommandResult_t Motor::prepareSetTrack(uint8_t track, MoveRequest& request) {
-#if FY_MOTOR_BENCH_TEST
-    uint16_t target = 0U;
-    if (!benchTrackPosition(track, target))
+    uint16_t destination = 0U;
+    if (!benchTrackPosition(track, destination))
         return MotorCommandResult_t::INVALID_DATA;
+    if (_StopActive || _State != MotorState_t::IDLE)
+        return MotorCommandResult_t::STOP_ACTIVE;
+    if (_ReferenceValid) {
+        // Real REF replaces synthetic benchReferenceValid() as source of truth.
+        // The ISR owns the current absolute coordinate during profiled moves.
+        const uint32_t current = stepTimerReferenceSnapshot().position;
+        if (current <= 1000U || current >= _oppositeEnd ||
+            destination <= 1000U || destination >= _oppositeEnd)
+            return MotorCommandResult_t::STOP_ACTIVE;
+        const uint32_t distance = current >= destination
+            ? current - destination : destination - current;
+        if (distance > UINT16_MAX)
+            return MotorCommandResult_t::INVALID_DATA;
+        request.mode = FY_MOTOR_MICROSTEP_MODE;
+        request.directionRight = destination > current;
+        request.steps = static_cast<uint16_t>(distance);
+        if (request.steps > 0U &&
+            (!calcProfile(request.steps) || !isProfileValid(request.steps)))
+            return MotorCommandResult_t::INVALID_DATA;
+        return MotorCommandResult_t::ACCEPTED;
+    }
+#if FY_MOTOR_BENCH_TEST
     if (!benchReferenceValid())
         return MotorCommandResult_t::STOP_ACTIVE;
-    // Reuse existing position prepare / six-phase profile executor.
-    return prepareSetPosition(target, request);
+    return prepareSetPosition(destination, request);
 #else
-    (void)track;
-    (void)request;
     return MotorCommandResult_t::STOP_ACTIVE;
 #endif
 }
@@ -843,100 +861,39 @@ void Muninn_motorMockTask(void* arg) {
                     emit(context, cmd, true, cmd.id);
                 }
             }
-        } else if (cmd.id == CMD_SET_TRACK && motor.referenced()) {
-            // Real position moves reuse the already HW-tested REF->BG3
-            // profile path, including STEP position and endstop sampling.
-            const uint8_t track = cmd.data[0];
-            if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
+        } else if (cmd.id == CMD_SET_TRACK
+#if FY_MOTOR_BENCH_TEST
+                   || cmd.id == CMD_MOVE || cmd.id == CMD_SET_POSITION
+#endif
+                   ) {
+            const bool realTrack = cmd.id == CMD_SET_TRACK && motor.referenced();
+            if (stopActive || !driverEnabled.load(std::memory_order_acquire) ||
+                (motor.referenced() && !realTrack)) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else if (stepTimerRunning() || realTrackProfileActive ||
                        motor.referenceActive() ||
                        motor.state() != MotorState_t::IDLE) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
-            } else if (track < 1U || track > FY_BENCH_TRACK_COUNT) {
-                emit(context, cmd, false, nackData(NackReason::INVALID_PARAMETER));
-            } else {
-                const uint32_t destination = FY_BENCH_TRACK_POSITIONS[track - 1U];
-                const uint32_t current = realReferencePosition.load(
-                    std::memory_order_acquire);
-                const uint32_t end = motor.referenceOppositeEnd();
-                if (current == kPositionUnknown || current <= 1000U ||
-                    current >= end || destination <= 1000U ||
-                    destination >= end) {
-                    emit(context, cmd, false, nackData(NackReason::NOT_READY));
-                } else {
-                    const uint32_t distance = destination > current
-                        ? destination - current : current - destination;
-                    if (distance == 0U) {
-                        targetTrack = track;
-                        confirmedTrack = track;
-                        publishTrack(track, track, TRACK_STATUS_REACHED);
-                        emit(context, cmd, true, cmd.id);
-                    } else if (distance > UINT16_MAX ||
-                               !motor.calcProfile(static_cast<uint16_t>(distance)) ||
-                               !motor.isProfileValid(static_cast<uint16_t>(distance))) {
-                        emit(context, cmd, false, nackData(NackReason::INVALID_PARAMETER));
-                    } else {
-                        StepProfileSegment stages[STEP_PROFILE_PHASES]{};
-                        const auto& p = motor.profileParams();
-                        const uint16_t intervals[STEP_PROFILE_PHASES]{
-                            p.Acc1RampInterval, p.Acc2RampInterval, 1U,
-                            p.Bre1RampInterval, p.Bre2RampInterval, 1U
-                        };
-                        for (uint8_t i = 0U; i < STEP_PROFILE_PHASES; ++i) {
-                            stages[i].steps = motor.profile()[i].Steps;
-                            stages[i].accel = motor.profile()[i].Accel;
-                            stages[i].rampEvery = intervals[i];
-                        }
-                        stepTimerReferenceSetPosition(current);
-                        if (!stepTimerStartReferenceProfile(
-                                static_cast<uint16_t>(distance),
-                                destination > current, stages)) {
-                            emit(context, cmd, false, nackData(NackReason::NOT_READY));
-                        } else {
-                            realTrackProfileActive = true;
-                            targetTrack = track;
-                            confirmedTrack = 0U;
-                            motorMoving.store(true, std::memory_order_release);
-                            motor.onMoveStarted();
-                            publishTrack(track, 0U, TRACK_STATUS_MOVING);
-                            motorStateSnapshot.store(
-                                static_cast<uint8_t>(motor.state()),
-                                std::memory_order_release);
-                            emit(context, cmd, true, cmd.id);
-                        }
-                    }
-                }
-            }
-#if FY_MOTOR_BENCH_TEST
-        } else if (cmd.id == CMD_MOVE || cmd.id == CMD_SET_POSITION ||
-                   cmd.id == CMD_SET_TRACK) {
-            // BENCH ONLY. SET_TRACK uses physically measured HW_TEST positions,
-            // but the reference is synthetic and MUST remain visibly fake.
-            if (stopActive || !driverEnabled.load(std::memory_order_acquire) ||
-                motor.referenced()) {
-                // No untracked manual moves after real REF. Real absolute
-                // motion needs its own bounded calibrated implementation.
-                emit(context, cmd, false, nackData(NackReason::NOT_READY));
-            } else if (stepTimerRunning() || motor.referenceActive() ||
-                       motor.state() != MotorState_t::IDLE) {
-                emit(context, cmd, false, nackData(NackReason::BUSY));
             } else {
                 MoveRequest request{};
-                const MotorCommandResult_t prep =
-                    (cmd.id == CMD_MOVE) ? motor.prepareMove(cmd.data, request) :
-                    (cmd.id == CMD_SET_TRACK) ? motor.prepareSetTrack(cmd.data[0], request) :
-                    motor.prepareSetPosition(
+                MotorCommandResult_t prep = MotorCommandResult_t::STOP_ACTIVE;
+                if (cmd.id == CMD_SET_TRACK) {
+                    prep = motor.prepareSetTrack(cmd.data[0], request);
+#if FY_MOTOR_BENCH_TEST
+                } else if (cmd.id == CMD_MOVE) {
+                    prep = motor.prepareMove(cmd.data, request);
+                } else if (cmd.id == CMD_SET_POSITION) {
+                    prep = motor.prepareSetPosition(
                         static_cast<uint16_t>(cmd.data[0]) |
                         (static_cast<uint16_t>(cmd.data[1]) << 8U), request);
-
+#endif
+                }
                 if (prep != MotorCommandResult_t::ACCEPTED) {
                     emit(context, cmd, false, nackData(
                         prep == MotorCommandResult_t::INVALID_DATA
                         ? NackReason::INVALID_PARAMETER
                         : NackReason::NOT_READY));
                 } else if (request.steps == 0U) {
-                    // Already at the requested position. No STEP pulses.
                     if (cmd.id == CMD_SET_TRACK) {
                         targetTrack = cmd.data[0];
                         confirmedTrack = targetTrack;
@@ -949,39 +906,34 @@ void Muninn_motorMockTask(void* arg) {
                     publishReference(motor);
                     emit(context, cmd, true, cmd.id);
                 } else {
-                    // MS pins are fixed at init; no runtime mode switching.
-                    // Nano ACC1,ACC2,KONST,BRE1,BRE2,POSI prepared in
-                    // Motor::calcProfile(). Timer alone owns the ISR copy.
+                    // Common Nano profile preparation for real and bench moves.
                     StepProfileSegment stages[STEP_PROFILE_PHASES]{};
-                    const auto& parameters = motor.profileParams();
+                    const auto& p = motor.profileParams();
                     const uint16_t rampEvery[STEP_PROFILE_PHASES]{
-                        parameters.Acc1RampInterval,
-                        parameters.Acc2RampInterval,
-                        1U,
-                        parameters.Bre1RampInterval,
-                        parameters.Bre2RampInterval,
-                        1U
+                        p.Acc1RampInterval, p.Acc2RampInterval, 1U,
+                        p.Bre1RampInterval, p.Bre2RampInterval, 1U
                     };
                     for (uint8_t i = 0U; i < STEP_PROFILE_PHASES; ++i) {
                         stages[i].steps = motor.profile()[i].Steps;
                         stages[i].accel = motor.profile()[i].Accel;
                         stages[i].rampEvery = rampEvery[i];
                     }
-                    if (!stepTimerStartProfile(request.steps,
-                                               request.directionRight,
-                                               stages)) {
-                        // Invalid profile / unavailable timer backend.
-                        // Never acknowledge a fixed-speed surrogate as
-                        // successful execution of a ramp command.
-                        emit(context, cmd, false,
-                             nackData(NackReason::NOT_READY));
+                    // Real reference needs the position-tracking STEP backend.
+                    // BENCH MOVE/SET_POSITION retain their existing backend.
+                    const bool started = realTrack
+                        ? stepTimerStartReferenceProfile(
+                              request.steps, request.directionRight, stages)
+                        : stepTimerStartProfile(
+                              request.steps, request.directionRight, stages);
+                    if (!started) {
+                        emit(context, cmd, false, nackData(NackReason::NOT_READY));
                     } else {
-                        motor.onMotionAccepted(request);
+                        if (realTrack) realTrackProfileActive = true;
+                        else motor.onMotionAccepted(request);
                         motorMoving.store(true, std::memory_order_release);
                         motor.onMoveStarted();
-                        if (cmd.id == CMD_SET_TRACK && motor.benchReferenceValid()) {
+                        if (cmd.id == CMD_SET_TRACK) {
                             targetTrack = cmd.data[0];
-                            // Last confirmed track is no longer guaranteed once moving.
                             confirmedTrack = 0U;
                             publishTrack(targetTrack, 0U, TRACK_STATUS_MOVING);
                         } else {
@@ -998,7 +950,6 @@ void Muninn_motorMockTask(void* arg) {
                     }
                 }
             }
-#endif
         } else {
             // Other unimplemented real commands remain rejected.
             emit(context, cmd, false, nackData(NackReason::NOT_READY));
