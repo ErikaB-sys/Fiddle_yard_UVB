@@ -312,6 +312,27 @@ bool stepTimerStartProfile(uint16_t steps, bool directionRight,
 #endif
 }
 
+bool stepTimerStartReferenceProfile(uint16_t steps, bool awayMotor,
+                           const StepProfileSegment (&segments)[STEP_PROFILE_PHASES]) {
+    uint32_t sum = 0U;
+    for (uint8_t i = 0U; i < STEP_PROFILE_PHASES; ++i) {
+        sum += segments[i].steps;
+        if (segments[i].accel != 0 && segments[i].rampEvery == 0U)
+            return false;
+    }
+    if (steps == 0U || sum != steps) return false;
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+    (void)awayMotor;
+    (void)segments;
+    return false;
+#else
+    return startPulseTrain(steps, awayMotor,
+                           (static_cast<uint32_t>(kSlowReload) + 1UL) *
+                           kNanoTickUs,
+                           segments, true, false, false);
+#endif
+}
+
 void stepTimerReferenceSetPosition(uint32_t position) {
     portENTER_CRITICAL(&stepMux);
     if (!isRunning) referencePosition = position;
