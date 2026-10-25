@@ -26,6 +26,8 @@ struct MoveRequest {
     uint16_t steps = 0U;
 };
 
+// Shared payload decoder; implementation stays in Motor.cpp.
+bool decodeMovePayload(const uint8_t* data, MoveRequest& result);
 
 // Ported verbatim in meaning from Nano Motor.h: motor-owned job/payload.
 struct MotorJob_t {
