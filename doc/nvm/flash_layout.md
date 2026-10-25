@@ -32,7 +32,7 @@ flowchart TB
 - `app0` beginnt mit der regulären ESP32-Image-Kennung `0xE9`.
 - `app1` ist nicht leer, beginnt aber **nicht** mit `0xE9`; daher keinesfalls als gültige zweite Firmware voraussetzen.
 - `otadata` ist beschrieben. Es gibt zwei 4-KiB-Sektoren für die OTA-Auswahldaten.
-- Der NVS-Bereich ist nicht leer. Herkunft (beispielsweise frühere Tasmota-Firmware) **nicht bestätigt**.
+- Der NVS-Bereich ist nicht leer. Herkunft **nicht bestätigt**.
 - `coredump` ist im Dump vollständig `0xFF` (gelöscht).
 
 ## Geplante FY-NVM-Nutzung
