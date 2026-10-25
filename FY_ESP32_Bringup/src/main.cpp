@@ -6,7 +6,7 @@
 #include "HW_Config.h"
 
 namespace {
-fy::BringupContext bridge{nullptr, nullptr, nullptr};
+fy::BringupContext bridge{nullptr, nullptr, nullptr, nullptr};
 } // anonymous namespace
 
 void setup() {
@@ -34,7 +34,8 @@ void setup() {
     bridge.commands = xQueueCreate(8, sizeof(fy::CommandMessage));
     bridge.events = xQueueCreate(12, sizeof(fy::MotorEvent));
     bridge.priorityCommands = xQueueCreate(4, sizeof(fy::CommandMessage));
-    if (!bridge.commands || !bridge.events || !bridge.priorityCommands) {
+    bridge.sensorSnapshots = xQueueCreate(1, sizeof(uint8_t));
+    if (!bridge.commands || !bridge.events || !bridge.priorityCommands || !bridge.sensorSnapshots) {
         Serial.println("FY_TEST: failed to create queues");
         return;
     }
