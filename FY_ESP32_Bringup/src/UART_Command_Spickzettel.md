@@ -41,7 +41,7 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 | GET_STATUS Motor | 19 | `STATUS 20` | 🟢 | Antwort 50, ENABLE/MOVING plus MotorState; IDLE nach Fahrt dokumentiert. |
 | GET_STATUS Referenz | 19 | `STATUS 30` | 🟢 | Antwort 30: 00 ungültig, 01 echt, 02 FAKE. FAKE-Wert dokumentiert. |
 | GET_STATUS System | 19 | `STATUS 10` | 🟡 | Antwort 10 noch fester Wert 04/INIT; tatsächliche Init-/Fehlerflags anschließen. |
-| GET_STATUS Sensoren | 19 | `STATUS 40` | 🟠 | Antwort 41 mit Null-Platzhalter; reale Switches noch nicht angeschlossen. |
+| GET_STATUS Sensoren | 19 | `STATUS 40` | 🟡 **HW3-Test offen** | Muninn liest G36/39/34 (LSL/LSR/LSREF), initial einmal und danach nur bei Pegeländerung. Eigene 1-Slot-Overwrite-Queue; Huginn antwortet `41 <Snapshot> <CRC>` ohne selbst GPIOs zu lesen. G35/LS4 reserviert, unbeschaltet. |
 | GET_STATUS Keyboard | 19 | `STATUS 50` | 🟠 | Antwort 51 mit 0=nicht verbunden; I²C-Keyboard-Code fehlt. |
 | GET_ERROR / ERROR | 1A | `ERROR` | 🟡 | Antwort F0, Systembyte + drei Fehlerbytes; UART-Fehler vorhanden, zentrale Motor-/Sensoraggregation fehlt. |
 | GET_TRACK / TRACK | 23 | `TRACK 00` | 🟢 Ist-Abfrage | Ziel/fährt/erreicht geprüft. Während Fahrt setzt Code bestätigtes Gleis auf 0; Bedeutung gegenüber alter letzter Bestätigung noch in [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) klären. |
@@ -108,6 +108,14 @@ set_track 05          # Ziel BG5=7957
 - Absichtlich falsches Kommando `TRACK` ohne erforderliches Datenbyte → `70 14 3B` (Parameter fehlt); UART-Validierung funktioniert.
 - 12-V-Versorgung während Firmware-Upload eingeschaltet: beim beobachteten Versuch **kein Motorzucken**. Ältere Zuck-Beobachtungen werden dadurch nicht widerlegt; Boot-/Flash-Interlock weiter offen.
 - Bench-Grenze: keine echte REF, keine LS/Endlagenprüfung, keine unabhängige Messung der absoluten Mechanikposition, keine Hardware-Freigabe für gekoppelte Schiebebühne.
+
+### HW3-Sensor-Snapshot (im Code, Hardwaretest offen)
+
+`status 40` fragt Huginns zuletzt empfangenen Sensorstatus ab. Muninn sendet beim ersten Einlesen **einmal den vollständigen Rohzustand**, danach ausschließlich bei Änderung. Transport: **eigene Queue der Länge 1** mit `xQueueOverwrite()`, unabhängig von Motorantworten.
+
+Antwort `STATUS_Switches = 0x41` mit **einem Datenbyte**: Bit 0 LSL/G36, Bit 1 LSR/G39, Bit 2 LSREF/G34, Bit 3 LS4/G35 (**noch nicht angeschlossen, deshalb 0**). Bits 4..7: Änderungszähler **0..E**, `F` für zukünftige Fehler reserviert. Bits zeigen Rohpegel (HIGH=1); elektrische Aktiv-Polarität an HW3 prüfen. Ohne Initial-Snapshot gibt `status 40` `NOT_READY` zurück, **nicht** fälschlich alle Sensoren frei.
+
+**KISS-Hardwaretest:** `status 40` zuerst im Ruhezustand und anschließend nach einzelnem Auslösen von LSL, LSR und LSREF abfragen. Jede Änderung muss das jeweilige Bit und den Zähler beeinflussen. **Noch keine Fahrfreigabe, Endlagenabschaltung oder reale Referenzfahrt:** Muninns lokale Sicherheitseingriffe werden separat implementiert und getestet.
 
 ### HW3: STEP/ENABLE-GPIO-Tausch und einmalige SLEEP-Startfreigabe (23.10.2026)
 
