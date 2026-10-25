@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <esp_arduino_version.h>
 #include <soc/gpio_struct.h>
+#include <soc/gpio_reg.h>
 #if ESP_ARDUINO_VERSION_MAJOR < 3
 #include <soc/timer_group_struct.h> // Classic ESP32, Arduino 2.x TIMG registers.
 #endif
@@ -42,6 +43,29 @@ volatile bool stepIsHigh = false;
 volatile bool isFinished = false;
 volatile uint32_t completed = 0U;
 volatile uint32_t target = 0U;
+// REF events are captured on the same falling STEP edge as the Nano.
+volatile bool referenceMode = false;
+volatile bool referenceAway = false;
+volatile bool referenceStopOnExit = false;
+volatile bool referenceCaptureCoarse = false;
+volatile bool referencePrevLevel = false;
+volatile uint32_t referencePosition = 0U;
+volatile uint32_t referenceCoarse = 0U;
+volatile uint32_t referenceEntry = 0U;
+volatile uint32_t referenceExit = 0U;
+volatile bool referenceCoarseSeen = false;
+volatile bool referenceEntrySeen = false;
+volatile bool referenceExitSeen = false;
+volatile ReferenceEnd referenceEnd = ReferenceEnd::NONE;
+inline bool IRAM_ATTR readSensor(uint8_t pin) {
+    // Classic ESP32 input GPIO34/36/39: GPIO_IN1_REG bits 2/4/7.
+    return (REG_READ(GPIO_IN1_REG) & (uint32_t{1} << (pin - 32U))) != 0U;
+}
+void IRAM_ATTR finishReference(ReferenceEnd end) {
+    isRunning = false;
+    isFinished = true;
+    referenceEnd = end;
+}
 
 // Only Muninn writes a fresh plan, under stepMux, before isRunning=true.
 // The ISR exclusively owns phase / ramp progress while isRunning.
@@ -58,6 +82,13 @@ void IRAM_ATTR stepTimerIsr() {
         GPIO.out_w1tc = kStepBit;
         stepIsHigh = false;
     } else if (!stepIsHigh) {
+        // Check the destination endstop BEFORE sending a new STEP edge.
+        if (referenceMode && readSensor(referenceAway ? LSR_PIN : LSL_PIN)) {
+            finishReference(ReferenceEnd::ENDSTOP);
+            GPIO.out_w1tc = kStepBit;
+            portEXIT_CRITICAL_ISR(&stepMux);
+            return;
+        }
         // Rising edge triggers the A4988 motor STEP.
         GPIO.out_w1ts = kStepBit;
         stepIsHigh = true;
@@ -66,6 +97,30 @@ void IRAM_ATTR stepTimerIsr() {
         GPIO.out_w1tc = kStepBit;
         stepIsHigh = false;
         ++completed;
+        if (referenceMode) {
+            if (referenceAway) ++referencePosition;
+            else if (referencePosition > 0U) --referencePosition;
+            const bool sensor = readSensor(LSREF_PIN);
+            if (!referencePrevLevel && sensor) {
+                if (referenceAway && referenceCaptureCoarse &&
+                    !referenceCoarseSeen) {
+                    referenceCoarse = referencePosition;
+                    referenceCoarseSeen = true;
+                }
+                if (!referenceEntrySeen) {
+                    referenceEntry = referencePosition;
+                    referenceEntrySeen = true;
+                }
+            } else if (referencePrevLevel && !sensor) {
+                if (referenceEntrySeen) {
+                    referenceExit = referencePosition;
+                    referenceExitSeen = true;
+                    if (referenceStopOnExit)
+                        finishReference(ReferenceEnd::REF_EXIT);
+                }
+            }
+            referencePrevLevel = sensor;
+        }
 
         if (profileActive) {
             // LSL/LSR/LSREF: reserved ISR hook until real 3.3V sensors
@@ -104,9 +159,10 @@ void IRAM_ATTR stepTimerIsr() {
             }
         }
 
-        if (completed >= target) {
+        if (isRunning && completed >= target) {
             isRunning = false;
             isFinished = true;
+            if (referenceMode) referenceEnd = ReferenceEnd::STEP_LIMIT;
         }
 #if ESP_ARDUINO_VERSION_MAJOR < 3
         else if (profileActive) {
@@ -148,7 +204,9 @@ void armAlarm(uint32_t halfPeriodUs) {
 
 bool startPulseTrain(uint16_t steps, bool directionRight,
                      uint32_t halfPeriodUs,
-                     const StepProfileSegment* plan) {
+                     const StepProfileSegment* plan,
+                     bool refMode = false, bool stopAtExit = false,
+                     bool captureCoarse = false) {
     if (stepTimer == nullptr || steps == 0U || halfPeriodUs < 2U)
         return false;
 
@@ -172,6 +230,15 @@ bool startPulseTrain(uint16_t steps, bool directionRight,
     phaseRemaining = 0U;
     rampCounter = 0U;
     currentNanoReload = kSlowReload;
+    referenceMode = refMode;
+    referenceAway = directionRight;
+    referenceStopOnExit = stopAtExit;
+    referenceCaptureCoarse = captureCoarse;
+    referencePrevLevel = refMode ? readSensor(LSREF_PIN) : false;
+    referenceCoarseSeen = false;
+    referenceEntrySeen = false;
+    referenceExitSeen = false;
+    referenceEnd = ReferenceEnd::NONE;
     if (plan != nullptr) {
         for (uint8_t i = 0U; i < STEP_PROFILE_PHASES; ++i) {
             stages[i].steps = plan[i].steps;
@@ -245,6 +312,57 @@ bool stepTimerStartProfile(uint16_t steps, bool directionRight,
 #endif
 }
 
+void stepTimerReferenceSetPosition(uint32_t position) {
+    portENTER_CRITICAL(&stepMux);
+    if (!isRunning) referencePosition = position;
+    portEXIT_CRITICAL(&stepMux);
+}
+
+bool stepTimerStartReference(bool awayMotor, uint16_t stepHz,
+                             bool stopOnRefExit, bool captureCoarse) {
+    if (stepHz < kMinStepHz || stepHz > kMaxStepHz) return false;
+    const uint32_t halfPeriodUs =
+        (500000UL + static_cast<uint32_t>(stepHz / 2U)) / stepHz;
+    // Storage capacity of the existing timer, NOT a safety-calibrated limit.
+    return startPulseTrain(UINT16_MAX, awayMotor, halfPeriodUs, nullptr,
+                           true, stopOnRefExit, captureCoarse);
+}
+
+ReferenceTimerSample stepTimerReferenceSnapshot() {
+    ReferenceTimerSample s{};
+    portENTER_CRITICAL(&stepMux);
+    s.position = referencePosition;
+    s.coarse = referenceCoarse;
+    s.entry = referenceEntry;
+    s.exit = referenceExit;
+    s.reason = referenceEnd;
+    s.coarseSeen = referenceCoarseSeen;
+    s.entrySeen = referenceEntrySeen;
+    s.exitSeen = referenceExitSeen;
+    portEXIT_CRITICAL(&stepMux);
+    return s;
+}
+
+bool stepTimerTakeReferenceDone(ReferenceTimerSample& sample) {
+    portENTER_CRITICAL(&stepMux);
+    const bool done = isFinished && referenceMode;
+    if (done) {
+        sample.position = referencePosition;
+        sample.coarse = referenceCoarse;
+        sample.entry = referenceEntry;
+        sample.exit = referenceExit;
+        sample.reason = referenceEnd;
+        sample.coarseSeen = referenceCoarseSeen;
+        sample.entrySeen = referenceEntrySeen;
+        sample.exitSeen = referenceExitSeen;
+        isFinished = false;
+        referenceMode = false;
+    }
+    portEXIT_CRITICAL(&stepMux);
+    if (done) haltAlarm();
+    return done;
+}
+
 void stepTimerStop() {
     haltAlarm();
     portENTER_CRITICAL(&stepMux);
@@ -252,6 +370,7 @@ void stepTimerStop() {
     stepIsHigh = false;
     isFinished = false;
     profileActive = false;
+    referenceMode = false;
     portEXIT_CRITICAL(&stepMux);
     digitalWrite(MOTOR_PWM_PIN, LOW);
 }
