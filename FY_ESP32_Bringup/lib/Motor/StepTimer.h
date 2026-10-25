@@ -39,6 +39,10 @@ struct ReferenceTimerSample {
     bool entrySeen = false;
     bool exitSeen = false;
 };
+// Tracked final move to BG3 using the existing 6-stage profile, with
+// endstop check on each STEP. Completion is reported as STEP_LIMIT.
+bool stepTimerStartReferenceProfile(uint16_t steps, bool awayMotor,
+                           const StepProfileSegment (&segments)[STEP_PROFILE_PHASES]);
 void stepTimerReferenceSetPosition(uint32_t position);
 bool stepTimerStartReference(bool awayMotor, uint16_t stepHz,
                              bool stopOnRefExit, bool captureCoarse,
