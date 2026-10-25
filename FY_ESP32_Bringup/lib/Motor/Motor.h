@@ -1,8 +1,32 @@
 #pragma once
 #include "FY_Bringup.h"
-#include "FY_Move.h"
 
 namespace fy {
+// ESP32-only commissioning extension. Nano command IDs in Protokoll.h
+// remain untouched: legacy LEFT=0x0B and RIGHT=0x0D are NOT MOVE.
+constexpr uint8_t CMD_MOVE = 0x0FU;
+
+// Maximum displacement PER command without a valid reference.
+// BENCH ONLY: no cumulative limit, end-stop protection or FY mechanics.
+constexpr uint16_t FY_MOVE_MAX_UNREFERENCED_STEPS = 10000U;
+
+// Byte 0: high nibble = microstep mode, bit 0 = direction,
+//         bits 3..1 reserved and must be zero.
+// Byte 1: step count low byte; byte 2: step count high byte.
+enum class MoveMicrostep : uint8_t {
+    FULL = 0U, HALF = 1U, QUARTER = 2U, EIGHTH = 3U, SIXTEENTH = 4U
+};
+
+// Fixed hardware resolution: MS pins are configured once at motor startup.
+constexpr MoveMicrostep FY_MOTOR_MICROSTEP_MODE = MoveMicrostep::EIGHTH;
+
+struct MoveRequest {
+    bool directionRight = false; // 0=LEFT, 1=RIGHT
+    MoveMicrostep mode = FY_MOTOR_MICROSTEP_MODE;
+    uint16_t steps = 0U;
+};
+
+
 // Ported verbatim in meaning from Nano Motor.h: motor-owned job/payload.
 struct MotorJob_t {
     bool valid;
