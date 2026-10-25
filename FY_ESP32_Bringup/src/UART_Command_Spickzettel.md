@@ -35,7 +35,7 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 | --- | ---: | --- | --- | --- |
 | STOP / STOPP | 01 | `STOP 55 AA`; `STOP AA 55` entriegeln | 🟡 | Abschalten/Verriegeln/Verwerfen vorhanden und Grundweg geprüft. Eigene Priority-Queue vorhanden. Frühere Pending-voll-Fehlerbehauptung präzisiert: im gültigen aktuellen UART-Pfad nicht erreichbar; Antworttransport bei Stau gezielt beurteilen: [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152). |
 | GO | 07 | `GO AA 55` EIN; `GO 55 AA` AUS | 🟢 | Treiberfreigabe ohne automatisches Losfahren geprüft. Kein Wiederaufnehmen eines alten Jobs. |
-| MOVE | 0F | `MOVE 21 32 00` = 50 Viertelschritte rechts | 🟢 | Einziger relativer Fahrbefehl, mit Richtung/Mikroschritt/Schritten. Profilfahrt geprüft; 1..10000 je aktuellem Testauftrag. |
+| MOVE | 0F | `MOVE 21 32 00` = 50 Viertelschritte von der Motorseite weg (neu links) | 🟢 | Einziger relativer Fahrbefehl, mit Richtung/Mikroschritt/Schritten. Profilfahrt geprüft; 1..10000 je aktuellem Testauftrag. |
 | SET_POSITION – vorhandener Positionspfad | 13 | nach FAKE-REF: `SET_POSITION 15 06` = 1557 | 🟢 | Prepare-/Profil-/STEP-Funktion geprüft, auch über SET_TRACK genutzt. Neue Koordinaten benötigen keinen zweiten identischen Funktionsabschluss. |
 | GET_POSITION / POSITION | 15 | `POSITION` | 🟢 | Antwort 20 + 4 LE-Bytes + CRC; laufender Muninn-Snapshot. Bit16 kennzeichnet synthetische Position. |
 | GET_STATUS Motor | 19 | `STATUS 20` | 🟢 | Antwort 50, ENABLE/MOVING plus MotorState; IDLE nach Fahrt dokumentiert. |
@@ -68,7 +68,7 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 - `uint8`: ein Hex-Byte, Beispiel `SET_TRACK 03` (mit expliziter Fake-REF im Bench ACK).
 - `uint16`: **zwei Little-Endian-Hexbytes**, Beispiel BG1 = dezimal 1557 = `0x0615` → `SET_POSITION 15 06`. Historische HW2-Position 29567 gehört zum alten virtuellen Koordinatensystem.
 - `SET_PARAM`: Parameter-ID + drei Rohwertbytes, z. B. `SET_PARAM 01 50 00 00` (momentan NACK).
-- `MOVE`: DATA[0] oberes Nibble = Mikroschritt-Modus **0 voll / 1 halb / 2 viertel / 3 achtel / 4 sechzehntel**, Bit 0 = Richtung (0 links, 1 rechts), Bits 3..1 reserviert; DATA[1..2] Schrittzahl LE **1..10000**.
+- `MOVE`: DATA[0] oberes Nibble = Mikroschritt-Modus **0 voll / 1 halb / 2 viertel / 3 achtel / 4 sechzehntel**, Bit 0 = bisherige Motor-Richtung (0 zur Motorseite = neu rechts, 1 von der Motorseite weg = neu links), Bits 3..1 reserviert; DATA[1..2] Schrittzahl LE **1..10000**.
 - Nur Bench-`SET_POSITION`: **1..65534** als virtueller Positionsraum; maximal **10600 Viertelschritte je SET_POSITION-Auftrag**; **ab dieser Version erst nach `reference 00`**, keine automatische Position 32767. Andere Mikroschrittauflösung invalidiert die simulierte Referenz.
 - Status Motor, DATA[0]: Bit0 Treiber an, Bit1 in Bewegung; DATA[1] **ESP32-Erweiterung** des Nano-Protokolls: `0 IDLE / 1 CONF / 2 REFRUN / 3 MOVING / 4 STOPPED / 5 ERROR`. Kompatibilitätsfreigabe hierzu noch in [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156).
 - Bench-`GET_POSITION`: `0x00010000 | virtuelle_16bit_position`, also DATA[2] = `01`; **kein echter REF-Nachweis**. `POSITION_UNKNOWN` (ohne Bench-Bit) = `0x00007FFF`.
@@ -109,13 +109,13 @@ set_track 05          # Ziel BG5=7957
 - 12-V-Versorgung während Firmware-Upload eingeschaltet: beim beobachteten Versuch **kein Motorzucken**. Ältere Zuck-Beobachtungen werden dadurch nicht widerlegt; Boot-/Flash-Interlock weiter offen.
 - Bench-Grenze: keine echte REF, keine LS/Endlagenprüfung, keine unabhängige Messung der absoluten Mechanikposition, keine Hardware-Freigabe für gekoppelte Schiebebühne.
 
-**Verbindliche Richtungskonvention (HW_TEST/HW3): LINKS = Motorseite (LSL/G36, zuvor Nano D12); RECHTS = gegenüberliegende Seite (LSR/G39, zuvor Nano D9).** LSREF/G34 (Nano D11) ist die Referenzlichtschranke; LS4/G35 bleibt frei. Die HW3-Sensorprüfung vom 25.10.2026 ergab die erwarteten Rohbits `01`/`02`/`04`. Keine Verdrahtungsänderung erforderlich. Links/rechts bezieht sich auf die Mechanik, **nicht auf die Blickrichtung**.
+**Neue verbindliche Richtungskonvention (Blick vom Einfahrtsgleis): RECHTS = Motorseite (GPIO36/VP, altes Nano-`LSL`/D12), LINKS = Gegenseite (GPIO39/VN, altes Nano-`LSR`/D9).** Referenzsensor = GPIO34 (Nano D11); G35 bleibt frei. Die historischen Bezeichner `LSL`/`LSR` in Code und Sensorbitbeschreibung folgen noch der alten Nano-Richtung. **Keine Drähte vertauschen:** Bit 0/G36 ist nun physisch rechts, Bit 1/G39 physisch links, Bit 2/G34 REF. Beim Fahrtest fuhr `MOVE 21 64 00` von der Motorseite weg, also **aus neuer Sicht nach links**, obwohl Bit 0 im MOVE-Protokoll bislang als „rechts“ beschrieben ist. Vor Implementierung von Fahrtrichtungs-/Endlagenschutz diese Begriffsverwendung im Code **einheitlich** anpassen; bis dahin bleibt die bestehende Fahrlogik unverändert.
 
 ### HW3-Sensor-Snapshot (im Code, Hardwaretest offen)
 
 `status 40` fragt Huginns zuletzt empfangenen Sensorstatus ab. Muninn sendet beim ersten Einlesen **einmal den vollständigen Rohzustand**, danach ausschließlich bei Änderung. Transport: **eigene Queue der Länge 1** mit `xQueueOverwrite()`, unabhängig von Motorantworten.
 
-Antwort `STATUS_Switches = 0x41` mit **einem Datenbyte**: Bit 0 LSL/G36, Bit 1 LSR/G39, Bit 2 LSREF/G34, Bit 3 LS4/G35 (**noch nicht angeschlossen, deshalb 0**). Bits 4..7: Änderungszähler **0..E**, `F` für zukünftige Fehler reserviert. Bits zeigen Rohpegel (HIGH=1); elektrische Aktiv-Polarität an HW3 prüfen. Ohne Initial-Snapshot gibt `status 40` `NOT_READY` zurück, **nicht** fälschlich alle Sensoren frei.
+Antwort `STATUS_Switches = 0x41` mit **einem Datenbyte**: Bit 0 G36/Motorseite (Code `LSL`, neu rechts), Bit 1 G39/Gegenseite (Code `LSR`, neu links), Bit 2 LSREF/G34, Bit 3 LS4/G35 (**noch nicht angeschlossen, deshalb 0**). Bits 4..7: Änderungszähler **0..E**, `F` für zukünftige Fehler reserviert. Bits zeigen Rohpegel (HIGH=1); elektrische Aktiv-Polarität an HW3 prüfen. Ohne Initial-Snapshot gibt `status 40` `NOT_READY` zurück, **nicht** fälschlich alle Sensoren frei.
 
 **KISS-Hardwaretest:** `status 40` zuerst im Ruhezustand und anschließend nach einzelnem Auslösen von LSL, LSR und LSREF abfragen. Jede Änderung muss das jeweilige Bit und den Zähler beeinflussen. **Noch keine Fahrfreigabe, Endlagenabschaltung oder reale Referenzfahrt:** Muninns lokale Sicherheitseingriffe werden separat implementiert und getestet.
 
