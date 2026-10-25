@@ -6,6 +6,8 @@ Die Haupttabelle entspricht den neuen Pin-Konstanten in [HW_Config.h](../../incl
 
 **Software-Zuständigkeit:** Muninn / Kern 1 besitzt Motor, SLEEP, Sensoren und die bisherige Diagnose-LED. Huginn / Kern 0 besitzt I²C-Bedienung, SPI-Anzeige/Licht und UART-Kommunikation. Die Zuordnung beschreibt den Software-Owner; GPIOs sind nicht elektrisch an einen Kern gebunden. `CORE_MUNINN=1` und `CORE_HUGINN=0` sowie das Task-Pinning bleiben erhalten.
 
+**Verbindliche Orientierung (HW_TEST → HW3, physisch geprüft 25.10.2026):** **LINKS ist die Motorseite**, **RECHTS die vom Motor abgewandte Seite**. Nicht aus der Blickrichtung des Bedieners ableiten. Nano **D12 / LSL → ESP32 G36 (VP)** = Endschalter **an der Motorseite**; Nano **D9 / LSR → ESP32 G39 (VN)** = Endschalter **gegenüber**; Nano **D11 / LSREF → ESP32 G34** = Referenzlichtschranke. G35/LS4 ist reserviert und noch nicht angeschlossen. Beim HW3-Test ergaben die Rohbits 0x01 (Motorseite/LSL), 0x02 (gegenüber/LSR), 0x04 (LSREF). **Keine Leitungen tauschen.**
+
 ## Anforderungen und Quellen
 
 - A4988 mit STEP/DIR/ENABLE und einzeln steuerbaren MS1–3; G13/G14/G4 bleiben erhalten, **G12 bleibt unbeschaltet** (Hardware-Abstimmung 22.10.2026).
