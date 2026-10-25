@@ -43,7 +43,7 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 | GET_STATUS Motor | 19 | `STATUS 20` | 🟢 | Antwort 50, ENABLE/MOVING plus MotorState; IDLE nach Fahrt dokumentiert. |
 | GET_STATUS Referenz | 19 | `STATUS 30` | 🟢 | Antwort 30: 00 ungültig, 01 echt, 02 FAKE. FAKE-Wert dokumentiert. |
 | GET_STATUS System | 19 | `STATUS 10` | 🟡 | Antwort 10 noch fester Wert 04/INIT; tatsächliche Init-/Fehlerflags anschließen. |
-| GET_STATUS Sensoren | 19 | `STATUS 40` | 🟡 **HW3-Test offen** | Muninn liest G36/39/34 (LSL/LSR/LSREF), initial einmal und danach nur bei Pegeländerung. Eigene 1-Slot-Overwrite-Queue; Huginn antwortet `41 <Snapshot> <CRC>` ohne selbst GPIOs zu lesen. G35/LS4 reserviert, unbeschaltet. |
+| GET_STATUS Sensoren | 19 | `STATUS 40` | 🟢 **HW3** | Muninn liest G36/39/34 (LSL/LSR/LSREF), initial einmal und danach nur bei Pegeländerung. Eigene 1-Slot-Overwrite-Queue; Huginn antwortet `41 <Snapshot> <CRC>` ohne selbst GPIOs zu lesen. G35/LS4 reserviert, unbeschaltet. |
 | GET_STATUS Keyboard | 19 | `STATUS 50` | 🟠 | Antwort 51 mit 0=nicht verbunden; I²C-Keyboard-Code fehlt. |
 | GET_ERROR / ERROR | 1A | `ERROR` | 🟡 | Antwort F0, Systembyte + drei Fehlerbytes; UART-Fehler vorhanden, zentrale Motor-/Sensoraggregation fehlt. |
 | GET_TRACK / TRACK | 23 | `TRACK 00` | 🟢 Ist-Abfrage | Ziel/fährt/erreicht geprüft. Während Fahrt setzt Code bestätigtes Gleis auf 0; Bedeutung gegenüber alter letzter Bestätigung noch in [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) klären. |
