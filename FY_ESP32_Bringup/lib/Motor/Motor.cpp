@@ -627,6 +627,11 @@ void Muninn_motorMockTask(void* arg) {
                 motorStateSnapshot.store(static_cast<uint8_t>(motor.state()),
                                          std::memory_order_release);
                 if (success) {
+                    // One-shot, non-ISR diagnostics of reference-to-BG3 transition.
+                    Serial.print(F("REF: VALID pos="));
+                    Serial.print(motor.referencePosition());
+                    Serial.print(F(" end="));
+                    Serial.println(motor.referenceOppositeEnd());
                     // Nano HW_TEST always selected BG3 after short REF.
                     // The same intended post-condition now applies after
                     // successful long calibration as well.
@@ -637,6 +642,12 @@ void Muninn_motorMockTask(void* arg) {
                         ? start - kTrack3 : kTrack3 - start;
                     if (rightEnd <= kTrack3 || kTrack3 <= 1000U ||
                         distance > UINT16_MAX) {
+                        Serial.print(F("REF: BG3 RANGE ERROR end="));
+                        Serial.print(rightEnd);
+                        Serial.print(F(" from="));
+                        Serial.print(start);
+                        Serial.print(F(" distance="));
+                        Serial.println(distance);
                         motor.onProfileError();
                     } else if (distance == 0U) {
                         targetTrack = 3U;
@@ -665,9 +676,12 @@ void Muninn_motorMockTask(void* arg) {
                             motor.onMoveStarted();
                             publishTrack(3U, 0U, TRACK_STATUS_MOVING);
                         } else {
+                            Serial.println(F("REF: BG3 TIMER START FAILED"));
                             motor.onProfileError();
                         }
                     } else {
+                        Serial.print(F("REF: BG3 PROFILE INVALID distance="));
+                        Serial.println(distance);
                         motor.onProfileError();
                     }
                     if (motor.state() == MotorState_t::ERROR) {
