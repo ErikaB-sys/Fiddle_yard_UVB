@@ -78,6 +78,9 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 
 ### Referenzfahrt aus Nano-HW_TEST – Portstatus 25.10.2026
 
+Die gesamte Referenz-Zustandsmaschine liegt in `Motor.h/.cpp`. STEP und Sensorflanken liegen ausschließlich in der ESP32-Timer-ISR; die Core-Grenze bleibt Muninn/Huginn. Die separate `ReferenceRun.h` wurde entfernt.
+
+
 Gemessene Tracktabelle in **1/4-Schritt-Koordinaten**: BG1 1557, BG2 3157, **BG3 4757**, BG4 6357, BG5 7957. **Motorseite = vom Einfahrtsgleis aus RECHTS / GPIO36 (Code-Alias LSL)**. Bei Erreichen des Motor-Endschalters setzt die STEP-ISR den Referenzanker auf **1000**. In alter Nano-Koordinatenrichtung werden die Positionen zur Gegenseite größer (GPIO39, Code-Alias LSR).
 
 - `REFERENCE 01` (lange Kalibrierfahrt): Motorseite suchen → 1000 setzen → Gegenseite suchen und Schritte/Fahnenkante erfassen → Fahne zurück langsam ausmessen → zurücksetzen → Fahne in Gegenrichtung ein zweites Mal ausmessen (mechanisches Spiel). **Gültige Kalibrierung zunächst nur RAM, NVS/CRC aus #158 nicht integriert.**
