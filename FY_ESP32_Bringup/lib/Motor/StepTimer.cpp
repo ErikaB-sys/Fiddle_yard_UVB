@@ -319,12 +319,13 @@ void stepTimerReferenceSetPosition(uint32_t position) {
 }
 
 bool stepTimerStartReference(bool awayMotor, uint16_t stepHz,
-                             bool stopOnRefExit, bool captureCoarse) {
+                             bool stopOnRefExit, bool captureCoarse,
+                             uint16_t steps) {
     if (stepHz < kMinStepHz || stepHz > kMaxStepHz) return false;
     const uint32_t halfPeriodUs =
         (500000UL + static_cast<uint32_t>(stepHz / 2U)) / stepHz;
     // Storage capacity of the existing timer, NOT a safety-calibrated limit.
-    return startPulseTrain(UINT16_MAX, awayMotor, halfPeriodUs, nullptr,
+    return startPulseTrain(steps, awayMotor, halfPeriodUs, nullptr,
                            true, stopOnRefExit, captureCoarse);
 }
 
