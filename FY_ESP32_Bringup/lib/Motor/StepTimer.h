@@ -41,7 +41,8 @@ struct ReferenceTimerSample {
 };
 void stepTimerReferenceSetPosition(uint32_t position);
 bool stepTimerStartReference(bool awayMotor, uint16_t stepHz,
-                             bool stopOnRefExit, bool captureCoarse);
+                             bool stopOnRefExit, bool captureCoarse,
+                             uint16_t steps = UINT16_MAX);
 bool stepTimerTakeReferenceDone(ReferenceTimerSample& sample);
 ReferenceTimerSample stepTimerReferenceSnapshot();
 
