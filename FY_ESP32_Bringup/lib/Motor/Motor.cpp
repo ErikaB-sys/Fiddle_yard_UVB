@@ -435,7 +435,7 @@ std::atomic<uint32_t> realReferencePosition{kPositionUnknown};
 std::atomic<uint8_t> referenceStatusSnapshot{0U}; // 0 none, 1 real, 2 fake
 std::atomic<uint16_t> nvmStatusSnapshot{0U}; // high byte valid mask, low byte fault mask
 std::atomic<uint32_t> nvmTrackValues[5]{};
-std::atomic<uint32_t> nvmRampValues[8]{};
+std::atomic<uint32_t> nvmRampValues[17]{};
 std::atomic<uint32_t> nvmCalibrationValues[3]{};
 std::atomic<uint32_t> trackSnapshot{
     static_cast<uint32_t>(TRACK_STATUS_ERROR) << 16U
@@ -593,87 +593,76 @@ void publishNvmSnapshot(const Motor& motor, uint8_t faults,
 } // namespace
 
 namespace {
-constexpr uint16_t kRampDefaults[8]{2U,1U,1U,2U,1U,2U,2U,1U};
-void getRamp(const MotorProfileParam_t& p, uint16_t (&v)[8]) {
-    v[0]=p.Acc1Accel; v[1]=p.Acc2Accel; v[2]=p.Bre1Accel; v[3]=p.Bre2Accel;
-    v[4]=p.Acc1RampInterval; v[5]=p.Acc2RampInterval;
-    v[6]=p.Bre1RampInterval; v[7]=p.Bre2RampInterval;
+constexpr uint16_t kRampDefaults[17]{2,1,1,2,1,2,2,1,120,800,120,100,100,100,100,160,400};
+void getRamp(const MotorProfileParam_t& p,uint16_t (&v)[17]) {
+    v[0]=p.Acc1Accel;v[1]=p.Acc2Accel;v[2]=p.Bre1Accel;v[3]=p.Bre2Accel;
+    v[4]=p.Acc1RampInterval;v[5]=p.Acc2RampInterval;v[6]=p.Bre1RampInterval;v[7]=p.Bre2RampInterval;
+    v[8]=p.VMin;v[9]=p.VMax;v[10]=p.VPos;
+    v[11]=p.Acc1Steps;v[12]=p.Acc2Steps;v[13]=p.Bre1Steps;v[14]=p.Bre2Steps;
+    v[15]=p.PosiMin;v[16]=p.KonstMin;
 }
-void putRamp(MotorProfileParam_t& p, const uint16_t (&v)[8]) {
-    p.Acc1Accel=v[0]; p.Acc2Accel=v[1]; p.Bre1Accel=v[2]; p.Bre2Accel=v[3];
-    p.Acc1RampInterval=v[4]; p.Acc2RampInterval=v[5];
-    p.Bre1RampInterval=v[6]; p.Bre2RampInterval=v[7];
+void putRamp(MotorProfileParam_t& p,const uint16_t (&v)[17]) {
+    p.Acc1Accel=v[0];p.Acc2Accel=v[1];p.Bre1Accel=v[2];p.Bre2Accel=v[3];
+    p.Acc1RampInterval=v[4];p.Acc2RampInterval=v[5];p.Bre1RampInterval=v[6];p.Bre2RampInterval=v[7];
+    p.VMin=v[8];p.VMax=v[9];p.VPos=v[10];
+    p.Acc1Steps=v[11];p.Acc2Steps=v[12];p.Bre1Steps=v[13];p.Bre2Steps=v[14];
+    p.PosiMin=v[15];p.KonstMin=v[16];
 }
-bool rampValid(const uint16_t (&v)[8]) {
-    for(uint8_t i=0U;i<8U;++i)
-        if(v[i]==0U || v[i]>(i<4U?64U:128U)) return false;
+bool rampValid(const uint16_t (&v)[17]) {
+    for(uint8_t i=0;i<8;++i)if(v[i]==0U||v[i]>(i<4U?64U:128U))return false;
+    return v[8]>=40U&&v[8]<=800U&&v[9]>=40U&&v[9]<=800U&&
+           v[10]>=40U&&v[10]<=800U&&v[8]<=v[9]&&v[10]<=v[9];
+}
+void publishRamp(const uint16_t (&v)[17]) {
+    for(uint8_t i=0;i<17;++i)nvmRampValues[i].store(v[i],std::memory_order_release);
+}
+void packRamp(const uint16_t (&v)[17],uint8_t (&raw)[34]) {
+    for(uint8_t i=0;i<17;++i){raw[2*i]=static_cast<uint8_t>(v[i]);raw[2*i+1]=static_cast<uint8_t>(v[i]>>8U);}
+}
+void unpackRamp(const uint8_t (&raw)[34],uint16_t (&v)[17]) {
+    for(uint8_t i=0;i<17;++i)v[i]=static_cast<uint16_t>(raw[2*i]|(static_cast<uint16_t>(raw[2*i+1])<<8U));
+}
+bool paramIndex(uint8_t id,uint8_t& idx) {
+    if(id>=static_cast<uint8_t>(ParamId::ACC1)&&id<=static_cast<uint8_t>(ParamId::B2_ST))
+        idx=static_cast<uint8_t>(id-static_cast<uint8_t>(ParamId::ACC1));
+    else if(id>=static_cast<uint8_t>(ParamId::V_MIN)&&id<=static_cast<uint8_t>(ParamId::V_POS))
+        idx=static_cast<uint8_t>(8U+id-static_cast<uint8_t>(ParamId::V_MIN));
+    else if(id>=static_cast<uint8_t>(ParamId::A1_LEN)&&id<=static_cast<uint8_t>(ParamId::KONST_MIN))
+        idx=static_cast<uint8_t>(11U+id-static_cast<uint8_t>(ParamId::A1_LEN));
+    else return false;
     return true;
 }
-void publishRamp(const uint16_t (&v)[8]) {
-    for(uint8_t i=0U;i<8U;++i)
-        nvmRampValues[i].store(v[i],std::memory_order_release);
-}
-void packRamp(const uint16_t (&v)[8],uint8_t (&raw)[16]) {
-    for(uint8_t i=0U;i<8U;++i) {
-        raw[2U*i]=static_cast<uint8_t>(v[i]);
-        raw[2U*i+1U]=static_cast<uint8_t>(v[i]>>8U);
-    }
-}
-void unpackRamp(const uint8_t (&raw)[16],uint16_t (&v)[8]) {
-    for(uint8_t i=0U;i<8U;++i)
-        v[i]=static_cast<uint16_t>(raw[2U*i] | (static_cast<uint16_t>(raw[2U*i+1U])<<8U));
-}
-}
+} // namespace
 bool Motor::getRampParameter(uint8_t id,uint32_t& value) const {
-    if(!_rampParametersValid || id<static_cast<uint8_t>(ParamId::ACC1) ||
-       id>static_cast<uint8_t>(ParamId::B2_ST)) return false;
-    uint16_t v[8]{}; getRamp(_ProfileParam,v);
-    value=v[id-static_cast<uint8_t>(ParamId::ACC1)];
-    return true;
+    uint8_t idx=0;if(!_rampParametersValid||!paramIndex(id,idx))return false;
+    uint16_t v[17]{};getRamp(_ProfileParam,v);value=v[idx];return true;
 }
 bool Motor::setRampParameter(uint8_t id,uint32_t value) {
-    if(!_rampParametersValid || id<static_cast<uint8_t>(ParamId::ACC1) ||
-       id>static_cast<uint8_t>(ParamId::B2_ST) || value>UINT16_MAX) return false;
-    uint16_t v[8]{}; getRamp(_ProfileParam,v);
-    v[id-static_cast<uint8_t>(ParamId::ACC1)]=static_cast<uint16_t>(value);
-    if(!rampValid(v)) return false;
-    putRamp(_ProfileParam,v);
-    publishRamp(v);
-    return true;
+    uint8_t idx=0;if(!_rampParametersValid||!paramIndex(id,idx)||value>UINT16_MAX)return false;
+    uint16_t v[17]{};getRamp(_ProfileParam,v);v[idx]=static_cast<uint16_t>(value);
+    if(!rampValid(v))return false;
+    putRamp(_ProfileParam,v);publishRamp(v);return true;
 }
 bool Motor::saveRampParameters(bool& changed) {
-    changed=false;
-    if(!_rampParametersValid) return false;
-    uint16_t v[8]{}; getRamp(_ProfileParam,v);
-    if(!rampValid(v)) return false;
-    uint8_t raw[16]{}; packRamp(v,raw);
-    const NVM nvm{};
-    const NvmResult result=nvm.save(NvmRecord::MOTOR_PARAMETERS,raw);
-    if(result!=NvmResult::OK && result!=NvmResult::UNCHANGED) {
-        _nvmFaultMask |= 0x04U;
-        publishNvmSnapshot(*this,_nvmFaultMask,_storedCalibValid,_tracksValid);
-        return false;
+    changed=false;if(!_rampParametersValid)return false;
+    uint16_t v[17]{};getRamp(_ProfileParam,v);if(!rampValid(v))return false;
+    uint8_t raw[34]{};packRamp(v,raw);
+    const NVM nvm{};const NvmResult result=nvm.save(NvmRecord::MOTOR_PARAMETERS,raw);
+    if(result!=NvmResult::OK&&result!=NvmResult::UNCHANGED){
+        _nvmFaultMask|=0x04U;publishNvmSnapshot(*this,_nvmFaultMask,_storedCalibValid,_tracksValid);return false;
     }
-    changed=(result==NvmResult::OK);
-    _nvmFaultMask &= static_cast<uint8_t>(~0x04U);
-    publishNvmSnapshot(*this,_nvmFaultMask,_storedCalibValid,_tracksValid);
-    return true;
+    changed=(result==NvmResult::OK);_nvmFaultMask&=static_cast<uint8_t>(~0x04U);
+    publishNvmSnapshot(*this,_nvmFaultMask,_storedCalibValid,_tracksValid);return true;
 }
 bool Motor::restoreRampDefaults(bool& changed) {
-    uint16_t old[8]{}; getRamp(_ProfileParam,old);
-    changed=false;
-    for(uint8_t i=0U;i<8U;++i)
-        if(old[i]!=kRampDefaults[i]) changed=true;
-    uint8_t raw[16]{}; packRamp(kRampDefaults,raw);
-    const NVM nvm{};
-    const NvmResult result=nvm.save(NvmRecord::MOTOR_PARAMETERS,raw);
-    if(result!=NvmResult::OK && result!=NvmResult::UNCHANGED) return false;
-    putRamp(_ProfileParam,kRampDefaults);
-    publishRamp(kRampDefaults);
-    _rampParametersValid=true;
-    _nvmFaultMask &= static_cast<uint8_t>(~0x04U);
-    publishNvmSnapshot(*this,_nvmFaultMask,_storedCalibValid,_tracksValid);
-    return true;
+    uint16_t old[17]{};getRamp(_ProfileParam,old);changed=false;
+    for(uint8_t i=0;i<17;++i)if(old[i]!=kRampDefaults[i])changed=true;
+    uint8_t raw[34]{};packRamp(kRampDefaults,raw);
+    const NVM nvm{};const NvmResult result=nvm.save(NvmRecord::MOTOR_PARAMETERS,raw);
+    if(result!=NvmResult::OK&&result!=NvmResult::UNCHANGED)return false;
+    putRamp(_ProfileParam,kRampDefaults);publishRamp(kRampDefaults);
+    _rampParametersValid=true;_nvmFaultMask&=static_cast<uint8_t>(~0x04U);
+    publishNvmSnapshot(*this,_nvmFaultMask,_storedCalibValid,_tracksValid);return true;
 }
 void Motor::initializeStorage() {
     const NVM nvm{};
@@ -725,14 +714,14 @@ void Motor::initializeStorage() {
     } else {
         _nvmFaultMask |= 0x02U;
     }
-    uint8_t rawRamp[16]{};
+    uint8_t rawRamp[34]{};
     NvmResult mr=nvm.load(NvmRecord::MOTOR_PARAMETERS,rawRamp);
     if(mr==NvmResult::NOT_FOUND) {
         packRamp(kRampDefaults,rawRamp);
         mr=nvm.save(NvmRecord::MOTOR_PARAMETERS,rawRamp);
     }
     if(mr==NvmResult::OK || mr==NvmResult::UNCHANGED) {
-        uint16_t v[8]{}; unpackRamp(rawRamp,v);
+        uint16_t v[17]{}; unpackRamp(rawRamp,v);
         if(rampValid(v)) {
             putRamp(_ProfileParam,v);
             publishRamp(v);
