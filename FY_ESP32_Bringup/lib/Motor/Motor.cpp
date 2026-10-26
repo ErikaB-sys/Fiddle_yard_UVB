@@ -765,16 +765,28 @@ void Muninn_motorMockTask(void* arg) {
         // A completed pulse train is a motor event, not a new UART ACK.
         // Completion retains coil holding torque until explicit GO off.
         uint32_t pulsesDone = 0U;
-        if (stepTimerTakeDone(pulsesDone)) {
-            motor.onMotionProgress(pulsesDone);
+        bool endstopHit = false;
+        if (stepTimerTakeDone(pulsesDone, endstopHit)) {
             motorMoving.store(false, std::memory_order_release);
-            motor.onMoveFinished();
+            if (endstopHit) {
+                // Normal move was interrupted by its destination switch.
+                // Never report a completed job or a valid absolute REF.
+                motor.onProfileError();
+                realReferencePosition.store(kPositionUnknown,
+                                            std::memory_order_release);
+                targetTrack = 0U;
+                confirmedTrack = 0U;
+                publishTrack(0U, 0U, TRACK_STATUS_ERROR);
+            } else {
+                motor.onMotionProgress(pulsesDone);
+                motor.onMoveFinished();
+                if (targetTrack != 0U && motor.benchReferenceValid()) {
+                    confirmedTrack = targetTrack;
+                    publishTrack(targetTrack, confirmedTrack, TRACK_STATUS_REACHED);
+                }
+            }
             publishPosition(motor);
             publishReference(motor);
-            if (targetTrack != 0U && motor.benchReferenceValid()) {
-                confirmedTrack = targetTrack;
-                publishTrack(targetTrack, confirmedTrack, TRACK_STATUS_REACHED);
-            }
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
         } else if (motorMoving.load(std::memory_order_acquire) &&
                    !realTrackProfileActive && !motor.referenceActive()) {
