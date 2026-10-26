@@ -68,6 +68,12 @@ enum class ParamId : uint8_t {
     A2_ST           = 0x0BU,
     B1_ST           = 0x0CU,
     B2_ST           = 0x0DU,
+    A1_LEN          = 0x0EU, // Maximale Strecken der Profilphasen
+    A2_LEN          = 0x0FU,
+    B1_LEN          = 0x10U,
+    B2_LEN          = 0x11U,
+    POSI_MIN        = 0x12U,
+    KONST_MIN       = 0x13U,
 
     POS_LSR         = 0x20U, // Nur GET: Messwert der langen Referenzfahrt
     POS_REF_A       = 0x21U, // Nur GET: erste raeumliche Fahnenflanke
