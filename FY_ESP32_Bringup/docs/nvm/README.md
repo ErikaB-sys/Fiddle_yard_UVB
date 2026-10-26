@@ -152,4 +152,4 @@ Der Motor-Datensatz `motor` hat ab diesem Stand **Version 2 und 34 Byte**. Er sp
 
 **Achtung Update von v1:** Ein schon vorhandener 16-Byte-Motordatensatz v1 wird **nicht stillschweigend überschrieben**. Er erzeugt bis zur ausdrücklichen Wiederherstellung den entsprechenden Fehler in `GET_STATUS 60`. Danach einmal `SET_PARAM 7E 02 AA 55` ausführen, dann `GET_PARAM` für `V_MIN 01`, `V_POS 03` und `A1_LEN 0E` prüfen. Die persistente Kalibrierung und Gleispositionen haben weiter ihre bisherigen eigenen Versionen und CRCs.
 
-**Status:** Code implementiert, Build und praktischer Hardwaretest mit NEMA14 noch offen.
+**Status:** Code implementiert, Build und praktischer Hardwaretest mit NEMA14 bestanden.
