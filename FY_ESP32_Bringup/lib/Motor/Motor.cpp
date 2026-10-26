@@ -35,10 +35,35 @@ bool Motor::calcProfile(uint16_t distance)
 
     const uint32_t reserved =
         static_cast<uint32_t>(_ProfileParam.PosiMin) + _ProfileParam.KonstMin;
+    if (distance <= _ProfileParam.PosiMin) {
+        // Reine Positionierfahrt: der Timer startet direkt mit V_POS.
+        Motor_profil[static_cast<uint8_t>(MotorProfile_t::POSI)].Steps = distance;
+        _TimerValid = true;
+        return true;
+    }
     if (distance <= reserved) {
-        // Zu kurze Fahrt: keine Rampen. Eine gesonderte V_POS/V_MIN-
-        // Geschwindigkeitswahl erfolgt beim spaeteren Timer-Parameteranschluss.
-        Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps = distance;
+        // Kurzer Zwischenbereich: V_MIN fuer das Losbrechen, dann
+        // ausnahmsweise ein Geschwindigkeitswechsel auf V_POS.
+        // Die bestehende ISR setzt den Reload-Sprung nach einem BRE2-Step um.
+        const uint32_t vMin = _ProfileParam.VMin;
+        const uint32_t vPos = _ProfileParam.VPos;
+        if (vMin == 0U || vPos == 0U) {
+            _TimerValid = false;
+            return false;
+        }
+        const uint32_t divMin = 512UL * vMin;
+        const uint32_t divPos = 512UL * vPos;
+        const int32_t reloadMin =
+            static_cast<int32_t>((16000000UL + divMin / 2UL) / divMin) - 1;
+        const int32_t reloadPos =
+            static_cast<int32_t>((16000000UL + divPos / 2UL) / divPos) - 1;
+        Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps =
+            static_cast<uint16_t>(distance - _ProfileParam.PosiMin - 1U);
+        Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Steps = 1U;
+        Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Accel =
+            static_cast<int16_t>(reloadPos - reloadMin);
+        Motor_profil[static_cast<uint8_t>(MotorProfile_t::POSI)].Steps =
+            _ProfileParam.PosiMin;
         _TimerValid = true;
         return true;
     }
@@ -1004,6 +1029,10 @@ void Muninn_motorMockTask(void* arg) {
                             stages[i].steps = motor.profile()[i].Steps;
                             stages[i].accel = motor.profile()[i].Accel;
                             stages[i].rampEvery = intervals[i];
+                            if (i == static_cast<uint8_t>(MotorProfile_t::BRE2) &&
+                                distance > p.PosiMin &&
+                                distance <= static_cast<uint32_t>(p.PosiMin) + p.KonstMin)
+                                stages[i].rampEvery = 1U;
                         }
                         if (stepTimerConfigureProfile(p.VMin,p.VMax,p.VPos) &&
                             stepTimerStartReferenceProfile(
@@ -1256,6 +1285,10 @@ void Muninn_motorMockTask(void* arg) {
                         stages[i].steps = motor.profile()[i].Steps;
                         stages[i].accel = motor.profile()[i].Accel;
                         stages[i].rampEvery = rampEvery[i];
+                        if (i == static_cast<uint8_t>(MotorProfile_t::BRE2) &&
+                            request.steps > p.PosiMin &&
+                            request.steps <= static_cast<uint32_t>(p.PosiMin) + p.KonstMin)
+                            stages[i].rampEvery = 1U;
                     }
                     // Real reference needs the position-tracking STEP backend.
                     // BENCH MOVE/SET_POSITION retain their existing backend.
