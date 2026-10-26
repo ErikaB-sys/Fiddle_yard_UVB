@@ -632,6 +632,57 @@ void unpackRamp(const uint8_t (&raw)[16],uint16_t (&v)[8]) {
         v[i]=static_cast<uint16_t>(raw[2U*i] | (static_cast<uint16_t>(raw[2U*i+1U])<<8U));
 }
 }
+bool Motor::getRampParameter(uint8_t id,uint32_t& value) const {
+    if(!_rampParametersValid || id<static_cast<uint8_t>(ParamId::ACC1) ||
+       id>static_cast<uint8_t>(ParamId::B2_ST)) return false;
+    uint16_t v[8]{}; getRamp(_ProfileParam,v);
+    value=v[id-static_cast<uint8_t>(ParamId::ACC1)];
+    return true;
+}
+bool Motor::setRampParameter(uint8_t id,uint32_t value) {
+    if(!_rampParametersValid || id<static_cast<uint8_t>(ParamId::ACC1) ||
+       id>static_cast<uint8_t>(ParamId::B2_ST) || value>UINT16_MAX) return false;
+    uint16_t v[8]{}; getRamp(_ProfileParam,v);
+    v[id-static_cast<uint8_t>(ParamId::ACC1)]=static_cast<uint16_t>(value);
+    if(!rampValid(v)) return false;
+    putRamp(_ProfileParam,v);
+    publishRamp(v);
+    return true;
+}
+bool Motor::saveRampParameters(bool& changed) {
+    changed=false;
+    if(!_rampParametersValid) return false;
+    uint16_t v[8]{}; getRamp(_ProfileParam,v);
+    if(!rampValid(v)) return false;
+    uint8_t raw[16]{}; packRamp(v,raw);
+    const NVM nvm{};
+    const NvmResult result=nvm.save(NvmRecord::MOTOR_PARAMETERS,raw);
+    if(result!=NvmResult::OK && result!=NvmResult::UNCHANGED) {
+        _nvmFaultMask |= 0x04U;
+        publishNvmSnapshot(*this,_nvmFaultMask,_storedCalibValid,_tracksValid);
+        return false;
+    }
+    changed=(result==NvmResult::OK);
+    _nvmFaultMask &= static_cast<uint8_t>(~0x04U);
+    publishNvmSnapshot(*this,_nvmFaultMask,_storedCalibValid,_tracksValid);
+    return true;
+}
+bool Motor::restoreRampDefaults(bool& changed) {
+    uint16_t old[8]{}; getRamp(_ProfileParam,old);
+    changed=false;
+    for(uint8_t i=0U;i<8U;++i)
+        if(old[i]!=kRampDefaults[i]) changed=true;
+    uint8_t raw[16]{}; packRamp(kRampDefaults,raw);
+    const NVM nvm{};
+    const NvmResult result=nvm.save(NvmRecord::MOTOR_PARAMETERS,raw);
+    if(result!=NvmResult::OK && result!=NvmResult::UNCHANGED) return false;
+    putRamp(_ProfileParam,kRampDefaults);
+    publishRamp(kRampDefaults);
+    _rampParametersValid=true;
+    _nvmFaultMask &= static_cast<uint8_t>(~0x04U);
+    publishNvmSnapshot(*this,_nvmFaultMask,_storedCalibValid,_tracksValid);
+    return true;
+}
 void Motor::initializeStorage() {
     const NVM nvm{};
     uint8_t rawCalib[12]{};
