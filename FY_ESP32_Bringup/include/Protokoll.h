@@ -39,7 +39,54 @@ constexpr uint8_t CMD_GET_STATUS   =   0x19   ;    // Command to get the status 
 constexpr uint8_t CMD_GET_ERROR    =   0x1A   ;    // Command to get the current error of the FY-Controller
 
 constexpr uint8_t CMD_REFERENCE    =   0x16   ;    // Command to reference the motor position
-constexpr uint8_t CMD_SET_PARAM    =   0x2B   ;    // Issue: #145 | Set a motor/controller parameter
+constexpr uint8_t CMD_SET_PARAM    =   0x2B   ;    // Issue #158: Parameter in RAM / SAVE via ID
+constexpr uint8_t CMD_GET_PARAM    =   0x2C   ;    // Issue #158: einzelner Parameter per ID
+
+/**
+ * @brief Gemeinsame Parameter-IDs fuer GET_PARAM und SET_PARAM (Issue #158).
+ *
+ * Werte auf dem Draht: drei uint8 in Little Endian, unsigned (24 Bit).
+ * A/B bezeichnen Beschleunigungs-/Bremssegmente; die Kennung bestimmt das
+ * Vorzeichen im internen Profil. Kalibrierwerte sind ausschliesslich lesbar.
+ * IDs sind ein stabiler Protokollvertrag; neue IDs nicht umnummerieren.
+ *
+ * Hinweis: Diese Definitionen bereiten nur das Protokoll vor. Die Handler
+ * und die Anbindung der Motorparameter an den Timer folgen separat.
+ */
+enum class ParamId : uint8_t {
+    V_MIN           = 0x01U,
+    V_MAX           = 0x02U,
+    V_POS           = 0x03U,
+    V_REF_MIN       = 0x04U,
+    V_REF           = 0x05U,
+    A1              = 0x06U,
+    A2              = 0x07U,
+    B1              = 0x08U,
+    B2              = 0x09U,
+    A1_ST           = 0x0AU,
+    A2_ST           = 0x0BU,
+    B1_ST           = 0x0CU,
+    B2_ST           = 0x0DU,
+
+    POS_LSR         = 0x20U, // Nur GET: Messwert der langen Referenzfahrt
+    POS_REF_A       = 0x21U, // Nur GET: erste raeumliche Fahnenflanke
+    POS_REF_B       = 0x22U, // Nur GET: zweite raeumliche Fahnenflanke
+
+    TRACK_BG1       = 0x30U,
+    TRACK_BG2       = 0x31U,
+    TRACK_BG3       = 0x32U,
+    TRACK_BG4       = 0x33U,
+    TRACK_BG5       = 0x34U,
+
+    SAVE            = 0x7FU  // Nur SET: DATA[1..3] = AA 55 00
+};
+
+constexpr uint8_t PARAM_SAVE_PATTERN_1 = 0xAAU;
+constexpr uint8_t PARAM_SAVE_PATTERN_2 = 0x55U;
+constexpr uint8_t PARAM_SAVE_PATTERN_3 = 0x00U;
+
+// GET_PARAM: DATA[0] = ParamId; Antwort: STATUS_Parameter mit 4 DATA-Bytes.
+// SET_PARAM: DATA[0] = ParamId, DATA[1..3] = uint24 LE / SAVE-Muster.
 
 constexpr uint8_t CMD_STOPP        =   0x01   ;    // Command to stop the motor
 constexpr uint8_t CMD_GO           =   0x07   ;    // Command to start the motor
@@ -103,7 +150,8 @@ constexpr uint8_t STATUS_Reference              = 0x30   ;    // Status ID  Refe
 /** Response containing track information. */
 constexpr uint8_t STATUS_Track                  = 0x40    ;   // Status ID  Track informatiom
 /** Response containing motor information. */
-constexpr uint8_t STATUS_Motor                  = 0x50;    //Status ID Motor information
+constexpr uint8_t STATUS_Motor                  = 0x50;
+constexpr uint8_t STATUS_Parameter              = 0x2DU; // DATA: ParamId, value[0..2] LE    //Status ID Motor information
 constexpr uint8_t STATUS_Switches               = 0x41;
 constexpr uint8_t STATUS_Keyboard               = 0x51;
 /** Response containing automatically generated firmware identity information. */
@@ -200,14 +248,15 @@ struct ResponseDefinition
 const CommandDefinition commandDefinitions[] =
 {
     // Command,          CommandType,          DATA length, Requires reference
-    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false }, // Issue: #114 | Status: Code working
+    { CMD_GET_STATUS,    CommandType::IMMEDIATE, 1,false },
+    { CMD_GET_PARAM,     CommandType::IMMEDIATE, 1,false }, // #158 | Protokoll definiert; Handler folgt // Issue: #114 | Status: Code working
     { CMD_GET_ERROR,     CommandType::IMMEDIATE, 0,false }, // Issue: #115 | Status: Code working
     { CMD_GET_POSITION,  CommandType::IMMEDIATE, 0,false }, // Issue: #116 | Status: Code constructed (snapshot wired; runtime refresh depends on motor loop)
     { CMD_GET_TRACK,     CommandType::IMMEDIATE, 1,false }, // Issue: #117 | Status: Code constructed (track snapshot connection pending)
     { CMD_HELP,          CommandType::IMMEDIATE, 0,false }, // Issue: #118 | Status: Code working
     { CMD_GET_FIRMWARE,  CommandType::IMMEDIATE, 0,false }, // Issue: #119 | Status: Code constructed (STATUS_Firmware)
     { CMD_REFERENCE,     CommandType::EXECUTE,   1,false }, // Issue: #120 | Status: Code constructed
-    { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // Issue: #145 | Status: Code constructed
+    { CMD_SET_PARAM,     CommandType::EXECUTE,   4,false }, // #158 | SAVE ueber ParamId::SAVE // Issue: #145 | Status: Code constructed
     { CMD_GO,            CommandType::EXECUTE,   2,false }, // Issue: #122 | Motor enable/disable does not require a reference
     { CMD_LEFT,          CommandType::EXECUTE,   0, true }, // Issue: #123 | No DATA payload
     { CMD_RIGHT,         CommandType::EXECUTE,   0, true }, // Issue: #124 | No DATA payload
@@ -228,7 +277,8 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Position,  4, ResponseContainer::Data }, // Issue: #138 | Status: Code constructed (snapshot wired; runtime refresh depends on motor loop)
 { STATUS_Reference, 1, ResponseContainer::Data }, // STATUS 30: 0 none, 1 physically referenced, 2 bench-only FAKE
 { STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Code constructed (track snapshot connection pending)
-{ STATUS_Motor,     3, ResponseContainer::Data }, // Issue: #141 | Status: Code working
+{ STATUS_Motor,     3, ResponseContainer::Data },
+{ STATUS_Parameter, 4, ResponseContainer::Data }, // Parameter-ID + 24-bit-LE-Wert // Issue: #141 | Status: Code working
 { STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
 { STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
 { STATUS_Firmware,  0, ResponseContainer::String }, // Automatically generated firmware identity
