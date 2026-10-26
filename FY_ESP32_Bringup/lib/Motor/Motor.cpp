@@ -443,6 +443,7 @@ std::atomic<uint32_t> realReferencePosition{kPositionUnknown};
 std::atomic<uint8_t> referenceStatusSnapshot{0U}; // 0 none, 1 real, 2 fake
 std::atomic<uint16_t> nvmStatusSnapshot{0U}; // high byte valid mask, low byte fault mask
 std::atomic<uint32_t> nvmTrackValues[5]{};
+std::atomic<uint32_t> nvmRampValues[8]{};
 std::atomic<uint32_t> nvmCalibrationValues[3]{};
 std::atomic<uint32_t> trackSnapshot{
     static_cast<uint32_t>(TRACK_STATUS_ERROR) << 16U
@@ -551,7 +552,12 @@ bool Muninn_getParamSnapshot(uint8_t id, uint32_t& value) {
             .load(std::memory_order_acquire);
         return value <= 0xFFFFFFU;
     }
-    return false; // Noch keine aktiven Motorparameter-Snapshots: kein Scheinwert.
+    if (id >= static_cast<uint8_t>(ParamId::ACC1) &&
+        id <= static_cast<uint8_t>(ParamId::B2_ST) && (valid & 0x04U)) {
+        value = nvmRampValues[id-static_cast<uint8_t>(ParamId::ACC1)].load(std::memory_order_acquire);
+        return true;
+    }
+    return false; // Unangebundene IDs liefern keinen Scheinwert.
 }
 
 uint16_t Muninn_nvmStatusSnapshot() {
@@ -583,11 +589,10 @@ bool calibrationPlausible(const uint32_t values[3]) {
 }
 void publishNvmSnapshot(const Motor& motor, uint8_t faults,
                         bool calibValid, bool tracksValid) {
-    (void)motor;
     uint8_t valid = 0U;
     if (calibValid) valid |= 0x01U;
     if (tracksValid) valid |= 0x02U;
-    // Motorparameter werden erst in der naechsten Ausbaustufe eingebunden.
+    if (motor.rampParametersValid()) valid |= 0x04U;
     nvmStatusSnapshot.store(
         static_cast<uint16_t>(faults) |
         (static_cast<uint16_t>(valid) << 8U),
