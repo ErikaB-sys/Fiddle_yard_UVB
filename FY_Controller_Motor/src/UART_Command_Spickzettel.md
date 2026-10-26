@@ -67,6 +67,7 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | `21` | POS_REF_A | ja | **nein** | Gemessene Fahnenflanke A |
 | `22` | POS_REF_B | ja | **nein** | Gemessene Fahnenflanke B |
 | `30`–`34` | TRACK_BG1 bis TRACK_BG5 | ja | ja | Eingelernte Gleispositionen |
+| `7E` | RESTORE_DEFAULT | **nein** | ja (Muster) | `7E 01 AA 55` = Gleise; `7E 02 AA 55` = Motor; geplant |
 | `7F` | SAVE | **nein** | ja (Muster) | `7F 01 AA 55` = Gleise; `7F 02 AA 55` = Motor |
 
 **Beispiel-Bytes (ESP32, noch nicht lauffaehig):**
@@ -76,6 +77,7 @@ GET_PARAM 30          ; BG1 abfragen
 SET_PARAM 30 15 06 00 ; BG1 = 0x000615 = 1557 (nur RAM)
 SET_PARAM 7F 01 AA 55 ; nur geaenderte Gleispositionen ins NVS
 SET_PARAM 7F 02 AA 55 ; nur geaenderte Motorparameter ins NVS
+GET_STATUS 60         ; NVM: Fehlerflag, Fehlerbits, gueltige Segmente
 ```
 
 Bei neuem ESP32: fehlende Motor- und Gleissegmente mit gueltiger CRC aus
@@ -83,6 +85,17 @@ Defaultwerten initialisieren. **Ungueltige vorhandene Daten nicht
 automatisch neu schreiben.** Kalibrierung ausschliesslich durch
 erfolgreiche lange Referenzfahrt; keine Kalibrierdefaults. Alle Segment-CRC
 sind unabhaengig.
+
+## NVM-Diagnose und Wiederherstellung (Issue #158)
+
+- `GET_STATUS 60` meldet `STATUS_NVM (0x61)` mit 3 DATA-Byte: `[ErrorFlag, FaultMask, ValidMask]`.
+- Bits der beiden Masken: Bit 0 = Kalibrierung, Bit 1 = Gleise, Bit 2 = Motorparameter; Bits 3–7 für spätere Datensätze.
+- ErrorFlag: `00` = kein NVM-Fehler, `01` = mindestens ein korruptes/ungeprüftes Segment.
+- `NOT_FOUND` bei Kalibrierung ist auf frischem ESP32 kein NVM-Fehler; das Gültigkeitsbit ist aber 0 (lange REF erforderlich).
+- CRC-/Formatfehler an erforderlichen Segmenten und ungültige Motorparameter führen bei Bewegungsaufträgen zu NACK. Kein automatischer Default-Reset bei vorhandenen korrupten Daten.
+- Geplanter Wartungsbefehl `SET_PARAM 7E 01 AA 55` (Tracks) oder `SET_PARAM 7E 02 AA 55` (Motor): setzt das **gewählte** Segment explizit auf Defaultwerte zurück und schreibt eine neue gültige CRC, auch bei beschädigtem Vorwert. Für die Kalibrierung **nicht erlaubt**; sie wird nur durch Messung neu gültig.
+- `SAVE` und `RESTORE` arbeiten ausschließlich im Stillstand. STOP darf einen bereits begonnenen NVS-Commit nicht unterbrechen oder beschädigen; anschließend wird STOP prioritär verarbeitet.
+- **Implementierungsstatus:** Definitionen im Protokoll, Handler/Recovery noch nicht abgenommen; siehe [NVM-Spezifikation](../../FY_ESP32_Bringup/docs/nvm/README.md).
 
 ## Status-Selektoren
 
@@ -92,6 +105,7 @@ sind unabhaengig.
 | `20` | Motor (Bit 0 Treiber aktiv, Bit 1 Bewegung) | `0x50` |
 | `40` | Digitale Eingänge REF, TRIM_LEFT, TRIM_RIGHT, TIMING_BELT in Bit 0–3 | `0x41` |
 | `50` | Tastatur verbunden (Bit 0) | `0x51` |
+| `60` | NVM-Fehler, Segmentmaske und Gültigkeitsmaske | `0x61` |
 
 Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 
@@ -117,6 +131,7 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 | Track | `0x40` | 3 Byte: Zielgleis, zuletzt bestätigtes Gleis, Bewegungsstatus |
 | Motor | `0x50` | 3 Byte |
 | Parameter | `0x2D` | 4 Byte: Parameter-ID, Wertbyte 0, 1, 2 (Little Endian); Handler folgt |
+| NVM | `0x61` | 3 Byte: Fehlerflag, Fehlersegment-Bitmaske, Gültigkeits-Bitmaske |
 | ACK | `0x60` | 1 Byte: bestätigte Command-ID |
 | NACK | `0x70` | 1 Byte: Fehlerort/Modul (oberes Nibble) + Ablehnungsgrund (unteres Nibble) |
 | DEV_RESPONSE | `0xFF` | 2 Byte: Modulkennung, Entwicklungsfehlercode (unerwarteter Implementierungszustand) |
