@@ -119,6 +119,7 @@ void UART::decodeCommand(const CommandDefinition& definition) {
 void UART::decodeImmediate() {
     switch (_command.cmd) {
     case CMD_GET_STATUS:    handleGetStatus(); break;
+    case CMD_GET_PARAM:     handleGetParam(); break;
     case CMD_GET_ERROR:     handleGetError(); break;
     case CMD_GET_POSITION:  handleGetPosition(); break;
     case CMD_GET_TRACK:     handleGetTrack(); break;
@@ -300,6 +301,14 @@ void UART::handleGetStatus() {
         setResponse(STATUS_Switches, &_sensorSnapshot, 1U);
         break;
     }
+    case STATUS_SELECTOR_NVM: {
+        const uint16_t mask = Muninn_nvmStatusSnapshot();
+        const uint8_t faults = static_cast<uint8_t>(mask & 0xFFU);
+        const uint8_t data[3]{static_cast<uint8_t>(faults != 0U ? 1U : 0U),
+                              faults, static_cast<uint8_t>(mask >> 8U)};
+        setResponse(STATUS_NVM, data, sizeof(data));
+        break;
+    }
     case STATUS_SELECTOR_KEYBOARD: {
         // 0 = not connected (Nano definition).
         const uint8_t data = 0U;
@@ -311,6 +320,19 @@ void UART::handleGetStatus() {
         nack(FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
         break;
     }
+}
+
+void UART::handleGetParam() {
+    const uint8_t id = _command.data[0];
+    uint32_t value = 0U;
+    if (!Muninn_getParamSnapshot(id, value)) {
+        nack(FY_ERROR_LOCATION_MOTOR, NackReason::NOT_READY);
+        return;
+    }
+    const uint8_t data[4]{id, static_cast<uint8_t>(value),
+                          static_cast<uint8_t>(value >> 8U),
+                          static_cast<uint8_t>(value >> 16U)};
+    setResponse(STATUS_Parameter, data, sizeof(data));
 }
 
 void UART::handleGetError() {
