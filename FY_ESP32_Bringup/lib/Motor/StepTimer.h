@@ -17,6 +17,10 @@ constexpr uint8_t STEP_PROFILE_PHASES = 6U;
 // on the falling edge and advances phases there (never in HIGH).
 bool stepTimerBegin();
 
+// Geschwindigkeiten ausschliesslich im Stillstand konfigurieren.
+// ISR liest weiterhin nur ihre bisherigen Reload-Grenzen.
+bool stepTimerConfigureProfile(uint16_t vMin, uint16_t vMax, uint16_t vPos);
+
 // Existing fixed-frequency diagnostics. Retained for compatibility.
 bool stepTimerStart(uint16_t steps, bool directionRight, uint16_t stepHz);
 
@@ -25,7 +29,8 @@ bool stepTimerStart(uint16_t steps, bool directionRight, uint16_t stepHz);
 // On Arduino-ESP32 2.x the ISR writes the TIMG1/T0 next alarm interval
 // directly (IRAM-safe) without calling timerAlarmWrite inside the ISR.
 bool stepTimerStartProfile(uint16_t steps, bool directionRight,
-                           const StepProfileSegment (&segments)[STEP_PROFILE_PHASES]);
+                           const StepProfileSegment (&segments)[STEP_PROFILE_PHASES],
+                           uint16_t startHz);
 // Sensor-aware, fixed-speed movement used ONLY by the reference state machine.
 // Old Nano direction: awayMotor=true means increasing position (G39 side).
 enum class ReferenceEnd : uint8_t { NONE, ENDSTOP, REF_EXIT, STEP_LIMIT };
@@ -42,7 +47,8 @@ struct ReferenceTimerSample {
 // Tracked final move to BG3 using the existing 6-stage profile, with
 // endstop check on each STEP. Completion is reported as STEP_LIMIT.
 bool stepTimerStartReferenceProfile(uint16_t steps, bool awayMotor,
-                           const StepProfileSegment (&segments)[STEP_PROFILE_PHASES]);
+                           const StepProfileSegment (&segments)[STEP_PROFILE_PHASES],
+                           uint16_t startHz);
 void stepTimerReferenceSetPosition(uint32_t position);
 bool stepTimerStartReference(bool awayMotor, uint16_t stepHz,
                              bool stopOnRefExit, bool captureCoarse,
