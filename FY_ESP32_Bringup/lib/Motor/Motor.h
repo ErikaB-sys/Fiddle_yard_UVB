@@ -92,6 +92,8 @@ public:
     bool calibrationSavePending() const { return _calibrationPending; }
     bool persistCalibration();
     bool trackPosition(uint8_t track, uint32_t& out) const;
+    /** @brief Setzt alle Gleis-Defaults erst im NVM und danach im RAM. */
+    bool restoreTrackDefaults();
     bool tracksValid() const { return _tracksValid; }
     bool hasNvmFault() const { return _nvmFaultMask != 0U; }
 
