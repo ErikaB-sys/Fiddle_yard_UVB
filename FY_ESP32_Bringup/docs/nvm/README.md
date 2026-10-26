@@ -28,7 +28,7 @@ Ein einziger NVS-Namespace `fy_uvb`, fester Key und feste numerische ID pro Segm
 |---|---|---|---|---|
 | 0 / bit 0 | `calib` | CALIBRATION | 3 × uint32 = 12 B | `Pos_LSR`, `Pos_refA`, `Pos_refB`; **nur erfolgreiche lange Messfahrt**, niemals Default |
 | 1 / bit 1 | `tracks` | TRACK_POSITIONS | 5 × uint32 = 20 B | BG1–BG5: 1557, 3157, 4757, 6357, 7957; beim ersten Fehlen initialisieren |
-| 2 / bit 2 | `motor` | MOTOR_PARAMETERS | genaue Version/Länge bei Anbindung fixieren | geprüfte aktuelle Profil- und Referenzwerte; beim ersten Fehlen initialisieren |
+| 2 / bit 2 | `motor` | MOTOR_PARAMETERS | v2: 17 × uint16 LE = 34 B | geprüfte aktuelle Profil- und Referenzwerte; beim ersten Fehlen initialisieren |
 | 3..7 | später | neue Bereiche | nur anhängen | erst bei Bedarf |
 
 Einheit bei Positionen: **A4988 fest 1/8-Mikroschritt**, Schrittimpulse. Motorseitiger Endschalter `LSL` definiert konstant `1000` und wird **nicht** gespeichert. `Pos_refA` und `Pos_refB` sind die zwei *räumlichen* Flanken; Fahrtrichtungsrohmessungen dürfen verglichen oder plausibel gemittelt werden. Fahnenlänge, Fahnenabweichung und Fahrweg sind berechnet, nicht persistent. Umkehrspiel wird später sporadisch gemessen und bleibt **nur RAM-Diagnose**. Gleispositionen sind unabhängig von der Kalibrierung.
@@ -58,7 +58,7 @@ flowchart TD
 
 ### Explizite Wiederherstellung
 
-Vorgesehener Wartungsbefehl `SET_PARAM 7E <Bereich> AA 55` – **noch nicht implementiert**: `01` = Gleise, `02` = Motor, **kein RESTORE für Kalibrierung**. RESTORE ist eine **atomare fachliche Wiederherstellung von NVM und RAM**: Defaults vorbereiten und validieren, **zuerst inkl. gültiger CRC dauerhaft ins NVS committen**, erst bei erfolgreichem Commit RAM-Werte übernehmen, Fehlerbit löschen und ACK senden. Bei fehlgeschlagenem Commit: NACK, keine Default-Uebernahme in den aktiven RAM-Satz. Der Befehl überschreibt auf ausdrücklichen Benutzerauftrag auch CRC-ungültige Daten. Kein separates SAVE notwendig. Kalibrierung wird ausschließlich durch echte lange REF wieder gültig. Wiederholte Invalidierung: gespeicherte CRC als `~CRC32(originaler Kopf+Payload)` neu berechnen und schreiben; **nicht** die gespeicherte CRC toggeln, sonst zweimaliges Invalidieren = unbeabsichtigte Revalidierung.
+Wartungsbefehl `SET_PARAM 7E <Bereich> AA 55` – implementiert: `01` = Gleise, `02` = Motor, **kein RESTORE für Kalibrierung**. RESTORE ist eine **atomare fachliche Wiederherstellung von NVM und RAM**: Defaults vorbereiten und validieren, **zuerst inkl. gültiger CRC dauerhaft ins NVS committen**, erst bei erfolgreichem Commit RAM-Werte übernehmen, Fehlerbit löschen und ACK senden. Bei fehlgeschlagenem Commit: NACK, keine Default-Uebernahme in den aktiven RAM-Satz. Der Befehl überschreibt auf ausdrücklichen Benutzerauftrag auch CRC-ungültige Daten. Kein separates SAVE notwendig. Kalibrierung wird ausschließlich durch echte lange REF wieder gültig. Wiederholte Invalidierung: gespeicherte CRC als `~CRC32(originaler Kopf+Payload)` neu berechnen und schreiben; **nicht** die gespeicherte CRC toggeln, sonst zweimaliges Invalidieren = unbeabsichtigte Revalidierung.
 
 ## 4. GET_STATUS 60 – NVM-Diagnose
 
@@ -122,3 +122,34 @@ Eine gültige CRC wird nach *erfolgreicher langer Messfahrt* geschrieben; bei vo
 - Exakte Motor-Payload-Felder und Wertebereiche anhand **aktiver** 12 Profilfelder und echter REF-Timer-Werte; dokumentierte IDs `V_POS` etc. nicht als schon wirksam ausgeben.
 - Ob ein lesbarer NVM-Status und das RESTORE-Kommando mit genau diesen Wire-IDs final freigegeben werden (hier als Zielvertrag dokumentiert).
 - Fachliche Plausibilität räumlicher Fahnenflanken aus beiden Fahrtrichtungen; die bestehende Referenzfahrt nicht für Debug-Ausgaben in der ISR verändern.
+
+
+## 7. Motorprofil-Parameterstand (Implementierung 26.10.2026)
+
+Der Motor-Datensatz `motor` hat ab diesem Stand **Version 2 und 34 Byte**. Er speichert 17 `uint16`-Werte in Little Endian. Die bisherigen ersten acht Werte behalten ihre Reihenfolge und Bedeutung; die Erweiterung wird nur angehaengt. Die anfaenglichen Motor-Defaults der ESP32-Version sind weiterhin die zuvor erprobten Werte (Start 120, maximal 800 Steps/s; Rampen 2/1/1/2 und Intervalle 1/2/2/1).
+
+| Offset (Byte) | UART-ID | Wert | Default | Wirkung |
+|---:|---|---|---:|---|
+| 0 | `ACC1 06` | Delta A1 | 2 | Starke Anfahrbeschleunigung (negative Timer-Ticks) |
+| 2 | `ACC2 07` | Delta A2 | 1 | Zweite Anfahrrampe |
+| 4 | `BRE1 08` | Delta B1 | 1 | Erste Bremsrampe |
+| 6 | `BRE2 09` | Delta B2 | 2 | Zweite Bremsrampe |
+| 8 | `A1_ST 0A` | Schritte je Timeranpassung A1 | 1 | Rampenintervall (historische ID!) |
+| 10 | `A2_ST 0B` | Schritte je Timeranpassung A2 | 2 | Rampenintervall |
+| 12 | `B1_ST 0C` | Schritte je Timeranpassung B1 | 2 | Rampenintervall |
+| 14 | `B2_ST 0D` | Schritte je Timeranpassung B2 | 1 | Rampenintervall |
+| 16 | `V_MIN 01` | Steps/s | 120 | Startgeschwindigkeit |
+| 18 | `V_MAX 02` | Steps/s | 800 | Geschwindigkeitsobergrenze |
+| 20 | `V_POS 03` | Steps/s | 120 | Positioniergeschwindigkeit |
+| 22 | `A1_LEN 0E` | Steps | 100 | maximale Strecke A1 |
+| 24 | `A2_LEN 0F` | Steps | 100 | maximale Strecke A2 |
+| 26 | `B1_LEN 10` | Steps | 100 | maximale Strecke B1 |
+| 28 | `B2_LEN 11` | Steps | 100 | maximale Strecke B2 |
+| 30 | `POSI_MIN 12` | Steps | 160 | reservierte Positionierstrecke |
+| 32 | `KONST_MIN 13` | Steps | 400 | reservierte minimale Konstantstrecke bei Profilfahrt (0 erlaubt) |
+
+**Streckenregeln:** Bei `X <= POSI_MIN` wird die komplette Strecke mit `V_POS` gefahren. Bei `POSI_MIN < X <= POSI_MIN+KONST_MIN` startet die Bühne mit `V_MIN`; ein einzelner BRE2-Step wechselt ausnahmsweise auf `V_POS`; der restliche POSI-Abschnitt fährt konstant. Oberhalb dieser Schwelle werden `POSI_MIN` und `KONST_MIN` reserviert, anschließend die Rampenabschnitte aus ihren unabhängigen Maximalstrecken zugeteilt (erst A1/B2, danach A2/B1), Reststrecke zu KONST addiert. Rampenintervalle, maximale Reload-Frequenzen und unveränderte STEP-ISR führen die Tabelle aus. **Es gibt keine Optimierung beliebiger Parameterkombinationen auf physikalisch genaues `V_POS` nach BRE2**; Benutzer prüfen das Fahrverhalten an der Mechanik.
+
+**Achtung Update von v1:** Ein schon vorhandener 16-Byte-Motordatensatz v1 wird **nicht stillschweigend überschrieben**. Er erzeugt bis zur ausdrücklichen Wiederherstellung den entsprechenden Fehler in `GET_STATUS 60`. Danach einmal `SET_PARAM 7E 02 AA 55` ausführen, dann `GET_PARAM` für `V_MIN 01`, `V_POS 03` und `A1_LEN 0E` prüfen. Die persistente Kalibrierung und Gleispositionen haben weiter ihre bisherigen eigenen Versionen und CRCs.
+
+**Status:** Code implementiert, Build und praktischer Hardwaretest mit NEMA14 noch offen.
