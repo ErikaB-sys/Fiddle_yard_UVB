@@ -3,6 +3,7 @@
 #include "FY_BenchPosition.h"
 #include "HW_Config.h"
 #include "Error.h"
+#include "NVM.h"
 #include <freertos/task.h>
 #include <atomic>
 
@@ -158,6 +159,7 @@ void Motor::referenceCancel() {
         if (_active) stepTimerStop();
         _active = false;
         _stage = RefRunState::IDLE;
+        _calibrationPending = false; // Abgebrochene BG3-Fahrt nicht nachtraeglich persistieren.
         // Calibration (as distinct from current reference) survives STOP.
     }
 
@@ -221,8 +223,16 @@ void Motor::referenceUpdate() {
                 return referenceFail();
             _refLeftReverse = s.entry;
             _refRightReverse = s.exit;
-            // Both passes must produce positive flag lengths.
-            _calibrated = true; // RAM only: NVM/CRC not implemented yet.
+            // Je zwei Messungen derselben raeumlichen Flanke.
+            if (!(_refLeft < _refRight && _refLeftReverse < _refRightReverse &&
+                  _refLeft > 1000U && _refRight < _oppositeEnd &&
+                  _refLeftReverse > 1000U && _refRightReverse < _oppositeEnd))
+                return referenceFail();
+            _measuredCalibration[0] = _oppositeEnd;
+            _measuredCalibration[1] = (_refLeft + _refLeftReverse) / 2U;
+            _measuredCalibration[2] = (_refRight + _refRightReverse) / 2U;
+            _calibrated = true;
+            _calibrationPending = true; // Erst nach BG3-Stillstand NVM schreiben.
             return referenceFinish();
         default:
             return referenceFail();
@@ -275,8 +285,8 @@ void Motor::resetBenchPosition() {
 }
 
 MotorCommandResult_t Motor::prepareSetTrack(uint8_t track, MoveRequest& request) {
-    uint16_t destination = 0U;
-    if (!benchTrackPosition(track, destination))
+    uint32_t destination = 0U;
+    if (!trackPosition(track, destination))
         return MotorCommandResult_t::INVALID_DATA;
     if (_StopActive || _State != MotorState_t::IDLE)
         return MotorCommandResult_t::STOP_ACTIVE;
@@ -552,6 +562,134 @@ MotorState_t Muninn_motorState() {
     return static_cast<MotorState_t>(motorStateSnapshot.load(std::memory_order_acquire));
 }
 
+namespace {
+// Die persistenten Payloads sind explizit in Little-Endian kodiert.
+uint32_t decodeLe32(const uint8_t* p) {
+    return static_cast<uint32_t>(p[0]) |
+        (static_cast<uint32_t>(p[1]) << 8U) |
+        (static_cast<uint32_t>(p[2]) << 16U) |
+        (static_cast<uint32_t>(p[3]) << 24U);
+}
+void encodeLe32(uint8_t* p, uint32_t value) {
+    p[0] = static_cast<uint8_t>(value);
+    p[1] = static_cast<uint8_t>(value >> 8U);
+    p[2] = static_cast<uint8_t>(value >> 16U);
+    p[3] = static_cast<uint8_t>(value >> 24U);
+}
+bool calibrationPlausible(const uint32_t values[3]) {
+    return values[0] > 1000U && values[0] <= 0xFFFFFFU &&
+           values[1] > 1000U && values[1] < values[2] &&
+           values[2] < values[0];
+}
+void publishNvmSnapshot(const Motor& motor, uint8_t faults,
+                        bool calibValid, bool tracksValid) {
+    (void)motor;
+    uint8_t valid = 0U;
+    if (calibValid) valid |= 0x01U;
+    if (tracksValid) valid |= 0x02U;
+    // Motorparameter werden erst in der naechsten Ausbaustufe eingebunden.
+    nvmStatusSnapshot.store(
+        static_cast<uint16_t>(faults) |
+        (static_cast<uint16_t>(valid) << 8U),
+        std::memory_order_release);
+}
+} // namespace
+
+void Motor::initializeStorage() {
+    const NVM nvm{};
+    uint8_t rawCalib[12]{};
+    const NvmResult cr = nvm.load(NvmRecord::CALIBRATION, rawCalib);
+    if (cr == NvmResult::OK) {
+        uint32_t c[3]{};
+        for (uint8_t i = 0U; i < 3U; ++i)
+            c[i] = decodeLe32(&rawCalib[4U * i]);
+        if (calibrationPlausible(c)) {
+            for (uint8_t i = 0U; i < 3U; ++i) {
+                _savedCalibration[i] = c[i];
+                nvmCalibrationValues[i].store(c[i], std::memory_order_release);
+            }
+            _oppositeEnd = c[0]; // Auch Kurz-REF nach Reboot braucht LSR!
+            _calibrated = true;
+            _storedCalibValid = true;
+        } else {
+            _nvmFaultMask |= 0x01U;
+        }
+    } else if (cr != NvmResult::NOT_FOUND) {
+        _nvmFaultMask |= 0x01U; // CRC-/Format-/I/O-Fehler, keine Defaults.
+    }
+
+    const NvmResult tr = [&]() {
+        uint8_t raw[20]{};
+        const NvmResult read = nvm.load(NvmRecord::TRACK_POSITIONS, raw);
+        if (read == NvmResult::NOT_FOUND) {
+            for (uint8_t i = 0U; i < FY_BENCH_TRACK_COUNT; ++i)
+                encodeLe32(&raw[4U * i], FY_BENCH_TRACK_POSITIONS[i]);
+            const NvmResult first = nvm.save(NvmRecord::TRACK_POSITIONS, raw);
+            if (first != NvmResult::OK && first != NvmResult::UNCHANGED)
+                return first;
+        } else if (read != NvmResult::OK) {
+            return read; // Niemals kaputten Record mit Defaults ueberschreiben.
+        }
+        for (uint8_t i = 0U; i < FY_BENCH_TRACK_COUNT; ++i) {
+            const uint32_t v = decodeLe32(&raw[4U * i]);
+            if (v <= 1000U || v >= 0xFFFFFFU)
+                return NvmResult::INVALID_DATA;
+            _tracks[i] = v;
+        }
+        return NvmResult::OK;
+    }();
+    if (tr == NvmResult::OK) {
+        _tracksValid = true;
+        for (uint8_t i = 0U; i < FY_BENCH_TRACK_COUNT; ++i)
+            nvmTrackValues[i].store(_tracks[i], std::memory_order_release);
+    } else {
+        _nvmFaultMask |= 0x02U;
+    }
+    publishNvmSnapshot(*this, _nvmFaultMask, _storedCalibValid, _tracksValid);
+}
+
+bool Motor::trackPosition(uint8_t track, uint32_t& out) const {
+    if (!_tracksValid || track == 0U || track > FY_BENCH_TRACK_COUNT)
+        return false;
+    out = _tracks[track - 1U];
+    return true;
+}
+
+bool Motor::persistCalibration() {
+    if (!_calibrationPending) return true;
+    if (!_calibrated || !calibrationPlausible(_measuredCalibration))
+        return false;
+    bool changed = !_storedCalibValid;
+    for (uint8_t i = 0U; i < 3U && !changed; ++i) {
+        const uint32_t a = _measuredCalibration[i];
+        const uint32_t b = _savedCalibration[i];
+        if ((a > b ? a - b : b - a) > 10U) changed = true;
+    }
+    if (changed) {
+        uint8_t raw[12]{};
+        for (uint8_t i = 0U; i < 3U; ++i)
+            encodeLe32(&raw[4U * i], _measuredCalibration[i]);
+        const NVM nvm{};
+        const NvmResult result = nvm.save(NvmRecord::CALIBRATION, raw);
+        if (result != NvmResult::OK && result != NvmResult::UNCHANGED) {
+            _nvmFaultMask |= 0x01U;
+            _storedCalibValid = false;
+            publishNvmSnapshot(*this, _nvmFaultMask, false, _tracksValid);
+            return false;
+        }
+    }
+    for (uint8_t i = 0U; i < 3U; ++i) {
+        _savedCalibration[i] = _measuredCalibration[i];
+        nvmCalibrationValues[i].store(_savedCalibration[i],
+                                     std::memory_order_release);
+    }
+    _nvmFaultMask &= static_cast<uint8_t>(~0x01U);
+    _storedCalibValid = true;
+    _calibrationPending = false;
+    publishNvmSnapshot(*this, _nvmFaultMask, true, _tracksValid);
+    return true;
+}
+
 void Muninn_initMotorMock() {
     // G32 (!SLEEP + !RESET) is held LOW during the entire startup.
     // The A4988 microstep inputs are configured while ENABLE is HIGH.
@@ -589,6 +727,7 @@ void Muninn_motorMockTask(void* arg) {
     auto* context = static_cast<BringupContext*>(arg);
     CommandMessage cmd{};
     Motor motor{};
+    motor.initializeStorage(); // Kein Motorschritt, POR-STOP bleibt gesetzt.
     bool realTrackProfileActive = false; // Real profiled motion: REF->BG3 / SET_TRACK
     bool ledState = false;
     // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
@@ -693,12 +832,13 @@ void Muninn_motorMockTask(void* arg) {
                     // Nano HW_TEST always selected BG3 after short REF.
                     // The same intended post-condition now applies after
                     // successful long calibration as well.
-                    constexpr uint32_t kTrack3 = FY_BENCH_TRACK_POSITIONS[2];
+                    uint32_t kTrack3 = 0U;
+                    const bool bg3Valid = motor.trackPosition(3U, kTrack3);
                     const uint32_t start = motor.referencePosition();
                     const uint32_t rightEnd = motor.referenceOppositeEnd();
                     const uint32_t distance = start >= kTrack3
                         ? start - kTrack3 : kTrack3 - start;
-                    if (rightEnd <= kTrack3 || kTrack3 <= 1000U ||
+                    if (!bg3Valid || rightEnd <= kTrack3 || kTrack3 <= 1000U ||
                         distance > UINT16_MAX) {
                         Serial.print(F("REF: BG3 RANGE ERROR end="));
                         Serial.print(rightEnd);
@@ -762,7 +902,9 @@ void Muninn_motorMockTask(void* arg) {
                 motorMoving.store(false, std::memory_order_release);
                 if (atTrack.reason == ReferenceEnd::STEP_LIMIT &&
                     targetTrack >= 1U && targetTrack <= FY_BENCH_TRACK_COUNT &&
-                    atTrack.position == FY_BENCH_TRACK_POSITIONS[targetTrack - 1U]) {
+                    ([&]() { uint32_t expected = 0U;
+                        return motor.trackPosition(targetTrack, expected) &&
+                               atTrack.position == expected; })()) {
                     realReferencePosition.store(atTrack.position,
                                                 std::memory_order_release);
                     motor.onMoveFinished();
@@ -821,6 +963,21 @@ void Muninn_motorMockTask(void* arg) {
             publishReference(motor);
         }
 
+        // Lange REF erst NACH der angehaengten BG3-Fahrt persistieren.
+        if (motor.calibrationSavePending() && !motorMoving.load(std::memory_order_acquire) &&
+            !realTrackProfileActive && !motor.referenceActive() &&
+            motor.state() == MotorState_t::IDLE) {
+            if (!motor.persistCalibration()) {
+                motor.onProfileError();
+                realReferencePosition.store(kPositionUnknown,
+                                            std::memory_order_release);
+                publishPosition(motor);
+                publishReference(motor);
+                publishTrack(0U, 0U, TRACK_STATUS_ERROR);
+                motorStateSnapshot.store(static_cast<uint8_t>(motor.state()),
+                                         std::memory_order_release);
+            }
+        }
         if (xQueueReceive(context->commands, &cmd, pdMS_TO_TICKS(2)) != pdTRUE)
             continue;
 
