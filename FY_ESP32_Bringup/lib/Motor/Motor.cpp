@@ -1005,9 +1005,11 @@ void Muninn_motorMockTask(void* arg) {
                             stages[i].accel = motor.profile()[i].Accel;
                             stages[i].rampEvery = intervals[i];
                         }
-                        if (stepTimerStartReferenceProfile(
+                        if (stepTimerConfigureProfile(p.VMin,p.VMax,p.VPos) &&
+                            stepTimerStartReferenceProfile(
                                 static_cast<uint16_t>(distance),
-                                kTrack3 > start, stages)) {
+                                kTrack3 > start, stages,
+                                distance <= p.PosiMin ? p.VPos : p.VMin)) {
                             realTrackProfileActive = true;
                             targetTrack = 3U;
                             confirmedTrack = 0U;
@@ -1257,11 +1259,16 @@ void Muninn_motorMockTask(void* arg) {
                     }
                     // Real reference needs the position-tracking STEP backend.
                     // BENCH MOVE/SET_POSITION retain their existing backend.
-                    const bool started = realTrack
-                        ? stepTimerStartReferenceProfile(
-                              request.steps, request.directionRight, stages)
-                        : stepTimerStartProfile(
-                              request.steps, request.directionRight, stages);
+                    const uint16_t startHz =
+                        request.steps <= p.PosiMin ? p.VPos : p.VMin;
+                    const bool configured =
+                        stepTimerConfigureProfile(p.VMin,p.VMax,p.VPos);
+                    const bool started = configured &&
+                        (realTrack
+                         ? stepTimerStartReferenceProfile(
+                               request.steps, request.directionRight, stages, startHz)
+                         : stepTimerStartProfile(
+                               request.steps, request.directionRight, stages, startHz));
                     if (!started) {
                         emit(context, cmd, false, nackData(NackReason::NOT_READY));
                     } else {
