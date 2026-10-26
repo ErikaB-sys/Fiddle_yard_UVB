@@ -648,6 +648,27 @@ void Motor::initializeStorage() {
     publishNvmSnapshot(*this, _nvmFaultMask, _storedCalibValid, _tracksValid);
 }
 
+bool Motor::restoreTrackDefaults() {
+    // Defaults gehoeren dem Fachmodul; NVM bleibt ein reiner Byte-Speicherdienst.
+    uint8_t raw[20]{};
+    for (uint8_t i = 0U; i < FY_BENCH_TRACK_COUNT; ++i)
+        encodeLe32(&raw[4U * i], FY_BENCH_TRACK_POSITIONS[i]);
+
+    const NVM nvm{};
+    const NvmResult result = nvm.save(NvmRecord::TRACK_POSITIONS, raw);
+    if (result != NvmResult::OK && result != NvmResult::UNCHANGED)
+        return false; // Aktive RAM-Gleise und Fault-Maske unveraendert lassen.
+
+    for (uint8_t i = 0U; i < FY_BENCH_TRACK_COUNT; ++i) {
+        _tracks[i] = FY_BENCH_TRACK_POSITIONS[i];
+        nvmTrackValues[i].store(_tracks[i], std::memory_order_release);
+    }
+    _tracksValid = true;
+    _nvmFaultMask &= static_cast<uint8_t>(~0x02U);
+    publishNvmSnapshot(*this, _nvmFaultMask, _storedCalibValid, true);
+    return true;
+}
+
 bool Motor::trackPosition(uint8_t track, uint32_t& out) const {
     if (!_tracksValid || track == 0U || track > FY_BENCH_TRACK_COUNT)
         return false;
@@ -1146,6 +1167,26 @@ void Muninn_motorMockTask(void* arg) {
                         emit(context, cmd, true, cmd.id);
                     }
                 }
+            }
+        } else if (cmd.id == CMD_SET_PARAM &&
+                   cmd.data[0] == static_cast<uint8_t>(ParamId::RESTORE_DEFAULT)) {
+            if (cmd.data[2] != PARAM_SAVE_PATTERN_1 ||
+                cmd.data[3] != PARAM_SAVE_PATTERN_2 ||
+                cmd.data[1] != static_cast<uint8_t>(ParamSaveArea::TRACK_POSITIONS)) {
+                // Motor-Defaults erst nach fachlicher NVM-Anbindung; Kalibrierung nie.
+                emit(context, cmd, false, nackData(NackReason::INVALID_PARAMETER));
+            } else if (stepTimerRunning() || motorMoving.load(std::memory_order_acquire) ||
+                       realTrackProfileActive || motor.referenceActive() ||
+                       motor.state() != MotorState_t::IDLE) {
+                emit(context, cmd, false, nackData(NackReason::BUSY));
+            } else if (!motor.restoreTrackDefaults()) {
+                emit(context, cmd, false, nackData(NackReason::EXECUTION_ERROR));
+            } else {
+                // Der alte Ziel-/Gleisstatus soll keine neu gesetzten Gleise behaupten.
+                targetTrack = 0U;
+                confirmedTrack = 0U;
+                publishTrack(0U, 0U, TRACK_STATUS_ERROR);
+                emit(context, cmd, true, cmd.id);
             }
         } else {
             // Other unimplemented real commands remain rejected.
