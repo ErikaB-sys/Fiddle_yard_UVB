@@ -45,10 +45,10 @@ struct MotorProfileParam_t {
     uint16_t KonstMin;
     uint16_t Acc1Steps;
     uint16_t Acc2Steps;
-    int16_t Acc1Accel;
-    int16_t Acc2Accel;
-    int16_t Bre1Accel;
-    int16_t Bre2Accel;
+    uint16_t Acc1Accel;
+    uint16_t Acc2Accel;
+    uint16_t Bre1Accel;
+    uint16_t Bre2Accel;
     uint16_t Acc1RampInterval;
     uint16_t Acc2RampInterval;
     uint16_t Bre1RampInterval;
@@ -155,7 +155,7 @@ private:
     bool _StopActive = true;
     bool _TimerValid = false;
     // Effective intervals of Nano current_profile_ramp_interval(): 1,2,2,1.
-    MotorProfileParam_t _ProfileParam{160,400,100,100,-2,-1,+1,+2,1,2,2,1};
+    MotorProfileParam_t _ProfileParam{160,400,100,100,2,1,1,2,1,2,2,1};
     Profilelement_t Motor_profil[6]{{100,-2},{100,-1},{200,0},{100,+1},{100,+2},{10,0}};
 };
 
