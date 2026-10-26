@@ -41,6 +41,7 @@ portMUX_TYPE stepMux = portMUX_INITIALIZER_UNLOCKED;
 volatile bool isRunning = false;
 volatile bool stepIsHigh = false;
 volatile bool isFinished = false;
+volatile bool endstopTriggered = false;
 volatile uint32_t completed = 0U;
 volatile uint32_t target = 0U;
 // REF events are captured on the same falling STEP edge as the Nano.
@@ -83,9 +84,18 @@ void IRAM_ATTR stepTimerIsr() {
         stepIsHigh = false;
     } else if (!stepIsHigh) {
         // Check the destination endstop BEFORE sending a new STEP edge.
-        if (referenceMode && readSensor(referenceAway ? LSR_PIN : LSL_PIN)) {
-            finishReference(ReferenceEnd::ENDSTOP);
+        if (readSensor(referenceAway ? LSR_PIN : LSL_PIN)) {
+            // Only the endstop in the direction of travel counts.
+            // An opposite-side switch must not interfere with movement.
+            if (referenceMode) {
+                finishReference(ReferenceEnd::ENDSTOP);
+            } else {
+                isRunning = false;
+                isFinished = true;
+                endstopTriggered = true;
+            }
             GPIO.out_w1tc = kStepBit;
+            stepIsHigh = false;
             portEXIT_CRITICAL_ISR(&stepMux);
             return;
         }
@@ -123,10 +133,9 @@ void IRAM_ATTR stepTimerIsr() {
         }
 
         if (profileActive) {
-            // Profile timing is unchanged. A reference-profile movement
-            // additionally checks its destination endstop before STEP rising
-            // and captures LSREF flanks above on each completed STEP.
-            // Normal bench profiles still lack independent endstop gating.
+            // Profile timing is unchanged. Every movement now checks only
+            // its destination endstop before STEP rising; reference
+            // moves additionally capture LSREF flanks above.
 
             if (phaseRemaining > 0U)
                 --phaseRemaining;
@@ -224,6 +233,7 @@ bool startPulseTrain(uint16_t steps, bool directionRight,
     target = steps;
     stepIsHigh = false;
     isFinished = false;
+    endstopTriggered = false;
     profileActive = (plan != nullptr);
     phaseIndex = 0U;
     phaseRemaining = 0U;
@@ -390,6 +400,7 @@ void stepTimerStop() {
     isRunning = false;
     stepIsHigh = false;
     isFinished = false;
+    endstopTriggered = false;
     profileActive = false;
     referenceMode = false;
     portEXIT_CRITICAL(&stepMux);
@@ -410,12 +421,14 @@ uint32_t stepTimerCompletedSteps() {
     return result;
 }
 
-bool stepTimerTakeDone(uint32_t& completedSteps) {
+bool stepTimerTakeDone(uint32_t& completedSteps, bool& endstopHit) {
     portENTER_CRITICAL(&stepMux);
     const bool done = isFinished;
     if (done) {
         completedSteps = completed;
+        endstopHit = endstopTriggered;
         isFinished = false;
+        endstopTriggered = false;
         profileActive = false;
     }
     portEXIT_CRITICAL(&stepMux);
