@@ -431,6 +431,9 @@ constexpr uint32_t kPositionBenchFlag = 0x00010000U;
 std::atomic<uint32_t> positionSnapshot{kPositionUnknown};
 std::atomic<uint32_t> realReferencePosition{kPositionUnknown};
 std::atomic<uint8_t> referenceStatusSnapshot{0U}; // 0 none, 1 real, 2 fake
+std::atomic<uint16_t> nvmStatusSnapshot{0U}; // high byte valid mask, low byte fault mask
+std::atomic<uint32_t> nvmTrackValues[5]{};
+std::atomic<uint32_t> nvmCalibrationValues[3]{};
 std::atomic<uint32_t> trackSnapshot{
     static_cast<uint32_t>(TRACK_STATUS_ERROR) << 16U
 }; // target, confirmed, status encoded atomically
@@ -521,6 +524,28 @@ uint8_t Muninn_referenceStatusSnapshot() {
 
 uint32_t Muninn_trackSnapshot() {
     return trackSnapshot.load(std::memory_order_acquire);
+}
+
+bool Muninn_getParamSnapshot(uint8_t id, uint32_t& value) {
+    const uint16_t status = nvmStatusSnapshot.load(std::memory_order_acquire);
+    const uint8_t valid = static_cast<uint8_t>(status >> 8U);
+    if (id >= static_cast<uint8_t>(ParamId::POS_LSR) &&
+        id <= static_cast<uint8_t>(ParamId::POS_REF_B) && (valid & 0x01U) != 0U) {
+        value = nvmCalibrationValues[id - static_cast<uint8_t>(ParamId::POS_LSR)]
+            .load(std::memory_order_acquire);
+        return value <= 0xFFFFFFU;
+    }
+    if (id >= static_cast<uint8_t>(ParamId::TRACK_BG1) &&
+        id <= static_cast<uint8_t>(ParamId::TRACK_BG5) && (valid & 0x02U) != 0U) {
+        value = nvmTrackValues[id - static_cast<uint8_t>(ParamId::TRACK_BG1)]
+            .load(std::memory_order_acquire);
+        return value <= 0xFFFFFFU;
+    }
+    return false; // Noch keine aktiven Motorparameter-Snapshots: kein Scheinwert.
+}
+
+uint16_t Muninn_nvmStatusSnapshot() {
+    return nvmStatusSnapshot.load(std::memory_order_acquire);
 }
 
 MotorState_t Muninn_motorState() {
