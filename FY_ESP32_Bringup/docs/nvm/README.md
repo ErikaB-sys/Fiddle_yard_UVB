@@ -58,7 +58,7 @@ flowchart TD
 
 ### Explizite Wiederherstellung
 
-Vorgesehener Wartungsbefehl `SET_PARAM 7E <Bereich> AA 55` – **noch nicht implementiert**: `01` = Gleise, `02` = Motor, **kein RESTORE für Kalibrierung**. RESTORE überschreibt *auf ausdrücklichen Benutzerauftrag* auch ein CRC-ungültiges Segment mit fachlich geprüften Defaults und gültiger CRC; danach erst das Segment wieder freigeben. Kalibrierung wird ausschließlich durch echte lange REF wieder gültig. Wiederholte Invalidierung: gespeicherte CRC als `~CRC32(originaler Kopf+Payload)` neu berechnen und schreiben; **nicht** die gespeicherte CRC toggeln, sonst zweimaliges Invalidieren = unbeabsichtigte Revalidierung.
+Vorgesehener Wartungsbefehl `SET_PARAM 7E <Bereich> AA 55` – **noch nicht implementiert**: `01` = Gleise, `02` = Motor, **kein RESTORE für Kalibrierung**. RESTORE ist eine **atomare fachliche Wiederherstellung von NVM und RAM**: Defaults vorbereiten und validieren, **zuerst inkl. gültiger CRC dauerhaft ins NVS committen**, erst bei erfolgreichem Commit RAM-Werte übernehmen, Fehlerbit löschen und ACK senden. Bei fehlgeschlagenem Commit: NACK, keine Default-Uebernahme in den aktiven RAM-Satz. Der Befehl überschreibt auf ausdrücklichen Benutzerauftrag auch CRC-ungültige Daten. Kein separates SAVE notwendig. Kalibrierung wird ausschließlich durch echte lange REF wieder gültig. Wiederholte Invalidierung: gespeicherte CRC als `~CRC32(originaler Kopf+Payload)` neu berechnen und schreiben; **nicht** die gespeicherte CRC toggeln, sonst zweimaliges Invalidieren = unbeabsichtigte Revalidierung.
 
 ## 4. GET_STATUS 60 – NVM-Diagnose
 
