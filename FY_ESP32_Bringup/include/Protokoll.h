@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include "NvmAreas.h"
 
 /**
  * @file Protokoll.h
@@ -82,11 +83,9 @@ enum class ParamId : uint8_t {
     SAVE            = 0x7FU  // Nur SET: DATA[1] = Bereich, DATA[2..3] = AA 55
 };
 
-enum class ParamSaveArea : uint8_t {
-    MOTOR_PARAMETERS = 0x02U,
-    TRACK_POSITIONS  = 0x01U
-    // CALIBRATION = 0x00: bewusst nicht per SAVE beschreibbar.
-};
+// Einheitliche IDs fuer LOAD, SAVE, RESTORE und Diagnose.
+// CALIBRATION bleibt fuer manuelles SAVE/RESTORE gesperrt.
+using ParamSaveArea = NvmArea;
 constexpr uint8_t STATUS_SELECTOR_NVM = 0x60U; // GET_STATUS 60: NVM-Snapshot
 constexpr uint8_t PARAM_SAVE_PATTERN_1 = 0xAAU;
 constexpr uint8_t PARAM_SAVE_PATTERN_2 = 0x55U;
