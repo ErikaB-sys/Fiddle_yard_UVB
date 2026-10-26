@@ -24,9 +24,10 @@ struct NvmDescriptor_t {
 // Append-only: IDs, keys, Feldreihenfolge und Version nicht ohne Migration aendern.
 constexpr NvmDescriptor_t kDescriptors[]{
     {NvmRecord::CALIBRATION,     "calib",  1U, 12U},
-    {NvmRecord::TRACK_POSITIONS, "tracks", 1U, 20U}
+    {NvmRecord::TRACK_POSITIONS, "tracks", 1U, 20U},
+    {NvmRecord::MOTOR_PARAMETERS, "motor", 1U, 16U}
 };
-static_assert(sizeof(kDescriptors) / sizeof(kDescriptors[0]) == 2U,
+static_assert(sizeof(kDescriptors) / sizeof(kDescriptors[0]) == 3U,
               "NVM Segmenttabelle pruefen");
 
 const NvmDescriptor_t* descriptor(NvmRecord id) {
