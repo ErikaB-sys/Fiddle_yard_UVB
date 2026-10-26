@@ -153,6 +153,10 @@ uint32_t Muninn_positionSnapshot();
 uint8_t Muninn_referenceStatusSnapshot();
 // Packed STATUS_Track payload: target | (last confirmed << 8) | (status << 16).
 uint32_t Muninn_trackSnapshot();
+// ID-spezifischer atomarer Parameterwert. False bei ungueltigem/fehlendem Wert.
+bool Muninn_getParamSnapshot(uint8_t id, uint32_t& value);
+// NVM-Fehlermaske / Gueltigkeitsmaske in einem atomaren uint16-Snapshot.
+uint16_t Muninn_nvmStatusSnapshot();
 // Atomic status snapshot: IDLE=0, CONF=1, REFRUN=2, MOVING=3, STOPPED=4, ERROR=5.
 MotorState_t Muninn_motorState();
 
