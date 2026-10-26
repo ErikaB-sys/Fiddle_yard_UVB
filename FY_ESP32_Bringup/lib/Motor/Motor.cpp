@@ -1207,7 +1207,8 @@ void Muninn_motorMockTask(void* arg) {
                 cmd.data[0] - static_cast<uint8_t>(ParamId::TRACK_BG1) + 1U);
             if (stepTimerRunning() || motorMoving.load(std::memory_order_acquire) ||
                 realTrackProfileActive || motor.referenceActive() ||
-                motor.state() != MotorState_t::IDLE) {
+                (motor.state() != MotorState_t::IDLE &&
+                 motor.state() != MotorState_t::STOPPED)) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
             } else if (!motor.tracksValid()) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
@@ -1227,7 +1228,8 @@ void Muninn_motorMockTask(void* arg) {
                 emit(context, cmd, false, nackData(NackReason::INVALID_PARAMETER));
             } else if (stepTimerRunning() || motorMoving.load(std::memory_order_acquire) ||
                        realTrackProfileActive || motor.referenceActive() ||
-                       motor.state() != MotorState_t::IDLE) {
+                       (motor.state() != MotorState_t::IDLE &&
+                 motor.state() != MotorState_t::STOPPED)) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
             } else if (!motor.tracksValid()) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
@@ -1245,7 +1247,8 @@ void Muninn_motorMockTask(void* arg) {
                 emit(context, cmd, false, nackData(NackReason::INVALID_PARAMETER));
             } else if (stepTimerRunning() || motorMoving.load(std::memory_order_acquire) ||
                        realTrackProfileActive || motor.referenceActive() ||
-                       motor.state() != MotorState_t::IDLE) {
+                       (motor.state() != MotorState_t::IDLE &&
+                 motor.state() != MotorState_t::STOPPED)) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
             } else if (!motor.restoreTrackDefaults()) {
                 emit(context, cmd, false, nackData(NackReason::EXECUTION_ERROR));
