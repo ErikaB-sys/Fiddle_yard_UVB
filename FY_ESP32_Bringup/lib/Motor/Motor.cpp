@@ -733,6 +733,20 @@ void Motor::initializeStorage() {
     } else {
         _nvmFaultMask |= 0x02U;
     }
+    uint8_t rawRamp[16]{};
+    NvmResult mr=nvm.load(NvmRecord::MOTOR_PARAMETERS,rawRamp);
+    if(mr==NvmResult::NOT_FOUND) {
+        packRamp(kRampDefaults,rawRamp);
+        mr=nvm.save(NvmRecord::MOTOR_PARAMETERS,rawRamp);
+    }
+    if(mr==NvmResult::OK || mr==NvmResult::UNCHANGED) {
+        uint16_t v[8]{}; unpackRamp(rawRamp,v);
+        if(rampValid(v)) {
+            putRamp(_ProfileParam,v);
+            publishRamp(v);
+            _rampParametersValid=true;
+        } else _nvmFaultMask |= 0x04U;
+    } else _nvmFaultMask |= 0x04U;
     publishNvmSnapshot(*this, _nvmFaultMask, _storedCalibValid, _tracksValid);
 }
 
