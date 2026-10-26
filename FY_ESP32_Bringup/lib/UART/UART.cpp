@@ -45,13 +45,9 @@ void UART::begin(BringupContext* context) {
     _errors.begin();
     _babelFish.begin(115200); // ASCII input and local echo retained.
     Serial.println(F("Hello my friend"));
-#if defined(FY_MOTOR_BENCH_TEST) && FY_MOTOR_BENCH_TEST
-    Serial.println(F("FY ESP32: Huginn ready, Muninn PROFILE BENCH (120..800 Hz)"));
-    Serial.println(F("HW3 REF: 01=LONG calibration; 00=SHORT requires RAM calibration"));
-    Serial.println(F("HW3 REF: on success proceed to BG3; NO NVS YET; test carefully"));
-#else
-    Serial.println(F("FY ESP32: Huginn UART ready, motor backend not ready"));
-#endif
+    Serial.println(F("FY ESP32: Huginn UART ready; Muninn motor task configured"));
+    Serial.println(F("HW3 REF: 01=LONG calibration; 00=SHORT with saved calibration"));
+    Serial.println(F("FY ESP32: motor/REF status via STATUS 20 / STATUS 30"));
 }
 
 void UART::update() {
