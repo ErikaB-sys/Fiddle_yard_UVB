@@ -78,15 +78,21 @@ enum class ParamId : uint8_t {
     TRACK_BG4       = 0x33U,
     TRACK_BG5       = 0x34U,
 
-    SAVE            = 0x7FU  // Nur SET: DATA[1..3] = AA 55 00
+    SAVE            = 0x7FU  // Nur SET: DATA[1] = Bereich, DATA[2..3] = AA 55
 };
 
+enum class ParamSaveArea : uint8_t {
+    MOTOR_PARAMETERS = 0x02U,
+    TRACK_POSITIONS  = 0x01U
+    // CALIBRATION = 0x00: bewusst nicht per SAVE beschreibbar.
+};
 constexpr uint8_t PARAM_SAVE_PATTERN_1 = 0xAAU;
 constexpr uint8_t PARAM_SAVE_PATTERN_2 = 0x55U;
-constexpr uint8_t PARAM_SAVE_PATTERN_3 = 0x00U;
 
 // GET_PARAM: DATA[0] = ParamId; Antwort: STATUS_Parameter mit 4 DATA-Bytes.
-// SET_PARAM: DATA[0] = ParamId, DATA[1..3] = uint24 LE / SAVE-Muster.
+// SET_PARAM: DATA[0] = ParamId, DATA[1..3] = uint24 LE.
+// SAVE: DATA[0] = 0x7F, DATA[1] = ParamSaveArea,
+//       DATA[2] = 0xAA, DATA[3] = 0x55 (nur ein Segment je Auftrag).
 
 constexpr uint8_t CMD_STOPP        =   0x01   ;    // Command to stop the motor
 constexpr uint8_t CMD_GO           =   0x07   ;    // Command to start the motor
