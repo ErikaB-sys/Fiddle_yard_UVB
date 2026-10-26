@@ -1300,6 +1300,21 @@ void Muninn_motorMockTask(void* arg) {
                 }
             }
         } else if (cmd.id == CMD_SET_PARAM &&
+                   cmd.data[0]>=static_cast<uint8_t>(ParamId::ACC1) &&
+                   cmd.data[0]<=static_cast<uint8_t>(ParamId::B2_ST)) {
+            const uint32_t value=static_cast<uint32_t>(cmd.data[1]) |
+                (static_cast<uint32_t>(cmd.data[2])<<8U) |
+                (static_cast<uint32_t>(cmd.data[3])<<16U);
+            if(stepTimerRunning() || motorMoving.load(std::memory_order_acquire) ||
+               realTrackProfileActive || motor.referenceActive() ||
+               (motor.state()!=MotorState_t::IDLE && motor.state()!=MotorState_t::STOPPED)) {
+                emit(context,cmd,false,nackData(NackReason::BUSY));
+            } else if (!motor.rampParametersValid()) {
+                emit(context,cmd,false,nackData(NackReason::NOT_READY));
+            } else if (!motor.setRampParameter(cmd.data[0],value)) {
+                emit(context,cmd,false,nackData(NackReason::INVALID_PARAMETER));
+            } else emit(context,cmd,true,cmd.id);
+        } else if (cmd.id == CMD_SET_PARAM &&
                    cmd.data[0] >= static_cast<uint8_t>(ParamId::TRACK_BG1) &&
                    cmd.data[0] <= static_cast<uint8_t>(ParamId::TRACK_BG5)) {
             const uint32_t position = static_cast<uint32_t>(cmd.data[1]) |
