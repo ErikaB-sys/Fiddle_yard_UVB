@@ -1,84 +1,79 @@
-# FY ESP32 – kurze Roadmap
+# FY ESP32 – Roadmap und Funktionsampel
 
-**Stand: 24.10.2026.** Aktiver Branch `feature/FY_ESP32_Port`, Projekt `FY_ESP32_Bringup/`. C++-Iststand dieses Abgleichs: `342cdd35`. Head: [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150).
+**Stand: 26.10.2026, nach HW3-Fahrtests.** Branch `feature/FY_ESP32_Port`, Projekt `FY_ESP32_Bringup/`. Stand des zuletzt eingecheckten UART-Bootbanner-Fixes: `b8803bf`. Übergeordnet: [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150).
 
-## Lieferziel für Sonntagabend, 25.10.2026
+## Nächster Meilenstein – bis spätestens 01.11.2026
 
-**Ziel:** HW3-Firmware mit benutzbarem seriellem Befehlsumfang, Parameterliste einschließlich Speichern/Laden und implementiertem I²C-Keyboard. Die Bühne soll damit bewegt werden können. Physischer Keyboard-Anschluss hängt von Eris Bus-/Keyboard-Verdrahtung ab; Code und tatsächliche Hardwareerprobung getrennt ausweisen. Das ist das angestrebte Ergebnis, keine bereits erreichte Funktion oder Termingarantie.
+**Lokale Bedienung an HW3:** Das vorhandene I²C-Keyboard am ESP32 anschließen und anbinden. Die Tasten sollen die Bühne **manuell links/rechts bewegen, STOP auslösen und eine Referenzfahrt starten**. Die bestehende produktive Fahrsteuerung wird wiederverwendet; kein neuer Motorpfad, keine ISR-Umbauten. Tastatur, PCF8574, LEDs und OLED nur im tatsächlich geprüften Umfang als fertig melden. Hardwareanschluss und Softwareintegration dürfen parallel laufen ([#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157)).
 
-| Lieferung | Woran wir sie erkennen |
-| --- | --- |
-| Parameterliste und Speicherung | Je Parameter ID, Name, Einheit, Typ/Wertebereich, Default und RAM/persistent festgehalten; SET_PARAM übernimmt gültige Werte, SAVE speichert ausdrücklich, Start lädt gültige Daten oder sichere Defaults. Aktuelle REF wird durch Laden nicht gültig. |
-| Vereinbarte serielle Befehle | STOP/GO, MOVE, SET_POSITION, SET_TRACK, kurze/lange REFERENCE, SET_PARAM/SAVE, SET_MODE sowie Abfragen/HELP/Firmware führen ihre vereinbarte Funktion aus oder lehnen fachlich unzulässige Aufträge nachvollziehbar ab. Ein NOT_READY-Platzhalter allein ist kein Funktionsabschluss. LEFT/RIGHT und unbeauftragte DONE/ALIVE gehören nicht dazu. |
-| I²C-Keyboard im Code | Vorhandene REF-/STOP-/Richtungsbedienung, Entprellung, Startverriegelung, LEDs/OLED und gemeinsamer Befehls-/Statusweg implementiert; fehlendes Gerät blockiert die Motorsteuerung nicht. Physisch angeschlossen/geprüft nur nach tatsächlicher Beobachtung angeben. |
-| Bewegung mit HW3 | Bestehenden Profil-/STEP-Pfad weiterverwenden; reale Sensor-/REF-/Kalibrieranbindung ergänzen. FAKE-REF belegt weiterhin die benannte Softwarefunktion, ersetzt jedoch nicht die echte Referenzfunktion. |
+**Parallel am 27.10. – Dokumentation und Kommentarstil:** Code als Wahrheit, Dokumente daran angleichen; veraltete FAKE-REF-/BENCH-Texte gezielt entfernen. Englische Bezeichner/UART-Protokollnamen erhalten, **deutsche knappe Codekommentare und Doxygen-Funktionsverträge**, deutsche Markdown-Dokumente. Doxygen, Graphviz, Doxygen Awesome und spätere GitHub Pages **vorbereiten**, nicht als Fertigstellungsbedingung und vorerst **kein neues GitHub-Issue**. Für Funktionen: Zweck, Parameter und Einheit, Rückgabe/Fehler, wichtige Voraussetzungen/Core-Zuständigkeit; keine offensichtlichen Zeilen nacherzählen. Vor dem späteren Merge dokumentations- und codebezogener Abgleich gegen `main`.
 
-**Reihenfolge in kleinen Schritten:** (1) ersten Parameterumfang/IDs und Restentscheidungen unten klären → (2) STOP-/Antwortpfad #152 gezielt beurteilen; nur belegte Funktionsfehler korrigieren → (3) Parameter/SAVE/Laden #158 → (4) reale Sensorik/Referenz und Fahrbedingungen #155/#154 → (5) UART-Reste und vereinbarte Stillstandsumschaltung #156/#157 → (6) Keyboard #157 integrieren. Nach jedem Schritt kurz bauen/praktisch prüfen und den Spickzettel nachführen. Bestehendes HW_TEST-Verhalten übernehmen; keine neue Framework- oder Nano-Paritätsrunde.
+## Ampel für den tatsächlichen Funktionsstand
 
-**Größter Terminrest:** Echte Referenz/Sensorik und Parameter/SAVE sind noch keine ausführbaren ESP32-Funktionen; auch Keyboard-Code fehlt. Bei Resten am Abend exakt Funktion/Blocker nennen, keine Platzhalter als fertig markieren. Die Verdrahtung kann parallel erfolgen.
+**🔴 nicht vorhanden · 🟠 geplant/beschlossen · 🟡 implementiert/teilweise geprüft · 🟣 konkrete physische oder Randfallprüfung fehlt · 🟢 im angegebenen Umfang auf HW3 geprüft und dokumentiert.** Die Ampel bezeichnet jeweils *genau den genannten Funktionsumfang*, nicht eine pauschale Gesamtfreigabe.
 
-## Schlanke Prüfung und Dokumentation
-
-- Keine vollständige Unit-/White-/Black-Box-Suite, Coverage-Vorgabe oder formale Automotive-SPICE-Einführung als Voraussetzung für dieses Lieferziel. Keine zweite Implementierungsrunde nur für ein Testgerüst.
-- Je geändertem Funktionspfad ein kurzer dokumentierter Durchlauf plus naheliegende Ablehnungen: z. B. ungültiger Parameter/Änderung während Fahrt, SAVE–Neustart–Laden, STOP–Entriegeln–GO ohne Wiederaufnahme, Absolutfahrt ohne REF abgelehnt. Vorhandene bestandene Funktionsnachweise wiederverwenden, unveränderte Pfade nicht pauschal neu aufrollen.
-- Gewünschter Standard: Build mit Compilerwarnungen und automatisch mitlaufender Cppcheck-/MISRA-orientierter Analyse des eigenen Codes (#163). Heute existiert nur der separate Aufruf; dessen Konfiguration/Einbindung ist noch zu reparieren. Befunde und Werkzeugfehler sichtbar ausgeben; der genaue Fehler-/Baseline-Umgang wird bei der Einrichtung festgelegt. Keine vollständige MISRA-Konformität behaupten.
-- **Sprachvorschlag:** aktive Erklärtexte und Doxygen auf Deutsch, Befehle/Bezeichner weiter wie im Code. Neue/geänderte APIs dokumentieren Zweck, Parameter/Einheiten, Voraussetzungen, Rückgabe/Fehler und ggf. Core-/Task-Zuständigkeit; keine flächige Altcode-Kommentierung als Zusatzblock.
-- Doxygen-Erzeugung, danach optional [Doxygen Awesome](https://github.com/jothepro/doxygen-awesome-css), sind nachrangige Werkzeugpflege; keine Voraussetzung für Fahrbetrieb.
-- **Hardwareerprobungen:** konkrete offene Fälle bleiben in #153/#155/#159/#161 erhalten. Ihre Priorisierung für morgen gegenüber späterer Bühnen-/Gesamterprobung ist noch abzustimmen.
-
-**Grün = Softwarefunktion im benannten Umfang geprüft und dokumentiert.** Die spätere Kalibrierung/Prüfung auf der Bühne bleibt ein eigener Auftrag; das Ziel einer realen Referenzfunktion wird dadurch nicht gestrichen. Einstieg für den fachlichen Faden: [Hier beginnen](../FY_ESP32_Bringup/docs/README.md).
-
-## Fachlich festgelegt
-
-| Fall | Verbindliches Verhalten |
-| --- | --- |
-| MOVE | Relative begrenzte Fahrt mit Richtung/Schrittzahl, auch zur Inbetriebnahme ohne REF. |
-| SET_POSITION ohne gültige REF | Nicht zulässig. Die vorherige POR-Mittenvariante entfällt. |
-| SET_POSITION mit gültiger REF | Ziel innerhalb des durch Kalibrierung erfassten Bewegungsraums. |
-| Kurze REF | Kann nur mit gültigen Kalibrierdaten erfolgreich sein; stellt den aktuellen Lagebezug wieder her. |
-| SET_TRACK | Gleisnummer 1..5; nur kalibriert UND aktuell referenziert. Derselbe Positionierungs-/Profilpfad. |
-| Gültiger Fahrbefehl | Prepare prüft alle Bedingungen; bei OK wird ausgeführt. Kein zusätzliches GO je Fahrjob. |
-| STOP | Auftrag und vorgemerkte Fahrjobs verwerfen, Antrieb deaktivieren, aktuelle REF ungültig. Kein Pause/Resume. |
-| STOP entriegeln → GO | Entriegelt und aktiviert nur den Antrieb. Kein alter Job und keine Referenz werden wiederhergestellt; für normalen Fahrbetrieb neu mindestens kurz referenzieren. Kalibrierdaten bleiben erhalten. |
-
-Der heutige Positions-Testpfad verwendet explizite FAKE-REF mit Start 1000. Die geprüfte Positionsfunktion bleibt fertig. Ein zusätzlicher unreferenzierter SET_POSITION-Pfad wird nicht geplant; MOVE deckt die relative Inbetriebnahmefahrt ab.
-
-## Bereits erledigt
-
-- [x] ESP32-/PlatformIO-Grundaufbau, Huginn/Core 0 und Muninn/Core 1; erfolgreiche Builds dokumentiert.
-- [x] UART/BabelFish, binäre ACK/NACK-/Positions-/Motorantworten und pollender Bewegungsabschluss.
-- [x] MOVE, sechsgliedrige Profilfahrten und vorhandene SET_POSITION-Funktion am Tisch geprüft.
-- [x] FAKE-REF, SET_TRACK 01/03/05 und GET_TRACK während/nach Fahrt am 23.10. dokumentiert; BG1–BG5-Tabelle zusätzlich an den tatsächlichen Headern geprüft.
-- [x] Issue-Bereinigung: 125 → 17 offen, 15 abgeschlossen, 93 abgelöst/zusammengeführt. Alte Texte und Kommentare bleiben erhalten.
-
-## Wirklich offene Entscheidungen
-
-| Reihenfolge | Frage | Vorschlag / Zuständigkeit |
+| Befehl / Bereich | Status | Nachweis vom 26.10. / konkreter Rest |
 | --- | --- | --- |
-| 1 | GET_TRACK während Fahrt: letzte Bestätigung oder 0? | Code setzt 0, ältere Definition behält die letzte Bestätigung. [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) |
-| 2 | Erster Parameterumfang und IDs einschließlich SAVE? | Konkrete IDs/Wertebereiche schrittweise festlegen; RAM/SAVE-Semantik steht bereits. [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158) |
-| 3 | Wer fordert LOCAL/FERN an und wer gibt frei? | Nur im Stillstand; Netzverbindung allein erteilt keine Bedienhoheit. [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157)/[#166](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/166) |
+| POR und sichere Freigabe | 🟢 | `STATUS 20 = 50 00 04 00 70`: nach POR STOPPED, Antrieb aus. Elektrischer Reset-/Flash-Failsafe separat offen (#159/#161). |
+| `STOP AA 55`, `GO AA 55` | 🟢 | ACK, definierte Entriegelung und Treiberfreigabe. **STOP während Fahrt und anschließende Neu-REF** noch 🟣 (#154/#152). |
+| Echte `REFERENCE 00` | 🟢 | Mit gespeicherter Kalibrierung: `REF: VALID pos=1000 end=8334`; anschließend BG3. `STATUS 30 = 30 01 97`. |
+| Lange `REFERENCE 01` | 🟡 | Kalibrier-/Persistenzpfad vorhanden; gezielte Wiederhol-/Sensor-/Fehlerfälle noch 🟣 (#155/#158/#159). |
+| `SET_POSITION` | 🟢 | Reale Fahrt auf 3200 (`80 0C`); ohne aktuelle REF unzulässig. |
+| `MOVE` | 🟢 | `31 32 00` = 50 Schritte bei festem 1/8-Modus, ACK `60 0F 0A`; reale Position 3250 danach. Ungültiger 1/4-Modus `21 …` → NACK `70 24 AB`. Unreferenzierte Inbetriebnahmefahrt und Randgrenzen separat 🟣. |
+| `SET_TRACK` | 🟢 | Gleise angefahren; nach freier Absolut-/Relativfahrt erneute Rückfahrt auf gewünschtes Gleis bestätigt. |
+| `GET_POSITION`, `STATUS 20/30`, `TRACK 00` | 🟢 | Realer Positions-Snapshot `20 B2 0C 00 00 80` = 3250, Motor IDLE, REF gültig; freie Fahrt meldet `40 00 00 02 88`. GET_TRACK-Bedeutung *während* Fahrt noch offen (#156). |
+| Sechsphasiges Motorprofil | 🟡 | Reale Fahrten und 50-Step-POSI-Kurzfahrt geprüft. **ACC1/ACC2/KONST/BRE1/BRE2**, Signalform und STOP während laufender Fahrt gezielt 🟣 prüfen (#153). |
+| Realer Lastbetrieb | 🟢 | Fahrtestfolge mit **1.452 g (1,452 kg) Zusatzlast**, gemessen mit Haushaltswaage; keine erkennbaren Schrittverluste bei beobachteter Ausrichtung. Keine unabhängige Schrittzählung oder quantitative Wiederholgenauigkeit behaupten (#153). |
+| Motorparameter GET / RESTORE | 🟢 | `SET_PARAM 7E 02 AA 55` ACK; GET bestätigt V_MIN=120, V_POS=120, A1_LEN=100, POSI_MIN=160, KONST_MIN=400. |
+| NVM v2: Laden/Status nach POR | 🟢 | `STATUS 60 = 61 00 00 07 BB` vor und nach POR; alle drei Segmente gültig und fehlerfrei; kurze REF mit gespeicherten Kalibrierdaten möglich. |
+| NVM SET/SAVE/Recovery | 🟣 | **Geänderten Parameter** speichern, POR, erneut auslesen; CRC-/Versions-/Invalidierungs- und STOP-bei-SAVE-Fälle offen (#158). |
+| UART-Parser, ACK/NACK, Parameterabfragen | 🟡 | Real verwendete Befehle/Antworten bestätigt. Robustheit, Systemstatus `10`, HELP/Firmware und Antwort-/BUSY-Korrelation noch offen (#156/#152). |
+| Zusätzlicher Fahrbefehl während BUSY | 🟣 | Keine wartende Fahrbefehlsliste; zweiter Befehl während laufender Bewegung gezielt abweisen und prüfen (#152). |
+| I²C-Keyboard / PCF8574 / OLED | 🟠 | Physischer Anschluss an HW3 und ESP32-Integration ab 27.10.; REF, STOP, links/rechts zuerst (#157). |
+| Teach-in / Web / JMRI / Beleuchtung | 🟠 | Nach erstem Keyboard- und Software-Abschluss getrennt: #167/#166/#160/#165. |
 
-## Offene Umsetzung – je einen kleinen Punkt abschließen
+## Bereits als geschlossener Funktionsnachweis betrachtete Fahrkette
 
-| Auftrag | Konkreter Rest |
+1. `REFERENCE 00` mit gültiger gespeicherter Kalibrierung; `pos=1000`, Gegenendlage `8334`, anschließende BG3-Fahrt.
+2. `SET_POSITION 80 0C` auf Koordinate **3200**.
+3. `MOVE 31 32 00` = **+50** → `POSITION` bestätigt **3250**, aktuelle REF weiter gültig.
+4. Anschließend `SET_TRACK` → Bühne fährt wieder zum passenden Gleis.
+5. Alle diese Realfahrten unter **1,452 kg Zusatzlast**, keine sicht-/beobachtbaren Schrittverluste.
+
+Dies ist **keine Gesamt-Abnahme** für Sicherheitsverhalten, Sensorfehler, Pulse unter Last oder alle Profilparameter.
+
+## Nächste Reihenfolge
+
+1. **27.10.: Dokumentation konsolidieren**, Sprachkonvention umsetzen, kurze deutsche Doxygen-Funktionsverträge nachführen, Vorbereitung Doxygen/Graphviz/Awesome. Dokumente aus Code und realen Testergebnissen aktualisieren; keine neue Baustelle daraus machen ([#12](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/12)).
+2. **27.10.–01.11.: Keyboard an HW3 anschließen und integrieren.** Vorhandenen lokalen Tastenvertrag nutzen, UART- und Keyboard-Aufträge durch denselben Motor-Befehlsweg führen; STOP-Vorrang erhalten (#157).
+3. **Gezielte verbleibende HW3-Funktionstests:** komplette Rampen über längere Strecke, STOP während Bewegung → REF ungültig → Entriegeln/GO/Neu-REF, zweiter Fahrbefehl bei BUSY, ungewöhnliche kurze/unreferenzierte MOVE-Fahrt (#153/#154/#152).
+4. **NVM vervollständigen:** geänderte Werte SET→SAVE→POR→GET und verbleibende Fehler-/CRC-/Wiederherstellungsfälle (#158). Motor-NVM wurde auf Version 2 (34 Bytes) erweitert; alte Version benötigt explizites Restore.
+5. **UART/Diagnose abgleichen:** tatsächlich implementierten Befehlsumfang einschließlich `MOVE`/`SET_POSITION`/`SET_TRACK`, Status und NVM in [UART-Spickzettel](../FY_ESP32_Bringup/src/UART_Command_Spickzettel.md) berichtigen; offene GET_TRACK-/BUSY-/Systemstatus-Verträge klären (#156/#152).
+6. **Vor erstem Merge nach `main`:** funktionalen Code und Dokumentation bereinigen, MISRA/Cppcheck-Befunde prüfen, Hauptzweigstand vergleichen, stabilen HW3-Stand sichern. Größeres Benennungs-/Mock-Cleanup gemäß #169 **erst nach** dem ersten Merge.
+
+## Verbindliche Fahrregeln
+
+- `MOVE`: relativ, Richtung und Schrittzahl; begrenzte Inbetriebnahmefahrt auch ohne REF. Bei gültiger REF Ziel im kalibrierten Fahrweg prüfen. Fest eingestellter A4988-Mikroschrittmodus: **1/8**, Byte0 `30` bzw. `31`; für aktuelle Richtung `31` beim geprüften Beispiel.
+- `SET_POSITION`: absolute Koordinate, **nur mit aktuell gültiger realer REF** und innerhalb der Endlagen; kein POR-Mittenanker.
+- `SET_TRACK`: Gleis 1–5 über gespeicherte Position; gültige Kalibrierung, Gleisdaten und aktuelle REF erforderlich.
+- `STOP`: Antrieb aus, Auftrag verwerfen, aktuelle REF ungültig, keine Wiederaufnahme. `STOP AA 55` entriegelt, `GO AA 55` aktiviert ohne eigene Fahrt, danach neu referenzieren.
+- **BUSY:** zweiter Fahrbefehl nicht auf Vorrat sammeln; bestehende PRIORITY-STOP-Queue erhalten.
+- Keine spontanen DONE-/ALIVE-Meldungen, ACK ist Annahme, nicht Fahrabschluss. Abschluss via STATUS/POSITION/TRACK prüfen.
+
+## Offene Themen und Eigentümer
+
+| Issue | Nächste wirklich offene Punkte |
 | --- | --- |
-| [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) Fahrt | Beschlossene Trennung MOVE relativ / SET_POSITION und SET_TRACK nur mit gültiger REF in die produktiven Bedingungen übernehmen. |
-| [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152) STOP / Antworten | Eigene STOP-Queue vorhanden; Pending-voll ist im heutigen gültigen UART-Pfad kein belegter Fehler. Stockenden Antworttransport und spätere zusätzliche Quellen gezielt beurteilen; keine neue Architektur allein aus hypothetischer Sättigung. |
-| [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) UART | GET_TRACK-Vertrag, echte System-/Sensor-/Keyboardwerte statt Platzhalter; HELP-Link korrigieren. |
-| [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158) Parameter / Diagnose | SET_PARAM tatsächlich übernehmen, SAVE/Laden, Git-Identität und zentrale Fehlerweitergabe. |
-| [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155) REF / Sensorik | HW_TEST-Referenzablauf, Kalibrierraum und direkte Endlagenreaktion in Muninn übernehmen. |
-| [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157) I²C-Keyboard | Bestehende HW_TEST-Bedienung in ein gekapseltes ESP32-Modul übernehmen; Taster/LEDs/OLED, Startverriegelung und Modusfreigabe. |
-| [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153)/[#159](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/159) Nachweise | Die benannten offenen STEP-/STOP-/Lastfälle; später reale Ausrichtung und Gesamtabnahme. |
-| [#163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163) Werkzeugpflege | Unvollständige Cppcheck-Konfiguration und separaten PlatformIO-Prüfaufruf verbessern. |
+| [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150) HEAD | Gesamtfortschritt, erste stabile ESP32-Fassung und Merge |
+| [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152) Router/Queues | BUSY ohne Nachstart, STOP und Antworttransport |
+| [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153) Motorprofil | vollständige Rampen, Puls-/Stop-Prüfung, parallele Kommunikation |
+| [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) Fahrbefehle | STOP-/GO-/Neu-REF-Folge, Randgrenzen und Abschluss |
+| [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155) Sensorik | Referenz-/Endlagenfehler und mechanische Sicherheit |
+| [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) UART | Status/HELP/Firmware, offene Protokoll- und Robustheitstests |
+| [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157) Keyboard | Vier Tasten, PCF8574, LED/OLED, lokale Bedienung |
+| [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158) NVM | SAVE→POR→GET, CRC/Fehler, Parameterausbau |
+| [#159](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/159) Abnahme | benannte Randfälle, Bühnen-/Reset-Abnahme, Merge-Gate |
+| [#163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163) Qualität | Cppcheck/MISRA und Dokumentationsqualität |
+| [#169](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/169) Cleanup | ausdrücklich nach erstem Merge |
 
-**Keyboard-Hardware:** I²C-Löten kann parallel erfolgen. Die vorhandene Logik ist eine nutzbare Quelle; ESP32-Kapselung und gemeinsame Befehls-/Statusübergabe bleiben nötig. Mehr Speicher erlaubt eine übersichtlichere Anzeige, ohne neue Bedienfunktionen zu verlangen.
-
-## Später / getrennt
-
-- Echte Bühnenwerte, Ausrichtung, Endlagen-/Start-/Reset-Prüfung und main-Freigabe: [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155)/[#159](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/159)/[#161](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/161). Die Prüfung auf der Bühne macht erledigte unveränderte Softwarefunktion nicht erneut zur Dauerbaustelle.
-- Bedienumfang: **lokales I²C-Keyboard, Weboberfläche und JMRI**. UART bleibt Entwicklungs-/Steuerschnittstelle. Ein separater Keyboard-Nano über UART entfällt.
-- Web zuerst als getrennte ESP32-Komponente: Netzwerk/einstellungen, mDNS, HTTP → Web-Grundstruktur → Übergabe → Bedienhoheit. [#166](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/166); JMRI [#160](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/160).
-- Mechanik [#97](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/97), Teach-in [#167](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/167) und optionale Gebäudegestaltung [#165](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/165) bleiben erreichbar; kein paralleler Pflichtblock für morgen.
-
-**Quellen:** [UART-Spickzettel](../FY_ESP32_Bringup/src/UART_Command_Spickzettel.md) · [Motorvertrag und Zustände](../FY_ESP32_Bringup/docs/Motor/README.md) · [Dokumentationsregeln](../FY_ESP32_Bringup/docs/DOCUMENTATION_RULES.md) · [Testprotokoll](../FY_ESP32_Bringup/docs/MOTOR_TIMER_BENCH.md). Frühere Roadmap-Stände bleiben in der Git-Historie; Nano ist Referenz, kein aktiver Fertigstellungsplan.
+**Dokumentationsquellen:** [UART-Spickzettel](../FY_ESP32_Bringup/src/UART_Command_Spickzettel.md) · [Motor](../FY_ESP32_Bringup/docs/Motor/README.md) · [NVM v2](../FY_ESP32_Bringup/docs/nvm/README.md) · [Dokumentationsregeln](../FY_ESP32_Bringup/docs/DOCUMENTATION_RULES.md). Historische Fake-REF-/Bench-Angaben nicht als aktuellen HW3-Stand darstellen.
