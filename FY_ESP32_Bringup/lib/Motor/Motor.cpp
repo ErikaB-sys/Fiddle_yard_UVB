@@ -836,8 +836,6 @@ void Muninn_motorMockTask(void* arg) {
     uint32_t expectedTargetPosition = 0U;
     uint8_t targetTrack = 0U; // 0 = unknown, only Muninn changes these.
     uint8_t confirmedTrack = 0U;
-#if FY_MOTOR_BENCH_TEST
-#endif
 
     // Sensor inputs belong exclusively to Muninn. External 10k pull-ups.
     pinMode(LSL_PIN, INPUT);
