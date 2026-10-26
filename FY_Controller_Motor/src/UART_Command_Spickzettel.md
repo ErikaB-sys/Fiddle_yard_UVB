@@ -93,7 +93,7 @@ sind unabhaengig.
 - ErrorFlag: `00` = kein NVM-Fehler, `01` = mindestens ein korruptes/ungeprüftes Segment.
 - `NOT_FOUND` bei Kalibrierung ist auf frischem ESP32 kein NVM-Fehler; das Gültigkeitsbit ist aber 0 (lange REF erforderlich).
 - CRC-/Formatfehler an erforderlichen Segmenten und ungültige Motorparameter führen bei Bewegungsaufträgen zu NACK. Kein automatischer Default-Reset bei vorhandenen korrupten Daten.
-- Geplanter Wartungsbefehl `SET_PARAM 7E 01 AA 55` (Tracks) oder `SET_PARAM 7E 02 AA 55` (Motor): setzt das **gewählte** Segment explizit auf Defaultwerte zurück und schreibt eine neue gültige CRC, auch bei beschädigtem Vorwert. Für die Kalibrierung **nicht erlaubt**; sie wird nur durch Messung neu gültig.
+- Geplanter Wartungsbefehl `SET_PARAM 7E 01 AA 55` (Tracks) oder `SET_PARAM 7E 02 AA 55` (Motor): stellt das **gewählte** Segment explizit wieder her: Defaults validieren, **sofort mit gültiger CRC ins NVS schreiben**, bei Erfolg erst dann RAM übernehmen und ACK senden. Kein weiteres SAVE erforderlich; bei fehlgeschlagenem NVS-Commit NACK und keine RAM-Uebernahme. Gilt auch bei beschädigtem Vorwert. Für die Kalibrierung **nicht erlaubt**; sie wird nur durch Messung neu gültig.
 - `SAVE` und `RESTORE` arbeiten ausschließlich im Stillstand. STOP darf einen bereits begonnenen NVS-Commit nicht unterbrechen oder beschädigen; anschließend wird STOP prioritär verarbeitet.
 - **Implementierungsstatus:** Definitionen im Protokoll, Handler/Recovery noch nicht abgenommen; siehe [NVM-Spezifikation](../../FY_ESP32_Bringup/docs/nvm/README.md).
 
