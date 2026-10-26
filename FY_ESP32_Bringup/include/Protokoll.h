@@ -85,7 +85,7 @@ enum class ParamId : uint8_t {
 
 // Einheitliche IDs fuer LOAD, SAVE, RESTORE und Diagnose.
 // CALIBRATION bleibt fuer manuelles SAVE/RESTORE gesperrt.
-using ParamSaveArea = NvmArea;
+using ParamSaveArea = fy::NvmArea;
 constexpr uint8_t STATUS_SELECTOR_NVM = 0x60U; // GET_STATUS 60: NVM-Snapshot
 constexpr uint8_t PARAM_SAVE_PATTERN_1 = 0xAAU;
 constexpr uint8_t PARAM_SAVE_PATTERN_2 = 0x55U;
