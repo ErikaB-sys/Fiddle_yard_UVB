@@ -600,6 +600,38 @@ void publishNvmSnapshot(const Motor& motor, uint8_t faults,
 }
 } // namespace
 
+namespace {
+constexpr uint16_t kRampDefaults[8]{2U,1U,1U,2U,1U,2U,2U,1U};
+void getRamp(const MotorProfileParam_t& p, uint16_t (&v)[8]) {
+    v[0]=p.Acc1Accel; v[1]=p.Acc2Accel; v[2]=p.Bre1Accel; v[3]=p.Bre2Accel;
+    v[4]=p.Acc1RampInterval; v[5]=p.Acc2RampInterval;
+    v[6]=p.Bre1RampInterval; v[7]=p.Bre2RampInterval;
+}
+void putRamp(MotorProfileParam_t& p, const uint16_t (&v)[8]) {
+    p.Acc1Accel=v[0]; p.Acc2Accel=v[1]; p.Bre1Accel=v[2]; p.Bre2Accel=v[3];
+    p.Acc1RampInterval=v[4]; p.Acc2RampInterval=v[5];
+    p.Bre1RampInterval=v[6]; p.Bre2RampInterval=v[7];
+}
+bool rampValid(const uint16_t (&v)[8]) {
+    for(uint8_t i=0U;i<8U;++i)
+        if(v[i]==0U || v[i]>(i<4U?64U:128U)) return false;
+    return true;
+}
+void publishRamp(const uint16_t (&v)[8]) {
+    for(uint8_t i=0U;i<8U;++i)
+        nvmRampValues[i].store(v[i],std::memory_order_release);
+}
+void packRamp(const uint16_t (&v)[8],uint8_t (&raw)[16]) {
+    for(uint8_t i=0U;i<8U;++i) {
+        raw[2U*i]=static_cast<uint8_t>(v[i]);
+        raw[2U*i+1U]=static_cast<uint8_t>(v[i]>>8U);
+    }
+}
+void unpackRamp(const uint8_t (&raw)[16],uint16_t (&v)[8]) {
+    for(uint8_t i=0U;i<8U;++i)
+        v[i]=static_cast<uint16_t>(raw[2U*i] | (static_cast<uint16_t>(raw[2U*i+1U])<<8U));
+}
+}
 void Motor::initializeStorage() {
     const NVM nvm{};
     uint8_t rawCalib[12]{};
