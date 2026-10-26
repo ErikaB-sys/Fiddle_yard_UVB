@@ -78,6 +78,7 @@ enum class ParamId : uint8_t {
     TRACK_BG4       = 0x33U,
     TRACK_BG5       = 0x34U,
 
+    RESTORE_DEFAULT = 0x7EU, // Nur SET: DATA[1] = Bereich, DATA[2..3] = AA 55
     SAVE            = 0x7FU  // Nur SET: DATA[1] = Bereich, DATA[2..3] = AA 55
 };
 
@@ -86,12 +87,13 @@ enum class ParamSaveArea : uint8_t {
     TRACK_POSITIONS  = 0x01U
     // CALIBRATION = 0x00: bewusst nicht per SAVE beschreibbar.
 };
+constexpr uint8_t STATUS_SELECTOR_NVM = 0x60U; // GET_STATUS 60: NVM-Snapshot
 constexpr uint8_t PARAM_SAVE_PATTERN_1 = 0xAAU;
 constexpr uint8_t PARAM_SAVE_PATTERN_2 = 0x55U;
 
 // GET_PARAM: DATA[0] = ParamId; Antwort: STATUS_Parameter mit 4 DATA-Bytes.
 // SET_PARAM: DATA[0] = ParamId, DATA[1..3] = uint24 LE.
-// SAVE: DATA[0] = 0x7F, DATA[1] = ParamSaveArea,
+// SAVE / RESTORE: DATA[0] = 0x7F / 0x7E, DATA[1] = ParamSaveArea,
 //       DATA[2] = 0xAA, DATA[3] = 0x55 (nur ein Segment je Auftrag).
 
 constexpr uint8_t CMD_STOPP        =   0x01   ;    // Command to stop the motor
@@ -157,7 +159,8 @@ constexpr uint8_t STATUS_Reference              = 0x30   ;    // Status ID  Refe
 constexpr uint8_t STATUS_Track                  = 0x40    ;   // Status ID  Track informatiom
 /** Response containing motor information. */
 constexpr uint8_t STATUS_Motor                  = 0x50;
-constexpr uint8_t STATUS_Parameter              = 0x2DU; // DATA: ParamId, value[0..2] LE    //Status ID Motor information
+constexpr uint8_t STATUS_Parameter              = 0x2DU;
+constexpr uint8_t STATUS_NVM                    = 0x61U; // error, faultMask, validMask // DATA: ParamId, value[0..2] LE    //Status ID Motor information
 constexpr uint8_t STATUS_Switches               = 0x41;
 constexpr uint8_t STATUS_Keyboard               = 0x51;
 /** Response containing automatically generated firmware identity information. */
@@ -284,7 +287,8 @@ const ResponseDefinition ResponseDefinitions[] =
 { STATUS_Reference, 1, ResponseContainer::Data }, // STATUS 30: 0 none, 1 physically referenced, 2 bench-only FAKE
 { STATUS_Track,     3, ResponseContainer::Data }, // DATA[0]=target, DATA[1]=last confirmed track, DATA[2]=movement status | Issue: #140 | Status: Code constructed (track snapshot connection pending)
 { STATUS_Motor,     3, ResponseContainer::Data },
-{ STATUS_Parameter, 4, ResponseContainer::Data }, // Parameter-ID + 24-bit-LE-Wert // Issue: #141 | Status: Code working
+{ STATUS_Parameter, 4, ResponseContainer::Data },
+{ STATUS_NVM,       3, ResponseContainer::Data }, // flag, fault mask, valid mask // Parameter-ID + 24-bit-LE-Wert // Issue: #141 | Status: Code working
 { STATUS_Switches,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
 { STATUS_Keyboard,  1, ResponseContainer::Data }, // Issue: #114 | Status: Code working
 { STATUS_Firmware,  0, ResponseContainer::String }, // Automatically generated firmware identity
