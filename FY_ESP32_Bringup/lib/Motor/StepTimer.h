@@ -53,6 +53,7 @@ ReferenceTimerSample stepTimerReferenceSnapshot();
 void stepTimerStop();
 bool stepTimerRunning();
 uint32_t stepTimerCompletedSteps();
-bool stepTimerTakeDone(uint32_t& completedSteps);
+// endstopHit reports an unexpected destination endstop on a normal move.
+bool stepTimerTakeDone(uint32_t& completedSteps, bool& endstopHit);
 
 } // namespace fy
