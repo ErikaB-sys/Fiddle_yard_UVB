@@ -36,14 +36,18 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
   `[ID, V0, V1, V2]` (vier DATA-Byte), **derselbe ID-Raum** wie SET.
 - `SET_PARAM ID V0 V1 V2`: vier DATA-Byte; unsigned 24-bit LE
   (`Wert = V0 + 256*V1 + 65536*V2`), nur im Stillstand, zuerst nur RAM.
-- `SET_PARAM 7F AA 55 00`: expliziter gemeinsamer SAVE-Auftrag fuer geaenderte
-  Motor- und Gleissegmente. Das Muster ist exakt zu pruefen; andere Werte
+- `SET_PARAM 7F BEREICH AA 55`: expliziter SAVE-Auftrag fuer **genau ein**
+  Segment. Bereich `01` = Gleispositionen, `02` = Motorparameter.
+  Kalibrierung wird ausschliesslich nach der Messfahrt geschrieben.
+  Das Muster ist exakt zu pruefen; andere Werte
   muessen mit NACK abgelehnt werden. SAVE nur im Stillstand; waehrend SAVE
-  keine zweite FY-Aktion zulaessig. Kalibrierungswerte werden **nicht**
+  keine zweite FY-Aktion zulaessig. STOP darf einen bereits begonnenen
+  NVS-Commit nicht abbrechen oder dessen Daten beschaedigen; eingehender
+  STOP ist nach dem Commit vorrangig abzuarbeiten. Kalibrierungswerte werden **nicht**
   durch SET oder SAVE erzeugt.
 - Kalibrierungs-GETs sind read-only. Gleispositionen sind bis zur Teach-in-
   Funktion per SET veraenderbar; Motorparameter werden beim SET validiert.
-- Ein SAVE ohne geaenderte Daten schreibt nichts und entwertet die aktuelle
+- Ein SAVE ohne geaenderte Daten des gewaehlten Segments schreibt nichts und entwertet die aktuelle
   Referenz nicht. Ein erfolgreicher SAVE mit tatsaechlicher Parameter-
   Aenderung entwertet die aktuelle Referenz (nicht die Kalibrierdaten/CRC).
 - A/B-Profilwerte sind **unsigned**: die Kennzeichnung als A (Beschleunigung)
@@ -63,14 +67,15 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | `21` | POS_REF_A | ja | **nein** | Gemessene Fahnenflanke A |
 | `22` | POS_REF_B | ja | **nein** | Gemessene Fahnenflanke B |
 | `30`–`34` | TRACK_BG1 bis TRACK_BG5 | ja | ja | Eingelernte Gleispositionen |
-| `7F` | SAVE | **nein** | ja (Muster) | Persistenzauftrag, kein Datenwert |
+| `7F` | SAVE | **nein** | ja (Muster) | `7F 01 AA 55` = Gleise; `7F 02 AA 55` = Motor |
 
 **Beispiel-Bytes (ESP32, noch nicht lauffaehig):**
 
 ```text
 GET_PARAM 30          ; BG1 abfragen
 SET_PARAM 30 15 06 00 ; BG1 = 0x000615 = 1557 (nur RAM)
-SET_PARAM 7F AA 55 00 ; geaenderte Segmente ins NVS schreiben
+SET_PARAM 7F 01 AA 55 ; nur geaenderte Gleispositionen ins NVS
+SET_PARAM 7F 02 AA 55 ; nur geaenderte Motorparameter ins NVS
 ```
 
 Bei neuem ESP32: fehlende Motor- und Gleissegmente mit gueltiger CRC aus
