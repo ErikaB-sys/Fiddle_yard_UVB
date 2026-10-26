@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "NvmAreas.h"
 
 /**
  * @file NVM.h
@@ -32,11 +33,9 @@
 namespace fy {
 
 /** @brief Stabile IDs der im NVM-Descriptor beschriebenen Segmente. */
-enum class NvmRecord : uint8_t {
-    CALIBRATION = 0U,      ///< Pos_LSR, Pos_refA, Pos_refB: 3 x uint32 LE.
-    TRACK_POSITIONS = 1U   ///< BG1..BG5: 5 x uint32 LE.
-    // MOTOR_PARAMETERS folgt nach Festlegung seines echten Payloadformats.
-};
+/** @brief Gleiche Bereichs-IDs wie im UART-Protokoll. */
+using NvmRecord = NvmArea;
+// Der NVM-Descriptor bestimmt, welche Bereiche bereits implementiert sind.
 
 enum class NvmResult : uint8_t {
     OK,            ///< Erfolgreich gelesen oder geschrieben.
