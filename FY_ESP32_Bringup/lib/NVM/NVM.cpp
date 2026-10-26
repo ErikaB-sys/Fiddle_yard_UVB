@@ -106,7 +106,10 @@ NvmResult NVM::load(NvmRecord id, void* data) const {
     const size_t length = desc->length;
 
     Preferences prefs;
-    if (!prefs.begin(kNamespace, true)) return NvmResult::IO_ERROR;
+    // Beim ersten Boot existiert der Namespace noch nicht. Schreibend
+    // oeffnen erzeugt ihn; ein fehlender Key wird dann als NOT_FOUND erkannt.
+    // Sonst wuerde ein jungfraeuliches NVS faelschlich IO_ERROR liefern.
+    if (!prefs.begin(kNamespace, false)) return NvmResult::IO_ERROR;
     if (!prefs.isKey(key)) {
         prefs.end();
         return NvmResult::NOT_FOUND;
