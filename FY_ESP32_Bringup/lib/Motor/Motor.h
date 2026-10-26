@@ -94,6 +94,10 @@ public:
     bool trackPosition(uint8_t track, uint32_t& out) const;
     /** @brief Setzt alle Gleis-Defaults erst im NVM und danach im RAM. */
     bool restoreTrackDefaults();
+    /** @brief Aendert eine Gleisposition nur im RAM; prueft den Wertebereich. */
+    bool setTrackPosition(uint8_t track, uint32_t position);
+    /** @brief Speichert die aktuellen Gleispositionen persistent mit CRC. */
+    bool saveTrackPositions();
     bool tracksValid() const { return _tracksValid; }
     bool hasNvmFault() const { return _nvmFaultMask != 0U; }
 
