@@ -1370,7 +1370,8 @@ void Muninn_motorMockTask(void* arg) {
                    cmd.data[0] == static_cast<uint8_t>(ParamId::RESTORE_DEFAULT)) {
             if (cmd.data[2] != PARAM_SAVE_PATTERN_1 ||
                 cmd.data[3] != PARAM_SAVE_PATTERN_2 ||
-                cmd.data[1] != static_cast<uint8_t>(ParamSaveArea::TRACK_POSITIONS)) {
+                (cmd.data[1] != static_cast<uint8_t>(ParamSaveArea::TRACK_POSITIONS) &&
+                 cmd.data[1] != static_cast<uint8_t>(ParamSaveArea::MOTOR_PARAMETERS))) {
                 // Motor-Defaults erst nach fachlicher NVM-Anbindung; Kalibrierung nie.
                 emit(context, cmd, false, nackData(NackReason::INVALID_PARAMETER));
             } else if (stepTimerRunning() || motorMoving.load(std::memory_order_acquire) ||
@@ -1378,6 +1379,14 @@ void Muninn_motorMockTask(void* arg) {
                        (motor.state() != MotorState_t::IDLE &&
                  motor.state() != MotorState_t::STOPPED)) {
                 emit(context, cmd, false, nackData(NackReason::BUSY));
+            } else if (cmd.data[1] == static_cast<uint8_t>(ParamSaveArea::MOTOR_PARAMETERS)) {
+                bool changed=false;
+                if(!motor.restoreRampDefaults(changed))
+                    emit(context,cmd,false,nackData(NackReason::EXECUTION_ERROR));
+                else {
+                    if(changed) { motor.invalidateCurrentReference(); publishReference(motor); }
+                    emit(context,cmd,true,cmd.id);
+                }
             } else if (!motor.restoreTrackDefaults()) {
                 emit(context, cmd, false, nackData(NackReason::EXECUTION_ERROR));
             } else {
