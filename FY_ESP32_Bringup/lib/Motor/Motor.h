@@ -87,6 +87,13 @@ public:
     bool referenceSuccessful() const { return _stage == RefRunState::DONE; }
     uint32_t referencePosition() const { return _position; }
     uint32_t referenceOppositeEnd() const { return _oppositeEnd; }
+    // Boot-Load, Defaults und physikalische Langreferenz-Kalibrierung.
+    void initializeStorage();
+    bool calibrationSavePending() const { return _calibrationPending; }
+    bool persistCalibration();
+    bool trackPosition(uint8_t track, uint32_t& out) const;
+    bool tracksValid() const { return _tracksValid; }
+    bool hasNvmFault() const { return _nvmFaultMask != 0U; }
 
     // Synthetic short REF (without motion) is BENCH ONLY, never sets _ReferenceValid.
     void resetBenchPosition();  // Called exclusively after accepted fake REFERENCE 00.
@@ -116,6 +123,13 @@ private:
     bool _active = false;
     bool _full = false;
     bool _calibrated = false;
+    bool _calibrationPending = false;
+    bool _storedCalibValid = false;
+    bool _tracksValid = false;
+    uint8_t _nvmFaultMask = 0U;
+    uint32_t _savedCalibration[3]{};
+    uint32_t _measuredCalibration[3]{};
+    uint32_t _tracks[5]{};
     uint32_t _position = 0U;
     uint32_t _coarse = 0U;
     uint32_t _oppositeEnd = 0U;
