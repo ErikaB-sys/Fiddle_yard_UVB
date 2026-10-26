@@ -65,11 +65,11 @@ bool Motor::calcProfile(uint16_t distance)
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Steps = outer;
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Accel =
-        _ProfileParam.Acc1Accel;
+        -static_cast<int16_t>(_ProfileParam.Acc1Accel);
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Steps = outer;
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Accel =
-        _ProfileParam.Bre2Accel;
+        static_cast<int16_t>(_ProfileParam.Bre2Accel);
 
     remaining -= outer * 2;
 
@@ -80,11 +80,11 @@ bool Motor::calcProfile(uint16_t distance)
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Steps = inner;
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Accel =
-        _ProfileParam.Acc2Accel;
+        -static_cast<int16_t>(_ProfileParam.Acc2Accel);
 
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Steps = inner;
     Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Accel =
-        _ProfileParam.Bre1Accel;
+        static_cast<int16_t>(_ProfileParam.Bre1Accel);
 
     remaining -= inner * 2;
 
