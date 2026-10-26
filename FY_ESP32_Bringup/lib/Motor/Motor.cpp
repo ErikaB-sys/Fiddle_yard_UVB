@@ -544,9 +544,16 @@ bool Muninn_getParamSnapshot(uint8_t id, uint32_t& value) {
             .load(std::memory_order_acquire);
         return value <= 0xFFFFFFU;
     }
-    if (id >= static_cast<uint8_t>(ParamId::ACC1) &&
-        id <= static_cast<uint8_t>(ParamId::B2_ST) && (valid & 0x04U)) {
-        value = nvmRampValues[id-static_cast<uint8_t>(ParamId::ACC1)].load(std::memory_order_acquire);
+    if ((valid & 0x04U) != 0U) {
+        uint8_t idx=0U;
+        if(id>=static_cast<uint8_t>(ParamId::ACC1)&&id<=static_cast<uint8_t>(ParamId::B2_ST))
+            idx=static_cast<uint8_t>(id-static_cast<uint8_t>(ParamId::ACC1));
+        else if(id>=static_cast<uint8_t>(ParamId::V_MIN)&&id<=static_cast<uint8_t>(ParamId::V_POS))
+            idx=static_cast<uint8_t>(8U+id-static_cast<uint8_t>(ParamId::V_MIN));
+        else if(id>=static_cast<uint8_t>(ParamId::A1_LEN)&&id<=static_cast<uint8_t>(ParamId::KONST_MIN))
+            idx=static_cast<uint8_t>(11U+id-static_cast<uint8_t>(ParamId::A1_LEN));
+        else return false;
+        value=nvmRampValues[idx].load(std::memory_order_acquire);
         return true;
     }
     return false; // Unangebundene IDs liefern keinen Scheinwert.
@@ -1281,8 +1288,12 @@ void Muninn_motorMockTask(void* arg) {
                 }
             }
         } else if (cmd.id == CMD_SET_PARAM &&
-                   cmd.data[0]>=static_cast<uint8_t>(ParamId::ACC1) &&
-                   cmd.data[0]<=static_cast<uint8_t>(ParamId::B2_ST)) {
+                   ((cmd.data[0]>=static_cast<uint8_t>(ParamId::ACC1) &&
+                     cmd.data[0]<=static_cast<uint8_t>(ParamId::B2_ST)) ||
+                    (cmd.data[0]>=static_cast<uint8_t>(ParamId::V_MIN) &&
+                     cmd.data[0]<=static_cast<uint8_t>(ParamId::V_POS)) ||
+                    (cmd.data[0]>=static_cast<uint8_t>(ParamId::A1_LEN) &&
+                     cmd.data[0]<=static_cast<uint8_t>(ParamId::KONST_MIN)))) {
             const uint32_t value=static_cast<uint32_t>(cmd.data[1]) |
                 (static_cast<uint32_t>(cmd.data[2])<<8U) |
                 (static_cast<uint32_t>(cmd.data[3])<<16U);
