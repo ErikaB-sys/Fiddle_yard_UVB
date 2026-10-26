@@ -25,7 +25,7 @@ struct NvmDescriptor_t {
 constexpr NvmDescriptor_t kDescriptors[]{
     {NvmRecord::CALIBRATION,     "calib",  1U, 12U},
     {NvmRecord::TRACK_POSITIONS, "tracks", 1U, 20U},
-    {NvmRecord::MOTOR_PARAMETERS, "motor", 1U, 16U}
+    {NvmRecord::MOTOR_PARAMETERS, "motor", 2U, 34U}
 };
 static_assert(sizeof(kDescriptors) / sizeof(kDescriptors[0]) == 3U,
               "NVM Segmenttabelle pruefen");
