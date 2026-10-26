@@ -178,6 +178,8 @@ bool BabelFish::decodeLine()
     else if (equalsIgnoreCase(commandName, "GET_POSITION") ||
              equalsIgnoreCase(commandName, "POSITION"))
         cmd = CMD_GET_POSITION;
+    else if (equalsIgnoreCase(commandName, "GET_PARAM"))
+        cmd = CMD_GET_PARAM;
     else if (equalsIgnoreCase(commandName, "GET_TRACK") ||
              equalsIgnoreCase(commandName, "TRACK"))
         cmd = CMD_GET_TRACK;
