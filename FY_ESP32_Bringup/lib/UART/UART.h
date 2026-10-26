@@ -45,6 +45,7 @@ private:
     bool queueMotorCommand(bool priority);
 
     void handleGetStatus();
+    void handleGetParam();
     void handleGetError();
     void handleGetPosition();
     void handleGetTrack();
