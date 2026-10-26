@@ -5,67 +5,69 @@
 
 /**
  * @file NVM.h
- * @brief Dauerhafte Speicherung kleiner, versionierter Datensaetze im ESP32-NVS.
+ * @brief Synchroner NVS-Speicherdienst mit statischen FY-Segmenten.
  *
  * Modulvertrag:
- * - Einziger Zweck: Lesen, Vergleichen, Speichern und Invalidieren von Binaerdaten.
- * - Unabhaengig von Motor, UART, Huginn und Muninn; keine eigenen Tasks/Queues.
- * - Jeder Datensatz besitzt Kennung, Version, Nutzdatenlaenge und CRC32.
- * - Schreiben nur bei tatsaechlich veraendertem Inhalt; keine EEPROM-Emulation.
- * - Aufrufer serialisieren schreibende FY-Aktionen und lassen sie nur im
- *   sicheren Stillstand zu. NVM uebernimmt keine Betriebszustandspruefung.
- * - Nutzdaten sind kanonisch kodierte Bytes: keine ungeprueften C++-Strukturen
- *   mit Padding/ABI-abhaengigem Layout direkt persistent ablegen.
- * - CRC32 erkennt zufaellige Defekte, bietet aber keine Verschluesselung.
- *
- * Basis: Arduino-ESP32 Preferences (ESP-IDF NVS). Ein Namespace pro
- * Fachdomaene ist moeglich; einzelne Datensaetze werden ueber Keys adressiert.
+ * - Verwaltet ausschliesslich Nutzdatenbytes, Formatversion und CRC32.
+ * - Statische Segment-IDs; NVS-Schluessel, Versionen und Laengen liegen
+ *   zentral im Descriptor in NVM.cpp. Neue Segmente nur hinten anfuegen;
+ *   bestehende Segment-IDs/Keys und Datenformate nicht stillschweigend aendern.
+ * - Ein gemeinsamer Namespace "fy_uvb"; physische Flash-Adressen verwaltet
+ *   Espressif NVS (Preferences), nicht diese Anwendung.
+ * - load() prueft Format, Laenge, Version und CRC, veraendert bei Fehler
+ *   den Ausgabepuffer nicht. save() schreibt nur bei geaenderten Bytes.
+ * - invalidate() hinterlegt das Komplement der frisch berechneten CRC.
+ *   Wiederholtes Invalidieren darf keine Gueltigkeit herstellen.
+ * - NOT_FOUND erlaubt dem jeweiligen Fachmodul die Erstinitialisierung
+ *   seiner Defaults; INVALID_DATA darf nicht automatisch ueberschrieben werden.
+ *   CALIBRATION hat niemals synthetische Defaults (nur Messfahrt!).
+ * - NVM kennt weder Motor noch Huginn/Muninn, besitzt keine Task, Queue,
+ *   eigene Sperre, Betriebszustandspruefung oder Default-/Migrationslogik.
+ *   Alle schreibenden Aktionen werden von der FY-Steuerung exklusiv und
+ *   ausschliesslich im sicheren Stillstand zugelassen.
+ * - Fachmodule kodieren ihre festen Payloads kanonisch als Bytes.
+ *   Ungepruefte C++-Structs mit Padding nicht direkt persistent speichern.
+ * - CRC32 ist Fehlererkennung, keine Verschluesselung.
  */
 namespace fy {
 
-enum class NvmResult : uint8_t {
-    OK,             ///< Erfolgreich gelesen oder geschrieben.
-    UNCHANGED,      ///< Bereits identisch gespeichert; kein Flash-Schreiben.
-    NOT_FOUND,      ///< Noch kein Datensatz fuer diesen Schluessel vorhanden.
-    INVALID_DATA,   ///< Datensatzformat, Version, Laenge oder CRC ungueltig.
-    INVALID_ARG,    ///< Schluessel, Puffer, Version oder Laenge unzulaessig.
-    IO_ERROR        ///< NVS konnte nicht geoeffnet, gelesen oder geschrieben werden.
+/** @brief Stabile IDs der im NVM-Descriptor beschriebenen Segmente. */
+enum class NvmRecord : uint8_t {
+    CALIBRATION = 0U,      ///< Pos_LSR, Pos_refA, Pos_refB: 3 x uint32 LE.
+    TRACK_POSITIONS = 1U   ///< BG1..BG5: 5 x uint32 LE.
+    // MOTOR_PARAMETERS folgt nach Festlegung seines echten Payloadformats.
 };
 
-/** @brief Schlanker synchroner NVS-Speicherdienst ohne eigene Task/Queue. */
+enum class NvmResult : uint8_t {
+    OK,            ///< Erfolgreich gelesen oder geschrieben.
+    UNCHANGED,     ///< Bereits identisch gespeichert / schon invalidiert.
+    NOT_FOUND,     ///< Segment wurde noch nicht gespeichert.
+    INVALID_DATA,  ///< Format, Version, Laenge oder CRC ungueltig.
+    INVALID_ARG,   ///< Unbekannte Segment-ID oder ungueltiger Datenpuffer.
+    IO_ERROR       ///< NVS konnte nicht geoeffnet/gelesen/geschrieben werden.
+};
+
+/** @brief Minimaler synchroner NVS-Dienst, der nur feste IDs akzeptiert. */
 class NVM final {
 public:
-    /// Maximaler Nutzdatenumfang eines Datensatzes in Bytes.
-    static constexpr size_t MAX_PAYLOAD = 256U;
-
-    /** @brief Namespace festlegen (ESP32-NVS: maximal 15 ASCII-Zeichen). */
-    explicit NVM(const char* nameSpace) : _nameSpace(nameSpace) {}
-
-    /** @brief Datensatz laden und Kennung/Version/Laenge/CRC32 pruefen.
-     * @param key NVS-Schluessel (maximal 15 Zeichen).
-     * @param version Erwartete Formatversion (ungleich 0).
-     * @param data Ausgabepuffer; bei Fehler unveraendert.
-     * @param length Exakte Nutzdatenlaenge.
+    /** @brief Datensatz in den vom Descriptor festgelegten Puffer laden.
+     * @param record Statische Segment-ID.
+     * @param data Ausgabepuffer mit exakt der im Descriptor angegebenen Groesse.
+     * @return OK oder Fehlerstatus; bei Fehler bleibt data unveraendert.
      */
-    NvmResult load(const char* key, uint16_t version,
-                   void* data, size_t length) const;
+    NvmResult load(NvmRecord record, void* data) const;
 
-    /** @brief Datensatz nur speichern, falls die gespeicherten Bytes abweichen.
-     * @return OK bei Schreibvorgang, UNCHANGED bei identischem Inhalt,
-     *         sonst Fehlerstatus.
+    /** @brief Datensatz mit gueltiger CRC nur bei geaenderten Bytes speichern.
+     * @param record Statische Segment-ID.
+     * @param data Eingabepuffer in festgelegter Segmentgroesse.
+     * @return OK bei Schreiben, UNCHANGED ohne Flash-Schreibvorgang.
      */
-    NvmResult save(const char* key, uint16_t version,
-                   const void* data, size_t length) const;
+    NvmResult save(NvmRecord record, const void* data) const;
 
-    /** @brief Vorhandene gueltige oder bereits invalidierte CRC erneut aus
-     *         den gespeicherten Daten berechnen und invertiert ablegen.
-     * @return OK bei Aenderung, UNCHANGED bei bereits invalidiertem Eintrag.
-     *         Ein fehlender oder strukturell defekter Eintrag wird nicht erzeugt.
+    /** @brief Gespeicherten Datensatz durch invertierte CRC invalidieren.
+     * @return OK beim Schreiben, UNCHANGED bei erneuter Invalidierung.
      */
-    NvmResult invalidate(const char* key) const;
-
-private:
-    const char* _nameSpace;
+    NvmResult invalidate(NvmRecord record) const;
 };
 
 } // namespace fy
