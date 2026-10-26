@@ -20,90 +20,82 @@
 
 namespace fy {
 
-// Taken from the verified Nano Motor::calcProfile(), unchanged calculation.
+// Sechs Segmentlaengen im Motor vorbereiten; ISR/StepTimer bleiben unveraendert.
+// Die vier Rampenwege sind Obergrenzen, keine vorgegebene Symmetrie.
 bool Motor::calcProfile(uint16_t distance)
 {
-    // Sehr kurze Strecke:
-    // Kein vollstaendiges Profil moeglich.
-    // Die gesamte Strecke wird mit V_MIN gefahren.
-    if (distance <= (_ProfileParam.PosiMin + _ProfileParam.KonstMin))
-    {
-        for (uint8_t i = 0; i < 6; ++i)
-        {
-            Motor_profil[i].Steps = 0;
-            Motor_profil[i].Accel = 0;
-        }
+    for (uint8_t i = 0U; i < 6U; ++i) {
+        Motor_profil[i].Steps = 0U;
+        Motor_profil[i].Accel = 0;
+    }
+    if (distance == 0U) {
+        _TimerValid = false;
+        return false;
+    }
 
-        Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps =
-            distance;
-
+    const uint32_t reserved =
+        static_cast<uint32_t>(_ProfileParam.PosiMin) + _ProfileParam.KonstMin;
+    if (distance <= reserved) {
+        // Zu kurze Fahrt: keine Rampen. Eine gesonderte V_POS/V_MIN-
+        // Geschwindigkeitswahl erfolgt beim spaeteren Timer-Parameteranschluss.
+        Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps = distance;
         _TimerValid = true;
         return true;
     }
 
-    for (uint8_t i = 0; i < 6; ++i)
-    {
-        Motor_profil[i].Steps = 0;
-        Motor_profil[i].Accel = 0;
+    const uint8_t a1 = static_cast<uint8_t>(MotorProfile_t::ACC1);
+    const uint8_t a2 = static_cast<uint8_t>(MotorProfile_t::ACC2);
+    const uint8_t ko = static_cast<uint8_t>(MotorProfile_t::KONST);
+    const uint8_t b1 = static_cast<uint8_t>(MotorProfile_t::BRE1);
+    const uint8_t b2 = static_cast<uint8_t>(MotorProfile_t::BRE2);
+    const uint8_t po = static_cast<uint8_t>(MotorProfile_t::POSI);
+    Motor_profil[po].Steps = _ProfileParam.PosiMin;
+    Motor_profil[ko].Steps = _ProfileParam.KonstMin;
+    Motor_profil[a1].Accel = -static_cast<int16_t>(_ProfileParam.Acc1Accel);
+    Motor_profil[a2].Accel = -static_cast<int16_t>(_ProfileParam.Acc2Accel);
+    Motor_profil[b1].Accel = static_cast<int16_t>(_ProfileParam.Bre1Accel);
+    Motor_profil[b2].Accel = static_cast<int16_t>(_ProfileParam.Bre2Accel);
+
+    uint32_t remaining = static_cast<uint32_t>(distance) - reserved;
+    // Aeussere Phasen zuerst, dann innere. Kein Zwang A1==B2 / A2==B1.
+    // Bei ungleichen Maximalstrecken wird das aktuelle Budget proportional
+    // zwischen Anfahr- und Bremsweg geteilt.
+    const uint32_t outerA = _ProfileParam.Acc1Steps;
+    const uint32_t outerB = _ProfileParam.Bre2Steps;
+    const uint32_t outerSum = outerA + outerB;
+    const uint32_t outerBudget = remaining < outerSum ? remaining : outerSum;
+    uint32_t usedA = outerSum == 0U ? 0U : (outerBudget * outerA) / outerSum;
+    uint32_t usedB = outerBudget - usedA;
+    // Maximalgrenzen auch bei ganzzahliger Rundung einhalten.
+    if (usedB > outerB) {
+        usedB = outerB;
+        usedA = outerBudget - usedB;
     }
+    Motor_profil[a1].Steps = static_cast<uint16_t>(usedA);
+    Motor_profil[b2].Steps = static_cast<uint16_t>(usedB);
+    remaining -= outerBudget;
 
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::POSI)].Steps =
-        _ProfileParam.PosiMin;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps =
-        _ProfileParam.KonstMin;
-
-    uint16_t remaining =
-        distance
-        - _ProfileParam.PosiMin
-        - _ProfileParam.KonstMin;
-
-    uint16_t outer = remaining / 2;
-
-    if (outer > _ProfileParam.Acc1Steps)
-        outer = _ProfileParam.Acc1Steps;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Steps = outer;
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC1)].Accel =
-        -static_cast<int16_t>(_ProfileParam.Acc1Accel);
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Steps = outer;
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE2)].Accel =
-        static_cast<int16_t>(_ProfileParam.Bre2Accel);
-
-    remaining -= outer * 2;
-
-    uint16_t inner = remaining / 2;
-
-    if (inner > _ProfileParam.Acc2Steps)
-        inner = _ProfileParam.Acc2Steps;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Steps = inner;
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::ACC2)].Accel =
-        -static_cast<int16_t>(_ProfileParam.Acc2Accel);
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Steps = inner;
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::BRE1)].Accel =
-        static_cast<int16_t>(_ProfileParam.Bre1Accel);
-
-    remaining -= inner * 2;
-
-    Motor_profil[static_cast<uint8_t>(MotorProfile_t::KONST)].Steps +=
-        remaining;
-
-    uint16_t sum = 0;
-
-    for (uint8_t i = 0; i < 6; ++i)
-        sum += Motor_profil[i].Steps;
-
-    if (sum < distance)
-    {
-        Motor_profil[static_cast<uint8_t>(MotorProfile_t::POSI)].Steps +=
-            distance - sum;
+    const uint32_t innerA = _ProfileParam.Acc2Steps;
+    const uint32_t innerB = _ProfileParam.Bre1Steps;
+    const uint32_t innerSum = innerA + innerB;
+    const uint32_t innerBudget = remaining < innerSum ? remaining : innerSum;
+    usedA = innerSum == 0U ? 0U : (innerBudget * innerA) / innerSum;
+    usedB = innerBudget - usedA;
+    if (usedB > innerB) {
+        usedB = innerB;
+        usedA = innerBudget - usedB;
     }
+    Motor_profil[a2].Steps = static_cast<uint16_t>(usedA);
+    Motor_profil[b1].Steps = static_cast<uint16_t>(usedB);
+    remaining -= innerBudget;
 
-    _TimerValid = true;
-    return true;
+    // Restlicher Weg wird bei der erreichten Geschwindigkeit gefahren.
+    Motor_profil[ko].Steps = static_cast<uint16_t>(
+        static_cast<uint32_t>(Motor_profil[ko].Steps) + remaining);
+    uint32_t sum = 0U;
+    for (uint8_t i = 0U; i < 6U; ++i) sum += Motor_profil[i].Steps;
+    _TimerValid = (sum == distance);
+    return _TimerValid;
 }
 
 // Motor state transitions run only in Muninn (core 1). ISR status is
