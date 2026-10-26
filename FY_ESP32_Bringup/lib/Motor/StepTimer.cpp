@@ -20,8 +20,8 @@ constexpr uint16_t kMaxStepHz = 800U;
 // one interrupt per STEP *half* period -> each Nano reload tick = 16 us.
 // Never send a Nano OCR1A value straight to a 1-MHz ESP32 timer.
 constexpr uint32_t kNanoTickUs = 16U;
-constexpr uint16_t kProfileVMin = 120U;
-constexpr uint16_t kProfileVMax = 800U;
+constexpr uint16_t kDefaultVMin = 120U;
+constexpr uint16_t kDefaultVMax = 800U;
 // Single-expression constexpr functions also compile in Arduino's GNU++11.
 constexpr uint32_t nanoDenominator(uint16_t hz) {
     return 2UL * 256UL * static_cast<uint32_t>(hz);
@@ -31,10 +31,14 @@ constexpr uint16_t nanoReload(uint16_t hz) {
         ((16000000UL + nanoDenominator(hz) / 2UL) /
          nanoDenominator(hz)) - 1UL);
 }
-constexpr uint16_t kSlowReload = nanoReload(kProfileVMin);
-constexpr uint16_t kFastReload = nanoReload(kProfileVMax);
-static_assert(kSlowReload > kFastReload, "Nano speed convention changed");
-static_assert(kSlowReload < 65535U, "Nano reload out of range");
+constexpr uint16_t kDefaultSlowReload = nanoReload(kDefaultVMin);
+constexpr uint16_t kDefaultFastReload = nanoReload(kDefaultVMax);
+static_assert(kDefaultSlowReload > kDefaultFastReload, "Nano speed convention changed");
+static_assert(kDefaultSlowReload < 65535U, "Nano reload out of range");
+// Nur im Stillstand beschreibbar, unveraendert durch ISR gelesen.
+volatile uint16_t kSlowReload = kDefaultSlowReload;
+volatile uint16_t kFastReload = kDefaultFastReload;
+volatile uint16_t kStartReload = kDefaultSlowReload;
 
 hw_timer_t* stepTimer = nullptr;
 portMUX_TYPE stepMux = portMUX_INITIALIZER_UNLOCKED;
@@ -238,7 +242,7 @@ bool startPulseTrain(uint16_t steps, bool directionRight,
     phaseIndex = 0U;
     phaseRemaining = 0U;
     rampCounter = 0U;
-    currentNanoReload = kSlowReload;
+    currentNanoReload = (plan != nullptr) ? kStartReload : kSlowReload;
     referenceMode = refMode;
     referenceAway = directionRight;
     referenceStopOnExit = stopAtExit;
@@ -297,8 +301,26 @@ bool stepTimerStart(uint16_t steps, bool directionRight, uint16_t stepHz) {
     return startPulseTrain(steps, directionRight, halfPeriodUs, nullptr);
 }
 
+bool stepTimerConfigureProfile(uint16_t vMin, uint16_t vMax, uint16_t vPos) {
+    if (vMin < kMinStepHz || vMax > kMaxStepHz ||
+        vPos < kMinStepHz || vMin > vMax || vPos > vMax)
+        return false;
+    portENTER_CRITICAL(&stepMux);
+    const bool busy = isRunning || isFinished;
+    if (!busy) {
+        // Untere Grenze deckt sowohl Anfahrt als auch langsames POSI ab.
+        kSlowReload = nanoReload(vMin < vPos ? vMin : vPos);
+        kFastReload = nanoReload(vMax);
+        kStartReload = nanoReload(vMin);
+    }
+    portEXIT_CRITICAL(&stepMux);
+    return !busy;
+}
+
 bool stepTimerStartProfile(uint16_t steps, bool directionRight,
-                           const StepProfileSegment (&segments)[STEP_PROFILE_PHASES]) {
+                           const StepProfileSegment (&segments)[STEP_PROFILE_PHASES],
+                           uint16_t startHz) {
+    if (startHz < kMinStepHz || startHz > kMaxStepHz) return false;
     uint32_t sum = 0U;
     for (uint8_t i = 0U; i < STEP_PROFILE_PHASES; ++i) {
         sum += segments[i].steps;
@@ -313,16 +335,20 @@ bool stepTimerStartProfile(uint16_t steps, bool directionRight,
     // fixed-speed profile. This backend returns NOT_READY until ported.
     (void)directionRight;
     (void)segments;
+    (void)startHz;
     return false;
 #else
+    kStartReload = nanoReload(startHz);
     return startPulseTrain(steps, directionRight,
-                           (static_cast<uint32_t>(kSlowReload) + 1UL) *
+                           (static_cast<uint32_t>(kStartReload) + 1UL) *
                            kNanoTickUs, segments);
 #endif
 }
 
 bool stepTimerStartReferenceProfile(uint16_t steps, bool awayMotor,
-                           const StepProfileSegment (&segments)[STEP_PROFILE_PHASES]) {
+                           const StepProfileSegment (&segments)[STEP_PROFILE_PHASES],
+                           uint16_t startHz) {
+    if (startHz < kMinStepHz || startHz > kMaxStepHz) return false;
     uint32_t sum = 0U;
     for (uint8_t i = 0U; i < STEP_PROFILE_PHASES; ++i) {
         sum += segments[i].steps;
@@ -333,10 +359,12 @@ bool stepTimerStartReferenceProfile(uint16_t steps, bool awayMotor,
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
     (void)awayMotor;
     (void)segments;
+    (void)startHz;
     return false;
 #else
+    kStartReload = nanoReload(startHz);
     return startPulseTrain(steps, awayMotor,
-                           (static_cast<uint32_t>(kSlowReload) + 1UL) *
+                           (static_cast<uint32_t>(kStartReload) + 1UL) *
                            kNanoTickUs,
                            segments, true, false, false);
 #endif
