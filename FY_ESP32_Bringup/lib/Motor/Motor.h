@@ -94,6 +94,12 @@ public:
     bool trackPosition(uint8_t track, uint32_t& out) const;
     /** @brief Setzt alle Gleis-Defaults erst im NVM und danach im RAM. */
     bool restoreTrackDefaults();
+    bool getRampParameter(uint8_t id, uint32_t& value) const;
+    bool setRampParameter(uint8_t id, uint32_t value);
+    bool saveRampParameters(bool& changed);
+    bool restoreRampDefaults(bool& changed);
+    bool rampParametersValid() const { return _rampParametersValid; }
+    void invalidateCurrentReference() { _ReferenceValid = false; }
     /** @brief Aendert eine Gleisposition nur im RAM; prueft den Wertebereich. */
     bool setTrackPosition(uint8_t track, uint32_t position);
     /** @brief Speichert die aktuellen Gleispositionen persistent mit CRC. */
@@ -132,6 +138,7 @@ private:
     bool _calibrationPending = false;
     bool _storedCalibValid = false;
     bool _tracksValid = false;
+    bool _rampParametersValid = false;
     uint8_t _nvmFaultMask = 0U;
     uint32_t _savedCalibration[3]{};
     uint32_t _measuredCalibration[3]{};
