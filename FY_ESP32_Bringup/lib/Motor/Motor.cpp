@@ -679,8 +679,9 @@ bool Motor::persistCalibration() {
         }
     }
     for (uint8_t i = 0U; i < 3U; ++i) {
-        _savedCalibration[i] = _measuredCalibration[i];
-        nvmCalibrationValues[i].store(_savedCalibration[i],
+        // NVM-Vergleichsbasis bei <=10 Steps NICHT verschieben.
+        if (changed) _savedCalibration[i] = _measuredCalibration[i];
+        nvmCalibrationValues[i].store(_measuredCalibration[i],
                                      std::memory_order_release);
     }
     _nvmFaultMask &= static_cast<uint8_t>(~0x01U);
@@ -1023,7 +1024,12 @@ void Muninn_motorMockTask(void* arg) {
             }
         } else if (cmd.id == CMD_REFERENCE) {
             // Real physical REF 00=short (requires calibration), 01=long.
-            if (stopActive || !driverEnabled.load(std::memory_order_acquire)) {
+            if (stopActive || !driverEnabled.load(std::memory_order_acquire) ||
+                // Mit kalibrierungsfehlerhaftem NVM nur echte lange REF
+                // zur Reparatur zulassen, sonst NACK.
+                (motor.hasNvmFault() &&
+                 !(cmd.data[0] == 1U &&
+                   (Muninn_nvmStatusSnapshot() & 0x00FFU) == 0x01U))) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else if (stepTimerRunning() || motor.referenceActive() ||
                        motor.state() != MotorState_t::IDLE) {
@@ -1057,6 +1063,8 @@ void Muninn_motorMockTask(void* arg) {
                    ) {
             const bool realTrack = cmd.id == CMD_SET_TRACK && motor.referenced();
             if (stopActive || !driverEnabled.load(std::memory_order_acquire) ||
+                motor.hasNvmFault() ||
+                (cmd.id == CMD_SET_TRACK && !motor.tracksValid()) ||
                 (motor.referenced() && !realTrack)) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else if (stepTimerRunning() || realTrackProfileActive ||
