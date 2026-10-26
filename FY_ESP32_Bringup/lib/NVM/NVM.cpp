@@ -8,19 +8,32 @@ namespace {
 
 constexpr size_t kHeaderSize = 8U;
 constexpr size_t kCrcSize = 4U;
-constexpr size_t kMaxRecordSize = kHeaderSize + NVM::MAX_PAYLOAD + kCrcSize;
+constexpr size_t kMaxPayload = 256U;
+constexpr size_t kMaxRecordSize = kHeaderSize + kMaxPayload + kCrcSize;
 constexpr uint8_t kMagic[4]{'F', 'Y', 'N', 'V'};
 
-bool validName(const char* value) {
-    if (value == nullptr || value[0] == '\0') return false;
-    // ESP-IDF limits namespace and key lengths to 15 bytes (excluding NUL).
-    return strnlen(value, 16U) <= 15U;
-}
+constexpr char kNamespace[] = "fy_uvb";
 
-bool validArgs(const char* ns, const char* key, uint16_t version,
-               const void* payload, size_t length) {
-    return validName(ns) && validName(key) && version != 0U &&
-           payload != nullptr && length > 0U && length <= NVM::MAX_PAYLOAD;
+struct NvmDescriptor_t {
+    NvmRecord id;
+    const char* key;
+    uint16_t version;
+    uint16_t length;
+};
+
+// Append-only: IDs, keys, Feldreihenfolge und Version nicht ohne Migration aendern.
+constexpr NvmDescriptor_t kDescriptors[]{
+    {NvmRecord::CALIBRATION,     "calib",  1U, 12U},
+    {NvmRecord::TRACK_POSITIONS, "tracks", 1U, 20U}
+};
+static_assert(sizeof(kDescriptors) / sizeof(kDescriptors[0]) == 2U,
+              "NVM Segmenttabelle pruefen");
+
+const NvmDescriptor_t* descriptor(NvmRecord id) {
+    for (const auto& entry : kDescriptors) {
+        if (entry.id == id) return &entry;
+    }
+    return nullptr;
 }
 
 uint16_t read16(const uint8_t* p) {
@@ -62,7 +75,7 @@ bool validLayout(const uint8_t* record, size_t size) {
     if (size < kHeaderSize + kCrcSize || size > kMaxRecordSize ||
         memcmp(record, kMagic, sizeof(kMagic)) != 0) return false;
     const uint16_t payloadLength = read16(record + 6U);
-    return payloadLength > 0U && payloadLength <= NVM::MAX_PAYLOAD &&
+    return payloadLength > 0U && payloadLength <= kMaxPayload &&
            size == kHeaderSize + payloadLength + kCrcSize;
 }
 
@@ -85,13 +98,15 @@ bool acceptableCrc(const uint8_t* record, size_t size, bool allowInvalidated) {
 
 } // anonymous namespace
 
-NvmResult NVM::load(const char* key, uint16_t version,
-                    void* data, size_t length) const {
-    if (!validArgs(_nameSpace, key, version, data, length))
-        return NvmResult::INVALID_ARG;
+NvmResult NVM::load(NvmRecord id, void* data) const {
+    const NvmDescriptor_t* desc = descriptor(id);
+    if (desc == nullptr || data == nullptr) return NvmResult::INVALID_ARG;
+    const char* key = desc->key;
+    const uint16_t version = desc->version;
+    const size_t length = desc->length;
 
     Preferences prefs;
-    if (!prefs.begin(_nameSpace, true)) return NvmResult::IO_ERROR;
+    if (!prefs.begin(kNamespace, true)) return NvmResult::IO_ERROR;
     if (!prefs.isKey(key)) {
         prefs.end();
         return NvmResult::NOT_FOUND;
@@ -112,15 +127,17 @@ NvmResult NVM::load(const char* key, uint16_t version,
     return NvmResult::OK;
 }
 
-NvmResult NVM::save(const char* key, uint16_t version,
-                    const void* data, size_t length) const {
-    if (!validArgs(_nameSpace, key, version, data, length))
-        return NvmResult::INVALID_ARG;
+NvmResult NVM::save(NvmRecord id, const void* data) const {
+    const NvmDescriptor_t* desc = descriptor(id);
+    if (desc == nullptr || data == nullptr) return NvmResult::INVALID_ARG;
+    const char* key = desc->key;
+    const uint16_t version = desc->version;
+    const size_t length = desc->length;
 
     uint8_t record[kMaxRecordSize]{};
     const size_t recordSize = makeRecord(record, version, data, length);
     Preferences prefs;
-    if (!prefs.begin(_nameSpace, false)) return NvmResult::IO_ERROR;
+    if (!prefs.begin(kNamespace, false)) return NvmResult::IO_ERROR;
     if (prefs.isKey(key) && prefs.getBytesLength(key) == recordSize) {
         uint8_t prior[kMaxRecordSize]{};
         if (prefs.getBytes(key, prior, recordSize) != recordSize) {
@@ -137,11 +154,12 @@ NvmResult NVM::save(const char* key, uint16_t version,
     return written == recordSize ? NvmResult::OK : NvmResult::IO_ERROR;
 }
 
-NvmResult NVM::invalidate(const char* key) const {
-    if (!validName(_nameSpace) || !validName(key))
-        return NvmResult::INVALID_ARG;
+NvmResult NVM::invalidate(NvmRecord id) const {
+    const NvmDescriptor_t* desc = descriptor(id);
+    if (desc == nullptr) return NvmResult::INVALID_ARG;
+    const char* key = desc->key;
     Preferences prefs;
-    if (!prefs.begin(_nameSpace, false)) return NvmResult::IO_ERROR;
+    if (!prefs.begin(kNamespace, false)) return NvmResult::IO_ERROR;
     if (!prefs.isKey(key)) {
         prefs.end();
         return NvmResult::NOT_FOUND;
@@ -156,7 +174,8 @@ NvmResult NVM::invalidate(const char* key) const {
         prefs.end();
         return NvmResult::IO_ERROR;
     }
-    if (!validLayout(record, size) || read16(record + 4U) == 0U ||
+    if (!validLayout(record, size) || read16(record + 4U) != desc->version ||
+        read16(record + 6U) != desc->length ||
         !acceptableCrc(record, size, true)) {
         prefs.end();
         return NvmResult::INVALID_DATA;
