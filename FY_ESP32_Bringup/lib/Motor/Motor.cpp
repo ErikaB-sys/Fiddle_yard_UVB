@@ -7,10 +7,6 @@
 #include <freertos/task.h>
 #include <atomic>
 
-#ifndef FY_MOTOR_BENCH_TEST
-#define FY_MOTOR_BENCH_TEST 0
-#endif
-
 #ifndef FY_STATUS_LED_PIN
 #define FY_STATUS_LED_PIN 2
 #endif
@@ -286,20 +282,7 @@ void Motor::invalidateBenchPosition() {
     _MotionPositionTracked = false;
     _MotionStepCount = 0U;
 }
-void Motor::resetBenchPosition() {
-#if FY_MOTOR_BENCH_TEST
-    // Explicit fake short reference: assign measured HW_TEST coordinate 1000.
-    // Never claim a *physical* reference without sensor confirmation.
-    _BenchPosition = FY_BENCH_REFERENCE_POSITION;
-    _BenchPositionValid = true;
-    _BenchReferenceValid = true;
-    _MotionPositionTracked = false;
-    _MotionStartPosition = _BenchPosition;
-    _MotionStepCount = 0U;
-#else
-    invalidateBenchPosition();
-#endif
-}
+void Motor::resetBenchPosition() { invalidateBenchPosition(); }
 
 MotorCommandResult_t Motor::prepareSetTrack(uint8_t track, MoveRequest& request) {
     uint32_t destination = 0U;
@@ -334,68 +317,24 @@ MotorCommandResult_t Motor::prepareSetPosition(uint16_t target,
                                                 MoveRequest& request) {
     if (_StopActive || _State != MotorState_t::IDLE)
         return MotorCommandResult_t::STOP_ACTIVE;
-#if FY_MOTOR_BENCH_TEST
-    // A synthetic position is intentionally DISTINCT from real REFRUN.
-    if (!_BenchPositionValid)
+    if (!_ReferenceValid || target <= 1000U || target >= _oppositeEnd)
+        return MotorCommandResult_t::INVALID_DATA;
+    const uint32_t current = stepTimerReferenceSnapshot().position;
+    if (current <= 1000U || current >= _oppositeEnd)
         return MotorCommandResult_t::STOP_ACTIVE;
-    if (target < FY_BENCH_MIN_POSITION ||
-        target > FY_BENCH_MAX_POSITION)
-        return MotorCommandResult_t::INVALID_DATA;
-    const uint16_t steps = benchAbsoluteDistance(_BenchPosition, target);
-    if (steps > FY_BENCH_MAX_ABSOLUTE_MOVE)
-        return MotorCommandResult_t::INVALID_DATA;
-    if (steps != 0U &&
-        !benchCanMove(_BenchPosition, steps, target > _BenchPosition))
-        return MotorCommandResult_t::INVALID_DATA;
+    const uint32_t delta = target > current ? target - current : current - target;
+    if (delta > UINT16_MAX) return MotorCommandResult_t::INVALID_DATA;
     request.mode = FY_MOTOR_MICROSTEP_MODE;
-    request.directionRight = target > _BenchPosition;
-    request.steps = steps;
-    if (steps > 0U &&
-        (!calcProfile(steps) || !isProfileValid(steps)))
+    request.directionRight = target > current;
+    request.steps = static_cast<uint16_t>(delta);
+    if (request.steps != 0U &&
+        (!calcProfile(request.steps) || !isProfileValid(request.steps)))
         return MotorCommandResult_t::INVALID_DATA;
     return MotorCommandResult_t::ACCEPTED;
-#else
-    // Real track/FY mode requires physical reference and checked limits.
-    (void)target;
-    (void)request;
-    return MotorCommandResult_t::STOP_ACTIVE;
-#endif
 }
 
-void Motor::onMotionAccepted(const MoveRequest& request) {
-#if FY_MOTOR_BENCH_TEST
-    // Eighth-step positions are meaningful only while resolution stays 1/8.
-    _MotionPositionTracked =
-        _BenchPositionValid && request.mode == FY_MOTOR_MICROSTEP_MODE &&
-        benchCanMove(_BenchPosition, request.steps, request.directionRight);
-    _MotionStartPosition = _BenchPosition;
-    _MotionStepCount = request.steps;
-    _MotionRight = request.directionRight;
-    if (!_MotionPositionTracked)
-        invalidateBenchPosition();
-#else
-    (void)request;
-#endif
-}
-
-void Motor::onMotionProgress(uint32_t completedSteps) {
-#if FY_MOTOR_BENCH_TEST
-    if (!_MotionPositionTracked || !_BenchPositionValid) return;
-    const uint32_t done = completedSteps > _MotionStepCount
-        ? _MotionStepCount : completedSteps;
-    const int32_t pos = static_cast<int32_t>(_MotionStartPosition) +
-        (_MotionRight ? static_cast<int32_t>(done)
-                      : -static_cast<int32_t>(done));
-    if (pos < FY_BENCH_MIN_POSITION ||
-        pos > FY_BENCH_MAX_POSITION) {
-        invalidateBenchPosition();
-        return;
-    }
-    _BenchPosition = static_cast<uint16_t>(pos);
-#else
-    (void)completedSteps;
-#endif
-}
+void Motor::onMotionAccepted(const MoveRequest&) {}
+void Motor::onMotionProgress(uint32_t) {}
 bool Motor::isProfileValid(uint16_t distance) const {
     if (!_TimerValid || distance == 0U) return false;
     uint32_t sum = 0U;
@@ -433,12 +372,16 @@ MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
     // Driver MS pins never change after initialization.
     if (request.mode != FY_MOTOR_MICROSTEP_MODE)
         return MotorCommandResult_t::INVALID_DATA;
-    // Guard the virtual position against overflow/underflow.
-#if FY_MOTOR_BENCH_TEST
-    if (_BenchPositionValid && request.mode == FY_MOTOR_MICROSTEP_MODE &&
-        !benchCanMove(_BenchPosition, request.steps, request.directionRight))
-        return MotorCommandResult_t::INVALID_DATA;
-#endif
+    if (_ReferenceValid) {
+        const uint32_t current = stepTimerReferenceSnapshot().position;
+        if (current <= 1000U || current >= _oppositeEnd)
+            return MotorCommandResult_t::STOP_ACTIVE;
+        const int32_t end = static_cast<int32_t>(current) +
+            (request.directionRight ? static_cast<int32_t>(request.steps)
+                                    : -static_cast<int32_t>(request.steps));
+        if (end <= 1000 || end >= static_cast<int32_t>(_oppositeEnd))
+            return MotorCommandResult_t::INVALID_DATA;
+    }
     // Prepare all six Nano phases; the STEP ISR now executes those
     // phases, but the new dynamic hardware timer still needs HW testing.
     if (!calcProfile(request.steps) || !isProfileValid(request.steps))
@@ -472,20 +415,12 @@ void publishPosition(const Motor& motor) {
                                std::memory_order_release);
         return;
     }
-#if FY_MOTOR_BENCH_TEST
-    const uint32_t position = motor.benchPositionValid()
-        ? (kPositionBenchFlag | static_cast<uint32_t>(motor.benchPosition()))
-        : kPositionUnknown;
-    positionSnapshot.store(position, std::memory_order_release);
-#else
     (void)motor;
     positionSnapshot.store(kPositionUnknown, std::memory_order_release);
-#endif
 }
 
 void publishReference(const Motor& motor) {
-    const uint8_t status = motor.referenced() ? 1U :
-        (motor.benchReferenceValid() ? 2U : 0U);
+    const uint8_t status = motor.referenced() ? 1U : 0U;
     referenceStatusSnapshot.store(status, std::memory_order_release);
 }
 
@@ -898,6 +833,7 @@ void Muninn_motorMockTask(void* arg) {
     bool ledState = false;
     // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
     bool stopActive = true; // Mirrors Motor state for the existing STOP path.
+    uint32_t expectedTargetPosition = 0U;
     uint8_t targetTrack = 0U; // 0 = unknown, only Muninn changes these.
     uint8_t confirmedTrack = 0U;
 #if FY_MOTOR_BENCH_TEST
@@ -1040,6 +976,7 @@ void Muninn_motorMockTask(void* arg) {
                                 kTrack3 > start, stages,
                                 distance <= p.PosiMin ? p.VPos : p.VMin)) {
                             realTrackProfileActive = true;
+                            expectedTargetPosition = kTrack3;
                             targetTrack = 3U;
                             confirmedTrack = 0U;
                             motorMoving.store(true, std::memory_order_release);
@@ -1073,15 +1010,13 @@ void Muninn_motorMockTask(void* arg) {
                 realTrackProfileActive = false;
                 motorMoving.store(false, std::memory_order_release);
                 if (atTrack.reason == ReferenceEnd::STEP_LIMIT &&
-                    targetTrack >= 1U && targetTrack <= FY_BENCH_TRACK_COUNT &&
-                    ([&]() { uint32_t expected = 0U;
-                        return motor.trackPosition(targetTrack, expected) &&
-                               atTrack.position == expected; })()) {
+                    atTrack.position == expectedTargetPosition) {
                     realReferencePosition.store(atTrack.position,
                                                 std::memory_order_release);
                     motor.onMoveFinished();
                     confirmedTrack = targetTrack;
-                    publishTrack(targetTrack, confirmedTrack, TRACK_STATUS_REACHED);
+                    publishTrack(targetTrack, confirmedTrack,
+                                 targetTrack != 0U ? TRACK_STATUS_REACHED : TRACK_STATUS_ERROR);
                 } else {
                     motor.onProfileError();
                     realReferencePosition.store(kPositionUnknown,
@@ -1227,16 +1162,13 @@ void Muninn_motorMockTask(void* arg) {
                     emit(context, cmd, true, cmd.id);
                 }
             }
-        } else if (cmd.id == CMD_SET_TRACK
-#if FY_MOTOR_BENCH_TEST
-                   || cmd.id == CMD_MOVE || cmd.id == CMD_SET_POSITION
-#endif
-                   ) {
-            const bool realTrack = cmd.id == CMD_SET_TRACK && motor.referenced();
+        } else if (cmd.id == CMD_SET_TRACK ||
+                   cmd.id == CMD_MOVE || cmd.id == CMD_SET_POSITION) {
+            const bool realTrack = motor.referenced();
             if (stopActive || !driverEnabled.load(std::memory_order_acquire) ||
                 motor.hasNvmFault() ||
                 (cmd.id == CMD_SET_TRACK && !motor.tracksValid()) ||
-                (motor.referenced() && !realTrack)) {
+                (cmd.id == CMD_SET_POSITION && !motor.referenced())) {
                 emit(context, cmd, false, nackData(NackReason::NOT_READY));
             } else if (stepTimerRunning() || realTrackProfileActive ||
                        motor.referenceActive() ||
@@ -1247,14 +1179,12 @@ void Muninn_motorMockTask(void* arg) {
                 MotorCommandResult_t prep = MotorCommandResult_t::STOP_ACTIVE;
                 if (cmd.id == CMD_SET_TRACK) {
                     prep = motor.prepareSetTrack(cmd.data[0], request);
-#if FY_MOTOR_BENCH_TEST
                 } else if (cmd.id == CMD_MOVE) {
                     prep = motor.prepareMove(cmd.data, request);
                 } else if (cmd.id == CMD_SET_POSITION) {
                     prep = motor.prepareSetPosition(
                         static_cast<uint16_t>(cmd.data[0]) |
                         (static_cast<uint16_t>(cmd.data[1]) << 8U), request);
-#endif
                 }
                 if (prep != MotorCommandResult_t::ACCEPTED) {
                     emit(context, cmd, false, nackData(
@@ -1296,6 +1226,11 @@ void Muninn_motorMockTask(void* arg) {
                         request.steps <= p.PosiMin ? p.VPos : p.VMin;
                     const bool configured =
                         stepTimerConfigureProfile(p.VMin,p.VMax,p.VPos);
+                    const uint32_t motionStart = realTrack
+                        ? stepTimerReferenceSnapshot().position : 0U;
+                    const uint32_t motionEnd = realTrack
+                        ? (request.directionRight ? motionStart + request.steps
+                            : motionStart - request.steps) : 0U;
                     const bool started = configured &&
                         (realTrack
                          ? stepTimerStartReferenceProfile(
@@ -1305,7 +1240,10 @@ void Muninn_motorMockTask(void* arg) {
                     if (!started) {
                         emit(context, cmd, false, nackData(NackReason::NOT_READY));
                     } else {
-                        if (realTrack) realTrackProfileActive = true;
+                        if (realTrack) {
+                            realTrackProfileActive = true;
+                            expectedTargetPosition = motionEnd;
+                        }
                         else motor.onMotionAccepted(request);
                         motorMoving.store(true, std::memory_order_release);
                         motor.onMoveStarted();
