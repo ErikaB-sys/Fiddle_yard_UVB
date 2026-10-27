@@ -36,6 +36,8 @@ uint32_t kbAwaitSeq = 0U;
 bool kbWaiting = false;
 uint32_t kbRunAt = 0U;
 
+void keyboardShow(uint8_t activeButtons);
+
 // Lokale Telegramme erhalten das High-Bit als Quellenkennung.
 bool sendLocal(uint8_t id, uint8_t a, uint8_t b, bool priority) {
     if (kbWaiting || kbContext == nullptr) return false;
@@ -91,7 +93,33 @@ void keyboardShow(uint8_t activeButtons) {
     if (!kbOledReady) return;
     kbDisplay.clearDisplay();
     kbDisplay.setCursor(0, 0);
-    kbDisplay.println(F("FY HW3 / KEYBOARD"));
+    kbDisplay.println(F("FY UVB / LOCAL"));
+    if (kbMenu == Menu::LOCKED) {
+        kbDisplay.println(F("STOP verriegelt"));
+        kbDisplay.println(F("LINKS halten"));
+        kbDisplay.println(F("dann GO"));
+    } else if (kbMenu == Menu::REF_MENU) {
+        kbDisplay.print(F("REF: "));
+        kbDisplay.println(kbLongRef ? F("LONG") : F("SHORT"));
+        kbDisplay.println(F("LINKS/RECHTS Wahl"));
+        kbDisplay.println(F("GO: Start"));
+    } else if (kbMenu == Menu::TRACK_MENU) {
+        kbDisplay.print(F("Ziel BG"));
+        kbDisplay.println(kbTrack);
+        kbDisplay.println(F("LINKS/RECHTS Wahl"));
+        kbDisplay.println(F("GO: Fahren"));
+    } else if (kbMenu == Menu::REF_RUN) {
+        kbDisplay.println(F("Referenzfahrt"));
+        kbDisplay.println(F("danach BG3"));
+    } else if (kbMenu == Menu::TRACK_RUN) {
+        kbDisplay.println(F("Gleisfahrt aktiv"));
+    } else if (kbMenu == Menu::ERROR) {
+        kbDisplay.println(F("FEHLER / STOP"));
+    } else {
+        kbDisplay.println(F("Motorfreigabe"));
+    }
+    kbDisplay.display();
+    return;
     kbDisplay.print(F("Taste: "));
     if (activeButtons == 0U) {
         kbDisplay.println(F("-"));
