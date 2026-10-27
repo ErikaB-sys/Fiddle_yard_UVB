@@ -814,13 +814,15 @@ void Muninn_initMotorMock() {
 }
 
 namespace {
-// Raw active-HIGH input levels, as in Nano HW_TEST. LS4/G35 not connected:
-// reserve bit 3 and do not sample the floating pin.
+// Liest die vier Sensor-Rohpegel für STATUS 40.
+// G35 überwacht ausschließlich informativ die Riemenspannung;
+// keine Auswertung in der STEP-ISR oder Motor-Fahrfreigabe.
 uint8_t readSensorLevels() {
     return static_cast<uint8_t>(
         ((digitalRead(LSL_PIN) == HIGH) ? 0x01U : 0U) |
         ((digitalRead(LSR_PIN) == HIGH) ? 0x02U : 0U) |
-        ((digitalRead(LSREF_PIN) == HIGH) ? 0x04U : 0U));
+        ((digitalRead(LSREF_PIN) == HIGH) ? 0x04U : 0U) |
+        ((digitalRead(LS4_PIN) == HIGH) ? 0x08U : 0U));
 }
 } // anonymous namespace
 
@@ -841,6 +843,7 @@ void Muninn_motorMockTask(void* arg) {
     pinMode(LSL_PIN, INPUT);
     pinMode(LSR_PIN, INPUT);
     pinMode(LSREF_PIN, INPUT);
+    pinMode(LS4_PIN, INPUT); // Riemenspannung: Statusinformation, kein Endschalter.
     uint8_t lastSensorLevels = readSensorLevels();
     uint8_t sensorChangeCount = 0U; // high nibble 0..E; F reserved
     uint8_t sensorMessage = lastSensorLevels;
