@@ -1,6 +1,6 @@
 # FY ESP32 – Roadmap und Funktionsampel
 
-**Stand: 26.10.2026, nach HW3-Fahrtests.** Branch `feature/FY_ESP32_Port`, Projekt `FY_ESP32_Bringup/`. Stand des zuletzt eingecheckten UART-Bootbanner-Fixes: `b8803bf`. Übergeordnet: [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150).
+**Stand: 26.10.2026, nach HW3-Fahrtests.** Branch `main`, Projekt `FY_ESP32/`. Stand des zuletzt eingecheckten UART-Bootbanner-Fixes: `b8803bf`. Übergeordnet: [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150).
 
 ## Nächster Meilenstein – bis spätestens 01.11.2026
 
@@ -48,7 +48,7 @@ Dies ist **keine Gesamt-Abnahme** für Sicherheitsverhalten, Sensorfehler, Pulse
 2. **27.10.–01.11.: Keyboard an HW3 anschließen und integrieren.** Vorhandenen lokalen Tastenvertrag nutzen, UART- und Keyboard-Aufträge durch denselben Motor-Befehlsweg führen; STOP-Vorrang erhalten (#157).
 3. **Gezielte verbleibende HW3-Funktionstests:** komplette Rampen über längere Strecke, STOP während Bewegung → REF ungültig → Entriegeln/GO/Neu-REF, zweiter Fahrbefehl bei BUSY, ungewöhnliche kurze/unreferenzierte MOVE-Fahrt (#153/#154/#152).
 4. **NVM vervollständigen:** geänderte Werte SET→SAVE→POR→GET und verbleibende Fehler-/CRC-/Wiederherstellungsfälle (#158). Motor-NVM wurde auf Version 2 (34 Bytes) erweitert; alte Version benötigt explizites Restore.
-5. **UART/Diagnose abgleichen:** tatsächlich implementierten Befehlsumfang einschließlich `MOVE`/`SET_POSITION`/`SET_TRACK`, Status und NVM in [UART-Spickzettel](../FY_ESP32_Bringup/src/UART_Command_Spickzettel.md) berichtigen; offene GET_TRACK-/BUSY-/Systemstatus-Verträge klären (#156/#152).
+5. **UART/Diagnose abgleichen:** tatsächlich implementierten Befehlsumfang einschließlich `MOVE`/`SET_POSITION`/`SET_TRACK`, Status und NVM in [UART-Spickzettel](../FY_ESP32/src/UART_Command_Spickzettel.md) berichtigen; offene GET_TRACK-/BUSY-/Systemstatus-Verträge klären (#156/#152).
 6. **Vor erstem Merge nach `main`:** funktionalen Code und Dokumentation bereinigen, MISRA/Cppcheck-Befunde prüfen, Hauptzweigstand vergleichen, stabilen HW3-Stand sichern. Größeres Benennungs-/Mock-Cleanup gemäß #169 **erst nach** dem ersten Merge.
 
 ## Verbindliche Fahrregeln
@@ -76,4 +76,4 @@ Dies ist **keine Gesamt-Abnahme** für Sicherheitsverhalten, Sensorfehler, Pulse
 | [#163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163) Qualität | Cppcheck/MISRA und Dokumentationsqualität |
 | [#169](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/169) Cleanup | ausdrücklich nach erstem Merge |
 
-**Dokumentationsquellen:** [UART-Spickzettel](../FY_ESP32_Bringup/src/UART_Command_Spickzettel.md) · [Motor](../FY_ESP32_Bringup/docs/Motor/README.md) · [NVM v2](../FY_ESP32_Bringup/docs/nvm/README.md) · [Dokumentationsregeln](../FY_ESP32_Bringup/docs/DOCUMENTATION_RULES.md). Historische Fake-REF-/Bench-Angaben nicht als aktuellen HW3-Stand darstellen.
+**Dokumentationsquellen:** [UART-Spickzettel](../FY_ESP32/src/UART_Command_Spickzettel.md) · [Motor](../FY_ESP32/docs/Motor/README.md) · [NVM v2](../FY_ESP32/docs/nvm/README.md) · [Dokumentationsregeln](../FY_ESP32/docs/DOCUMENTATION_RULES.md). Historische Fake-REF-/Bench-Angaben nicht als aktuellen HW3-Stand darstellen.
