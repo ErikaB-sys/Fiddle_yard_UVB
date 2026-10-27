@@ -6,7 +6,7 @@ Die Haupttabelle entspricht den neuen Pin-Konstanten in [HW_Config.h](../../incl
 
 **Software-Zuständigkeit:** Muninn / Kern 1 besitzt Motor, SLEEP, Sensoren und die bisherige Diagnose-LED. Huginn / Kern 0 besitzt I²C-Bedienung, SPI-Anzeige/Licht und UART-Kommunikation. Die Zuordnung beschreibt den Software-Owner; GPIOs sind nicht elektrisch an einen Kern gebunden. `CORE_MUNINN=1` und `CORE_HUGINN=0` sowie das Task-Pinning bleiben erhalten.
 
-**Verbindliche neue Blickrichtung (25.10.2026): Vom Einfahrtsgleis aus betrachtet ist RECHTS die Motorseite, LINKS die vom Motor abgewandte Seite.** Physische Belegung bleibt **unverändert**: Nano D12 → ESP32 G36 (VP) = **Motorseite / neu rechts**; Nano D9 → ESP32 G39 (VN) = **Gegenseite / neu links**; Nano D11 → ESP32 G34 = Referenzsensor; G35 bleibt frei. Die alten Quellcode-Namen `LSL` (G36) und `LSR` (G39) stammen aus der **alten Nano-Richtungskonvention** und bezeichnen bis zur konsistenten Code-Umbenennung die jeweils **andere** physische Seite. STATUS 40: Bit 0 = G36/Motorseite/rechts, Bit 1 = G39/Gegenseite/links, Bit 2 = G34/REF. Keine Kabel tauschen. `MOVE 21` fährt laut HW3-Test von der Motorseite **weg** = aus Einfahrtsblick **nach links**. **Motorlogik/ISR derzeit noch alte Software-Richtungsnamen – vor realem Endlagenschutz konsistent umbenennen/pruefen.**
+**Verbindliche neue Blickrichtung (25.10.2026): Vom Einfahrtsgleis aus betrachtet ist RECHTS die Motorseite, LINKS die vom Motor abgewandte Seite.** Physische Belegung bleibt **unverändert**: Nano D12 → ESP32 G36 (VP) = **Motorseite / neu rechts**; Nano D9 → ESP32 G39 (VN) = **Gegenseite / neu links**; Nano D11 → ESP32 G34 = Referenzsensor; G35 ist als informativer Riemenspannungssensor (LS4) angeschlossen und über STATUS 40 geprüft. Die alten Quellcode-Namen `LSL` (G36) und `LSR` (G39) stammen aus der **alten Nano-Richtungskonvention** und bezeichnen bis zur konsistenten Code-Umbenennung die jeweils **andere** physische Seite. STATUS 40: Bit 0 = G36/Motorseite/rechts, Bit 1 = G39/Gegenseite/links, Bit 2 = G34/REF, Bit 3 = G35/Riemenspannung (nur Information). Keine Kabel tauschen. `MOVE 21` fährt laut HW3-Test von der Motorseite **weg** = aus Einfahrtsblick **nach links**. **Motorlogik/ISR derzeit noch alte Software-Richtungsnamen – vor realem Endlagenschutz konsistent umbenennen/pruefen.**
 
 ## Anforderungen und Quellen
 
@@ -33,7 +33,7 @@ GPIO-Zahlen sind **GPIO-Nummern, keine Steckerpositionsnummern**. Die beiden rei
 | Motor | M2 → A4988 MS3 | G4 🟢| Ausgang | G4, unverändert |
 | Motor | 🔴 A4988 !SLEEP / SLP, mit !RESET verbunden | **G32**🟢 | Ausgang | **10 kΩ Pull-down nach GND**; rote LED bei HIGH an (Anode an G32); Resetpegel noch nachzuweisen |
 | Sensor | Lichtschranke REF / LSREF | **G34** 🟢| nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G32 |
-| Sensor | Lichtschranke 2 / Riemen / LS4 | **G35**🟢 | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G33 |
+| Sensor | 🟢 Riemenspannung / LS4 | **G35**🟢 | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; über `STATUS 40` auf HW3 geprüft (27.10.2026); keine ISR-/Motorfreigabe-Wirkung |
 | Sensor | Endschalter Motorseite / neu RECHTS (Code noch `LSL`) | **G36 / SENSOR_VP**🟢 | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G16 |
 | Sensor | Endschalter Gegenseite / neu LINKS (Code noch `LSR`) | **G39 / SENSOR_VN** 🟢| nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G17 |
 | I²C | SDA – PCF8574 und OLED | G21 ; weis 🟢| bidirektional | **4,7 kΩ Pull-up nach 3,3 V am Bus wird nicht benötigt , da der extender  bereits über Pullups verfügt**; G21, unverändert |
@@ -99,7 +99,7 @@ Die weiße STEP-LED belastet das Pulssignal; Timing und HIGH/LOW-Pegel am A4988 
 
 G34/G35/G36/G39 besitzen keine internen Pull-ups/Pull-downs. **Jeder der vier Eingänge erhält in HW3 einen eigenen externen 10-kΩ-Pull-up nach 3,3 V auf der ESP32-Seite.** Die Sensorausgänge werden vor dem Anschluss auf 3,3-V-Verträglichkeit geprüft; bei aktivem Push-Pull-Ausgang muss der HIGH/LOW-Treiber die Beschaltung sicher vertragen. Signalpegel immer 0…3,3 V; keine 5-V-Sensorausgänge direkt anschließen. In der Firmware `INPUT` statt vermeintlich wirksamem `INPUT_PULLUP` verwenden.
 
-- G34/G35 sind für die Lichtschranken vorgesehen, damit eine spätere Flankenerfassung nicht an den besonderen G36/G39-Einschränkungen hängt.
+- G34 dient als Referenzlichtschranke. G35 überwacht informativ die Riemenspannung; die Hauptprogrammschleife liest den Rohpegel für `STATUS 40`. **Keine Auswertung in der STEP-ISR und kein Fahrstopp durch G35.**
 - G36/G39 werden für Endschalter **als Pegel gelesen, ohne GPIO-Flankeninterrupts**. Grund: Espressif nennt Interrupt-Einschränkungen bei ADC-Nutzung bzw. WLAN/Bluetooth mit Schlafmodi.
 - Der Endlagen-Schutzpfad muss auf Muninn unmittelbar vor weiteren STEP-Flanken prüfen; keine Abhängigkeit von Keyboard-Polling, Web, UART oder Core-0-Queues. Ein langsames UI-Polling ist hierfür nicht ausreichend. Implementierung und maximale Stopplatenz stehen noch aus.
 - Kontaktart NO/NC und aktiv-HIGH/LOW werden anhand der vorhandenen Schalter festgelegt. Für die Endschalter ist **NC gegen GND mit den festgelegten Pull-ups** das vorgesehene Schutzprinzip: offen/Leitungsbruch = HIGH/Sperre. Ob die vorhandenen Schalter als Öffner verdrahtet sind, wird vor Inbetriebnahme geprüft; bis dahin ist die elektrische Funktionsprüfung offen.
@@ -177,3 +177,10 @@ Die bisherige HW2-Motorbelegung bleibt im Nano-/HW2-Stand erhalten. **HW3-Änder
 - [AZ-Delivery Boardunterlagen](../../../Documents/Datasheets/ESP32_AZ_Delivery_38Pin_REFERENZEN.md)
 - [Allegro A4988-Datenblatt, RESET/SLEEP/ENABLE](https://www.pololu.com/file/0J450/A4988.pdf)
 - [Pololu A4988-Träger: Versorgung, Steuerpins und Entkopplung](https://www.pololu.com/product/1182) – Referenz für den Trägertyp, kein Nachweis der Bestückung unseres Shields.
+
+### HW3-Funktionstest LS4 / G35 – 27.10.2026
+
+- 🟢 `STATUS 40` im ersten Zustand: `41 08 F8` → G35 Rohpegel HIGH, Änderungszähler 0.
+- 🟢 `STATUS 40` nach Sensorbetätigung: `41 10 B0` → G35 Rohpegel LOW, Änderungszähler 1.
+- Damit ist die Pegeländerung im Muninn-Snapshot und in der UART-Rückmeldung nachgewiesen. Die Rückkehr LOW→HIGH wurde in diesem Mitschnitt nicht gesondert protokolliert.
+- **Sensorfunktion:** ausschließlich informative Überwachung der Riemenspannung; keine Einbindung in STEP-ISR, Endlagenabschaltung oder Fahrfreigabe. Eine spätere mechanische Halterung bleibt offen.
