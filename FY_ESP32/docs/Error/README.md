@@ -1,25 +1,19 @@
-# Error – zentrale Diagnosesicht (Huginn)
+# Fehler und Diagnose – ESP32
 
-**Soll:** [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158), [#162](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/162), [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155).
+Die UART-Implementierung hält ihre eigenen Parser-/Telegrammfehler in einer `Error`-Instanz. `GET_ERROR` liefert das dort hinterlegte Systembyte und drei Fehlerbytes. Ein abgelehnter Auftrag liefert **NACK (0x70)**, dessen oberes Halbbyte den Ort und dessen unteres den Ablehnungsgrund trägt.
 
-Fehlercode: hohes Nibble = Ort, niedriges Nibble = Grund. Kritische Muninn-Fehler führen **zuerst lokal** zum Schutz; erst danach zu Meldung/Diagnose auf Huginn. Keine konkurrierenden Schreibzugriffe auf globale Fehlereinträge.
+**Grenze:** Der aktuelle `GET_ERROR`-Pfad stellt **keine nachgewiesen vollständige, Core-übergreifende Fehleraggregation** aller Motor-/Sensor-/NVM-Fehler bereit. Motorfehler werden zusätzlich über die Motor-Snapshots beziehungsweise die ACK/NACK-Auftragsantwort sichtbar. Deshalb NACK und Statusabfragen für die Host-Logik berücksichtigen.
 
-```mermaid
-flowchart LR
-  M["Muninn: Fehler + Schutz"] -.-> Q["geplanter Fehler-Snapshot"]
-  Q -.-> E["Huginn: Diagnose-Owner"]
-  U["UART-Fehler"] --> E
-  E --> R["STATUS_Error / später OLED"]
-```
+| NACK-Grund (unteres Halbbyte) | Bedeutung |
+|---|---|
+| 1 | BUSY |
+| 2 | NOT_READY |
+| 3 | INVALID_COMMAND |
+| 4 | INVALID_PARAMETER |
+| 5 | EXECUTION_ERROR |
+| 6 | INVALID_TELEGRAM |
 
-**Ist:** [Error.h/.cpp](../../lib/Error/Error.h) sind bereits portiert, und `UART` besitzt eine `Error _errors`-Instanz. Anders als im alten Dummy-Dokument ist Error also **nicht völlig unportiert**. Eine einheitliche Core-übergreifende Aggregation ist jedoch nicht nachgewiesen.
-
-- [x] Tatsächlichen Code benannt.
-- [ ] Fehlerzustand und Synchronisation Muninn → Huginn definieren.
-- [ ] Fehlerformat und Reset-/Clear-Verhalten Ende-zu-Ende prüfen.
-- [ ] HW-Fehlerfälle/MISRA-/Reviewstand nachweisen.
-
-Offen: [VERIFICATION_GAPS.md](../VERIFICATION_GAPS.md). Altstand [archive/Error.md](archive/Error.md).
+[UART-Vertrag](../../src/UART_Command_Spickzettel.md) · [Error.cpp](../../lib/Error/Error.cpp) · [Testing #171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171)
 
 ## Daten- und Funktionsdiagramme (Release 2.0.0)
 
