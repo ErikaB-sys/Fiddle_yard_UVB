@@ -58,3 +58,12 @@ Keyboard-Druckereignisse werden zuerst durch die zustandsabhängige Menüführun
 ## Umfang der ersten lokalen Portierung (27.10.2026)
 
 **Entscheidung:** Für die erste Version werden keine parallelen Bedienaufträge vorgesehen. Die Betriebsartenumschaltung LOCAL/REMOTE und ein eigener Arbiter werden **nach** dem ersten Main-Merge bearbeitet. Das Keyboard verwendet die vorhandenen Motor-Kommandos und die bisherigen Schutzprüfungen von Muninn. Bei laufender Bewegung gibt es keine weitere lokale Auftragsannahme; STOP bleibt immer priorisiert. Das bereits existierende serielle Interface bleibt für Diagnose und Tests verfügbar. Für eine spätere echte gleichzeitige Nutzung mehrerer Befehlsquellen ist eine eindeutige ACK/NACK-Quellzuordnung erforderlich; diese gehört nicht in den aktuellen Umfang.
+
+## Stand der ersten lokalen Implementierung (27.10.2026)
+
+- `lib/Keyboard/Keyboard.cpp`: 5-s-Startbild, STOP-Latch, bewusste Freigabe **LINKS halten, danach GO drücken**, Referenzwahl SHORT/LONG, Referenzfahrt und Zielgleiswahl BG1–BG5 implementiert.
+- Lokale `CommandMessage` mit eigener Sequenzkennung gelangen ohne künstlichen UART-Text in die **bestehende** priorisierte STOP- bzw. normale Muninn-Queue. Muninn liefert lokale ACK/NACK in die separate `keyboardEvents`-Queue, UART-Quittungen bleiben auf `events`.
+- Nur die tatsächliche, bestätigte Referenzfahrt einschließlich Erreichen von BG3 schaltet das Menü zur Gleiswahl frei. Keine lokale Parallelauftrags-Queue; andere gleichzeitige Befehlsquellen noch nicht freigegeben.
+- **Noch nicht als HW3-getestet markieren:** Diese neue produktive Keyboard-Fassung muss zuerst unter PlatformIO bauen und dann schrittweise an der Mechanik geprüft werden. Der letzte bestandene Test betraf nur das ältere Diagnosemodul.
+- **Startbild-Version:** aktuell noch temporäre Kennung `FY ESP32 / HW3`, keine aus den Firmware-Konstanten gelesene Release-Version; vor Merge nachziehen.
+- **Fehler/STOP:** Kein erneutes automatisches Losfahren; Fehleranzeige erfordert STOP und danach erneute bewusste Freigabe.
