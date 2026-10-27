@@ -178,6 +178,9 @@ private:
 bool Muninn_isDriverEnabled();
 // Atomic movement snapshot; true while the bounded STEP train is running.
 bool Muninn_isMoving();
+// 0=Stillstand, 1=physisch LINKS/G39, 2=physisch RECHTS/G36.
+// Liest die reale DIR-Ausgabe nur bei aktiver Bewegung, ohne ISR-Zugriff.
+uint8_t Muninn_motionDirectionSnapshot();
 // A simulated quarter-step position only in FY_MOTOR_BENCH_TEST.
 // Otherwise returns Nano POSITION_UNKNOWN (0x00007FFF).
 uint32_t Muninn_positionSnapshot();
