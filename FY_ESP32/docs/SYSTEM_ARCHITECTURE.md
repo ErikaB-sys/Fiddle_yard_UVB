@@ -140,4 +140,4 @@ sequenceDiagram
 - Konkrete Task-Prioritäten und Stackgrößen nach Messung.
 - Motor-Hardware-Timer bzw. RMT/MCPWM/GPTimer nach Pulsbreiten-/Frequenztests auswählen.
 - Hard-Stop-Signal, Sensor-Debounce sowie Queue-Überlauf-/Wiederabgleich für Error-Meldungen konkretisieren; die Zuständigkeiten sind festgelegt: unmittelbarer Schutz auf Muninn, zentrale Fehlerablage auf Huginn.
-- Die verbindlichen Modulbeschreibungen liegen nun unter `FY_ESP32_Bringup/docs/<Modul>/README.md`; ältere, quellnahe Nano-Diagramme stehen unter `docs/<Modul>/archive/`. Siehe Dokumentationsregeln.
+- Die verbindlichen Modulbeschreibungen liegen nun unter `FY_ESP32/docs/<Modul>/README.md`; ältere, quellnahe Nano-Diagramme stehen unter `docs/<Modul>/archive/`. Siehe Dokumentationsregeln.
