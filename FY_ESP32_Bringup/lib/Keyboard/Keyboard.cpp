@@ -179,15 +179,7 @@ void keyboardTestPoll() {
     const uint32_t now = millis();
     if (!kbSplashDone && now - kbSplashAt >= 5000U) {
         kbSplashDone = true;
-        if (kbOledReady) {
-            kbDisplay.clearDisplay();
-            kbDisplay.setCursor(0, 0);
-            kbDisplay.println(F("FY UVB - LOCAL"));
-            kbDisplay.println(F("STOP verriegelt"));
-            kbDisplay.println(F("GO + LINKS"));
-            kbDisplay.println(F("Freigabe: folgt"));
-            kbDisplay.display();
-        }
+        keyboardShow(0U);
     }
     if (!kbPcfReady || !kbSplashDone) return;
     if ((now - kbLastPollMs) < 25U) return;
@@ -204,7 +196,8 @@ void keyboardTestPoll() {
         return;
     }
     if ((now - kbLastChangeMs) < 25U || active == kbStable) return;
-    const uint8_t pressed = static_cast<uint8_t>(active & ~kbStable);
+    const uint8_t previous = kbStable;
+    const uint8_t pressed = static_cast<uint8_t>(active & ~previous);
     kbStable = active;
     kbSeen |= active;
     keyboardWriteLeds(active);
@@ -215,7 +208,7 @@ void keyboardTestPoll() {
             kbMenu = Menu::ERROR;
     } else if (!kbWaiting && kbMenu == Menu::LOCKED) {
         // LINKS halten und GO neu druecken; Einzel-GO bleibt wirkungslos.
-        if ((pressed & 0x04U) != 0U && (active & 0x02U) != 0U &&
+        if ((pressed & 0x04U) != 0U && (previous & 0x02U) != 0U &&
             (active & 0x08U) == 0U) {
             kbMenu = Menu::UNLOCK;
             if (!sendLocal(CMD_STOPP, 0xAAU, 0x55U, true))
