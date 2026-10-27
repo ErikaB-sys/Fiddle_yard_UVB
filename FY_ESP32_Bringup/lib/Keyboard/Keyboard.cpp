@@ -36,6 +36,42 @@ uint32_t kbAwaitSeq = 0U;
 bool kbWaiting = false;
 uint32_t kbRunAt = 0U;
 
+// Lokale Telegramme erhalten das High-Bit als Quellenkennung.
+bool sendLocal(uint8_t id, uint8_t a, uint8_t b, bool priority) {
+    if (kbWaiting || kbContext == nullptr) return false;
+    CommandMessage msg{};
+    msg.id = id;
+    msg.data[0] = a;
+    msg.data[1] = b;
+    msg.length = (id == CMD_REFERENCE || id == CMD_SET_TRACK) ? 2U : 3U;
+    msg.sequence = 0x80000000UL | (++kbSeq & 0x7FFFFFFFUL);
+    QueueHandle_t q = priority ? kbContext->priorityCommands : kbContext->commands;
+    if (q == nullptr || xQueueSend(q, &msg, 0) != pdTRUE) return false;
+    kbAwaitSeq = msg.sequence;
+    kbWaiting = true;
+    kbRunAt = millis();
+    return true;
+}
+
+// Antwort nur aus der dem Keyboard zugeteilten Queue lesen.
+void pollLocalReply() {
+    if (kbContext == nullptr || kbContext->keyboardEvents == nullptr) return;
+    MotorEvent reply{};
+    while (xQueueReceive(kbContext->keyboardEvents, &reply, 0) == pdTRUE) {
+        if (!kbWaiting || reply.sequence != kbAwaitSeq) continue;
+        kbWaiting = false;
+        if (reply.responseId != STATUS_ACK) {
+            kbMenu = Menu::ERROR;
+        } else if (kbMenu == Menu::UNLOCK) {
+            kbMenu = Menu::ENABLE;
+            if (!sendLocal(CMD_GO, 0xAAU, 0x55U, false)) kbMenu = Menu::ERROR;
+        } else if (kbMenu == Menu::ENABLE) {
+            kbMenu = Menu::REF_MENU;
+        }
+        keyboardShow(0U);
+    }
+}
+
 // @brief Schreibt LED-Zustände; alle vier Tasterleitungen bleiben HIGH.
 void keyboardWriteLeds(uint8_t activeButtons) {
     uint8_t desired = 0xFFU;
@@ -159,8 +195,8 @@ void keyboardTestPoll() {
 } // namespace
 
 /** @brief Initialisiert OLED und PCF8574 für den lokalen Hardwaretest. */
-void Keyboard_begin() { keyboardTestBegin(); }
+void Keyboard_begin(BringupContext* context) { kbContext = context; keyboardTestBegin(); }
 
 /** @brief Pollt entprellte Tasten ohne Motorwirkung. */
-void Keyboard_poll() { keyboardTestPoll(); }
+void Keyboard_poll() { pollLocalReply(); keyboardTestPoll(); }
 } // namespace fy
