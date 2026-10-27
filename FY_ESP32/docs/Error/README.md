@@ -20,3 +20,32 @@ flowchart LR
 - [ ] HW-Fehlerfälle/MISRA-/Reviewstand nachweisen.
 
 Offen: [VERIFICATION_GAPS.md](../VERIFICATION_GAPS.md). Altstand [archive/Error.md](archive/Error.md).
+
+## Daten- und Funktionsdiagramme (Release 2.0.0)
+
+## Fehler- und Rückmeldungsfluss
+
+```mermaid
+flowchart LR
+  B["BabelFish / UART"] --> E["Fehlerstatus"]
+  M["Motor / Sensor / NVM"] --> E
+  E --> N["NACK Ort und Grund"]
+  E --> S["GET_ERROR / STATUS"]
+  N --> H["UART-Host"]
+  S --> H
+```
+
+```mermaid
+sequenceDiagram
+  participant Host
+  participant UART
+  participant Fehlerstatus
+  Host->>UART: ungültiger Auftrag
+  UART->>Fehlerstatus: Fehler registrieren
+  UART-->>Host: NACK
+  Host->>UART: GET_ERROR
+  UART->>Fehlerstatus: Snapshot lesen
+  UART-->>Host: STATUS_Error
+```
+
+**Zugehörige Issues:** [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150), [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
