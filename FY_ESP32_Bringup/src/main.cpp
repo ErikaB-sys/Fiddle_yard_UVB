@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 #include <freertos/task.h>
 #include "FY_Bringup.h"
 #include "UART.h"
@@ -7,6 +8,26 @@
 
 namespace {
 fy::BringupContext bridge{nullptr, nullptr, nullptr, nullptr};
+
+// Einmaliger I2C-Integrationstest vor dem Start der Aufgaben.
+// Keine Ausgänge des Expanders verändern und keine Motorbefehle auslösen.
+void scanI2cDevices() {
+    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN, 100000U);
+    Wire.setTimeOut(50U);
+    Serial.println(F("I2C: scan begin (SDA=21 SCL=22, 100 kHz)"));
+    uint8_t found = 0U;
+    for (uint8_t address = 0x08U; address <= 0x77U; ++address) {
+        Wire.beginTransmission(address);
+        if (Wire.endTransmission() == 0U) {
+            Serial.print(F("I2C: found 0x"));
+            if (address < 0x10U) Serial.print('0');
+            Serial.println(address, HEX);
+            ++found;
+        }
+    }
+    Serial.print(F("I2C: scan done, devices="));
+    Serial.println(found);
+}
 } // anonymous namespace
 
 void setup() {
@@ -30,6 +51,8 @@ void setup() {
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_DIR_PIN, LOW);
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
+
+    scanI2cDevices();
 
     bridge.commands = xQueueCreate(8, sizeof(fy::CommandMessage));
     bridge.events = xQueueCreate(12, sizeof(fy::MotorEvent));
