@@ -204,20 +204,45 @@ void keyboardTestPoll() {
         return;
     }
     if ((now - kbLastChangeMs) < 25U || active == kbStable) return;
+    const uint8_t pressed = static_cast<uint8_t>(active & ~kbStable);
     kbStable = active;
     kbSeen |= active;
     keyboardWriteLeds(active);
-    // Bis zur Command-Integration bleibt die Bedienung reine Diagnose.
-    keyboardShow(active);
-    Serial.print(F("KEYBOARD: "));
-    if (active == 0U) Serial.println(F("keine Taste"));
-    else {
-        for (uint8_t i = 0U; i < 4U; ++i) if ((active & (1U << i)) != 0U) {
-            Serial.print(KB_NAMES[i]);
-            Serial.print(' ');
+    if ((pressed & 0x01U) != 0U) {
+        kbWaiting = false;
+        kbMenu = Menu::LOCKED;
+        if (!sendLocal(CMD_STOPP, 0x55U, 0xAAU, true))
+            kbMenu = Menu::ERROR;
+    } else if (!kbWaiting && kbMenu == Menu::LOCKED) {
+        // LINKS halten und GO neu druecken; Einzel-GO bleibt wirkungslos.
+        if ((pressed & 0x04U) != 0U && (active & 0x02U) != 0U &&
+            (active & 0x08U) == 0U) {
+            kbMenu = Menu::UNLOCK;
+            if (!sendLocal(CMD_STOPP, 0xAAU, 0x55U, true))
+                kbMenu = Menu::ERROR;
         }
-        Serial.println();
+    } else if (!kbWaiting && !Muninn_isMoving() &&
+               (active & static_cast<uint8_t>(active - 1U)) == 0U) {
+        if (kbMenu == Menu::REF_MENU) {
+            if ((pressed & 0x0AU) != 0U) kbLongRef = !kbLongRef;
+            else if ((pressed & 0x04U) != 0U) {
+                kbMenu = Menu::REF_RUN;
+                if (!sendLocal(CMD_REFERENCE, kbLongRef ? 1U : 0U, 0U, false))
+                    kbMenu = Menu::ERROR;
+            }
+        } else if (kbMenu == Menu::TRACK_MENU) {
+            if ((pressed & 0x02U) != 0U)
+                kbTrack = kbTrack == 1U ? 5U : static_cast<uint8_t>(kbTrack - 1U);
+            else if ((pressed & 0x08U) != 0U)
+                kbTrack = kbTrack == 5U ? 1U : static_cast<uint8_t>(kbTrack + 1U);
+            else if ((pressed & 0x04U) != 0U) {
+                kbMenu = Menu::TRACK_RUN;
+                if (!sendLocal(CMD_SET_TRACK, kbTrack, 0U, false))
+                    kbMenu = Menu::ERROR;
+            }
+        }
     }
+    keyboardShow(active);
 }
 
 } // namespace
