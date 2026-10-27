@@ -245,11 +245,34 @@ void keyboardTestPoll() {
     keyboardShow(active);
 }
 
+void progress() {
+    if (kbWaiting) return;
+    const auto state = Muninn_motorState();
+    const uint32_t track = Muninn_trackSnapshot();
+    if (kbMenu == Menu::REF_RUN) {
+        if (Muninn_referenceStatusSnapshot() == 1U &&
+            ((track >> 8U) & 0xFFU) == 3U &&
+            ((track >> 16U) & 0xFFU) == TRACK_STATUS_REACHED &&
+            !Muninn_isMoving() && state == MotorState_t::IDLE) {
+            kbTrack = 3U; kbMenu = Menu::TRACK_MENU; keyboardShow(0U);
+        } else if (state == MotorState_t::ERROR) {
+            kbMenu = Menu::ERROR; keyboardShow(0U);
+        }
+    } else if (kbMenu == Menu::TRACK_RUN) {
+        if (state == MotorState_t::ERROR) {
+            kbMenu = Menu::ERROR; keyboardShow(0U);
+        } else if (!Muninn_isMoving() && state == MotorState_t::IDLE &&
+                   ((track >> 8U) & 0xFFU) == kbTrack &&
+                   ((track >> 16U) & 0xFFU) == TRACK_STATUS_REACHED) {
+            kbMenu = Menu::TRACK_MENU; keyboardShow(0U);
+        }
+    }
+}
 } // namespace
 
 /** @brief Initialisiert OLED und PCF8574 für den lokalen Hardwaretest. */
 void Keyboard_begin(BringupContext* context) { kbContext = context; keyboardTestBegin(); }
 
 /** @brief Pollt entprellte Tasten ohne Motorwirkung. */
-void Keyboard_poll() { pollLocalReply(); keyboardTestPoll(); }
+void Keyboard_poll() { pollLocalReply(); keyboardTestPoll(); progress(); }
 } // namespace fy
