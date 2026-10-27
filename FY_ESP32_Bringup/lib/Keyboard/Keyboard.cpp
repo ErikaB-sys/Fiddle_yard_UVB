@@ -10,17 +10,13 @@ namespace fy {
 namespace {
 constexpr uint8_t KB_PCF_ADDRESS = 0x27U;
 constexpr uint8_t KB_OLED_ADDRESS = 0x3CU;
-constexpr uint8_t KB_BUTTON_MASK = 0xF0U;
-constexpr uint8_t KB_LED_MASK = 0x0FU;
 constexpr uint8_t KB_BUTTON_BITS[4] = {7U, 6U, 5U, 4U};
 constexpr uint8_t KB_LED_BITS[4] = {3U, 2U, 1U, 0U};
-const char* const KB_NAMES[4] = {"STOP", "LINKS", "GO", "RECHTS"};
 Adafruit_SSD1306 kbDisplay(128, 32, &Wire, -1);
 bool kbOledReady = false;
 bool kbPcfReady = false;
 uint8_t kbLastRaw = 0U;
 uint8_t kbStable = 0U;
-uint8_t kbSeen = 0U;
 uint8_t kbLedByte = 0xFFU;
 uint32_t kbLastChangeMs = 0U;
 uint32_t kbLastPollMs = 0U;
@@ -88,7 +84,7 @@ void keyboardWriteLeds(uint8_t activeButtons) {
     if (Wire.endTransmission() == 0U) kbLedByte = desired;
 }
 
-// @brief Zeigt erkannten Tastendruck und Fortschritt des HW-Tests an.
+// @brief Zeigt die lokale Menüführung auf dem SSD1306 an.
 void keyboardShow(uint8_t activeButtons) {
     if (!kbOledReady) return;
     kbDisplay.clearDisplay();
@@ -119,32 +115,10 @@ void keyboardShow(uint8_t activeButtons) {
         kbDisplay.println(F("Motorfreigabe"));
     }
     kbDisplay.display();
-    return;
-    kbDisplay.print(F("Taste: "));
-    if (activeButtons == 0U) {
-        kbDisplay.println(F("-"));
-    } else {
-        bool first = true;
-        for (uint8_t i = 0U; i < 4U; ++i) {
-            if ((activeButtons & (1U << i)) != 0U) {
-                if (!first) kbDisplay.print(F("+"));
-                kbDisplay.print(KB_NAMES[i]);
-                first = false;
-            }
-        }
-        kbDisplay.println();
-    }
-    uint8_t count = 0U;
-    for (uint8_t i = 0U; i < 4U; ++i) if ((kbSeen & (1U << i)) != 0U) ++count;
-    kbDisplay.print(F("Test: "));
-    kbDisplay.print(count);
-    kbDisplay.println(F("/4"));
-    if (count == 4U) kbDisplay.println(F("ALLE TASTEN OK"));
-    else kbDisplay.println(F("Taste druecken ..."));
-    kbDisplay.display();
+
 }
 
-// @brief Initialisiert nur die Diagnose-Hardware, ohne Motorbefehle.
+// @brief Initialisiert I2C-Geräte und das fünfsekündige Startbild.
 void keyboardTestBegin() {
     Wire.beginTransmission(KB_PCF_ADDRESS);
     kbPcfReady = (Wire.endTransmission() == 0U);
@@ -174,7 +148,7 @@ void keyboardTestBegin() {
     kbSplashAt = millis();
 }
 
-// @brief Pollt Tasten entprellt alle 25 ms. Keine Fahrbefehle!
+// @brief Entprellt Tasten alle 25 ms und verwirft ungültige Bedienfolgen.
 void keyboardTestPoll() {
     const uint32_t now = millis();
     if (!kbSplashDone && now - kbSplashAt >= 5000U) {
@@ -199,7 +173,6 @@ void keyboardTestPoll() {
     const uint8_t previous = kbStable;
     const uint8_t pressed = static_cast<uint8_t>(active & ~previous);
     kbStable = active;
-    kbSeen |= active;
     keyboardWriteLeds(active);
     if ((pressed & 0x01U) != 0U) {
         kbWaiting = false;
@@ -263,9 +236,9 @@ void progress() {
 }
 } // namespace
 
-/** @brief Initialisiert OLED und PCF8574 für den lokalen Hardwaretest. */
+/** @brief Initialisiert das I2C-Keyboard mit eigenem Kommando-Rückkanal. */
 void Keyboard_begin(BringupContext* context) { kbContext = context; keyboardTestBegin(); }
 
-/** @brief Pollt entprellte Tasten ohne Motorwirkung. */
+/** @brief Verarbeitet lokale Bedienung und Muninn-Status. */
 void Keyboard_poll() { pollLocalReply(); keyboardTestPoll(); progress(); }
 } // namespace fy
