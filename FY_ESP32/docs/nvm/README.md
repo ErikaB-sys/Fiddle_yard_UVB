@@ -153,3 +153,34 @@ Der Motor-Datensatz `motor` hat ab diesem Stand **Version 2 und 34 Byte**. Er sp
 **Achtung Update von v1:** Ein schon vorhandener 16-Byte-Motordatensatz v1 wird **nicht stillschweigend überschrieben**. Er erzeugt bis zur ausdrücklichen Wiederherstellung den entsprechenden Fehler in `GET_STATUS 60`. Danach einmal `SET_PARAM 7E 02 AA 55` ausführen, dann `GET_PARAM` für `V_MIN 01`, `V_POS 03` und `A1_LEN 0E` prüfen. Die persistente Kalibrierung und Gleispositionen haben weiter ihre bisherigen eigenen Versionen und CRCs.
 
 **Status:** Code implementiert, Build und praktischer Hardwaretest mit NEMA14 bestanden.
+
+## Daten- und Funktionsdiagramme (Release 2.0.0)
+
+## NVM-Datenweg und Funktionsablauf
+
+```mermaid
+flowchart LR
+  M["Muninn / Parametermanager"] --> D["NVM-Deskriptoren ID/Key/Version/Länge"]
+  D --> C["CRC32 je Segment"]
+  C --> N["ESP32 Preferences / NVS"]
+  N --> L["Load / Validierung / Status"]
+  L --> M
+```
+
+```mermaid
+sequenceDiagram
+  participant Host
+  participant Muninn
+  participant NVM
+  Host->>Muninn: SET_PARAM RAM
+  Muninn-->>Host: ACK/NACK
+  Host->>Muninn: SAVE Bereich
+  Muninn->>Muninn: Stillstand prüfen
+  Muninn->>NVM: Segment und CRC32 schreiben
+  NVM-->>Muninn: Ergebnis
+  Muninn-->>Host: ACK/NACK
+  Host->>Muninn: GET_STATUS 60
+  Muninn-->>Host: Gültigkeits-/Fehlermasken
+```
+
+**Zugehörige Issues:** [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150), [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
