@@ -8,7 +8,7 @@
 #include "HW_Config.h"
 
 namespace {
-fy::BringupContext bridge{nullptr, nullptr, nullptr, nullptr};
+fy::BringupContext bridge{nullptr, nullptr, nullptr, nullptr, nullptr};
 
 // Einmaliger I2C-Integrationstest vor dem Start der Aufgaben.
 // Keine Ausgänge des Expanders verändern und keine Motorbefehle auslösen.
@@ -56,13 +56,14 @@ void setup() {
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
 
     scanI2cDevices();
-    fy::Keyboard_begin();
+    fy::Keyboard_begin(&bridge);
 
     bridge.commands = xQueueCreate(8, sizeof(fy::CommandMessage));
     bridge.events = xQueueCreate(12, sizeof(fy::MotorEvent));
     bridge.priorityCommands = xQueueCreate(4, sizeof(fy::CommandMessage));
+    bridge.keyboardEvents = xQueueCreate(8, sizeof(fy::MotorEvent));
     bridge.sensorSnapshots = xQueueCreate(1, sizeof(uint8_t));
-    if (!bridge.commands || !bridge.events || !bridge.priorityCommands || !bridge.sensorSnapshots) {
+    if (!bridge.commands || !bridge.events || !bridge.priorityCommands || !bridge.keyboardEvents || !bridge.sensorSnapshots) {
         Serial.println("FY_TEST: failed to create queues");
         return;
     }
