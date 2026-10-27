@@ -1,9 +1,8 @@
 #pragma once
-/**
- * @file Keyboard.h
- * @brief HW3-I2C-Keyboard: Diagnose und OLED, später lokale Befehlsquelle.
- */
+#include "FY_Bringup.h"
 namespace fy {
-void Keyboard_begin();
+/** @brief Initialisiert das lokale Keyboard und seine Befehlsanbindung. */
+void Keyboard_begin(BringupContext* context);
+/** @brief Pollt Tasten und Status ohne direkten Motorzugriff. */
 void Keyboard_poll();
 }
