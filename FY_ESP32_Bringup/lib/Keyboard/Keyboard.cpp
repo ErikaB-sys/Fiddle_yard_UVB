@@ -84,6 +84,19 @@ void keyboardWriteLeds(uint8_t activeButtons) {
     if (Wire.endTransmission() == 0U) kbLedByte = desired;
 }
 
+// LEDs zeigen den echten Betriebszustand statt nur den Tastendruck.
+// Bei Bewegung hat die entsprechende blaue Richtungs-LED Vorrang.
+void updateStatusLeds() {
+    if (!kbPcfReady || !kbSplashDone) return;
+    uint8_t leds = 0U;
+    if (Muninn_motorState() == MotorState_t::STOPPED) leds |= 0x01U;
+    if (Muninn_isDriverEnabled()) leds |= 0x04U;
+    const uint8_t direction = Muninn_motionDirectionSnapshot();
+    if (direction == 1U) leds |= 0x02U; // links (G39)
+    else if (direction == 2U) leds |= 0x08U; // rechts (G36)
+    keyboardWriteLeds(leds);
+}
+
 // @brief Zeigt die lokale Menüführung auf dem SSD1306 an.
 void keyboardShow(uint8_t activeButtons) {
     if (!kbOledReady) return;
@@ -173,7 +186,6 @@ void keyboardTestPoll() {
     const uint8_t previous = kbStable;
     const uint8_t pressed = static_cast<uint8_t>(active & ~previous);
     kbStable = active;
-    keyboardWriteLeds(active);
     if ((pressed & 0x01U) != 0U) {
         kbWaiting = false;
         kbMenu = Menu::LOCKED;
@@ -240,5 +252,5 @@ void progress() {
 void Keyboard_begin(BringupContext* context) { kbContext = context; keyboardTestBegin(); }
 
 /** @brief Verarbeitet lokale Bedienung und Muninn-Status. */
-void Keyboard_poll() { pollLocalReply(); keyboardTestPoll(); progress(); }
+void Keyboard_poll() { pollLocalReply(); keyboardTestPoll(); progress(); updateStatusLeds(); }
 } // namespace fy
