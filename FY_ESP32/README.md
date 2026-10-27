@@ -6,7 +6,7 @@
 
 Dort gehen wir von den Bedienfällen über das System zum Motorverhalten und erst danach zu Befehlen und Implementierungsresten. Für die aktuelle Konzeptprüfung ist das die erste Seite.
 
-**Aktiver Branch:** `feature/FY_ESP32_Port` · **Projekt:** `FY_ESP32_Bringup/`.
+**Aktiver Branch:** `main` · **Projekt:** `FY_ESP32/`.
 
 ## Zum Nachschlagen
 
