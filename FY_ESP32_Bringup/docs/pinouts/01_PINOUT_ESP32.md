@@ -66,9 +66,9 @@ GPIO-Zahlen sind **GPIO-Nummern, keine Steckerpositionsnummern**. Die beiden rei
 | Endschalter Gegenseite/links / G39 | **10 kΩ Pull-up an 3,3 V** | HIGH |
 | I²C SDA / G21 | **4,7 kΩ Pull-up an 3,3 V, einmal je Bus** | HIGH |
 | I²C SCL / G22 | **4,7 kΩ Pull-up an 3,3 V, einmal je Bus** | HIGH |
-| SPI !CS_DISPLAY / G16 🟡 | **10 kΩ Pull-up an 3,3 V** | HIGH: Display abgewählt |
-| SPI !CS_EXPANDER / G17 🟡| **10 kΩ Pull-up an 3,3 V** | HIGH: MCP23S17 abgewählt |
-| SPI Display D/C / G33 🟡| **10 kΩ Pull-down an GND** | LOW: definierter Startpegel |
+| SPI !CS_DISPLAY / G16  | **10 kΩ Pull-up an 3,3 V** | HIGH: Display abgewählt |
+| SPI !CS_EXPANDER / G17 | **10 kΩ Pull-up an 3,3 V** | HIGH: MCP23S17 abgewählt |
+| SPI Display D/C / G33 | **10 kΩ Pull-down an GND** | LOW: definierter Startpegel |
 
 ## HW3-Motortreiber: Diagnose-LEDs und Farben
 
