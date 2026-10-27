@@ -10,3 +10,5 @@
 .cppcheck/
 reports/*.csv
 fy_flash_backup.bin
+.vscode/c_cpp_properties.json
+.vscode/launch.json
