@@ -12,12 +12,12 @@ flowchart LR
   K --> O["OLED + LEDs"]
 ```
 
-**Ist:** Ein ausführbares ESP32-Modul `lib/Keyboard/` existiert im Git-Stand noch **nicht**; die früher dort vorhandene MD-Arbeitsnotiz liegt jetzt im Archiv. I²C-Pins stehen im [Pinout](../pinouts/README.md); PCF-Port-Belegung in der [HW-Test-Referenz](../../../FY_HW_TEST/FY_HW_TEST/include/HW_Test.h) prüfen. Keine Pinwerte doppelt hier pflegen.
+**Ist (27.10.2026):** Das ausführbare ESP32-Modul `lib/Keyboard/` mit `Keyboard.h` und `Keyboard.cpp` wurde aus dem HW3-Testcode extrahiert. Es zeigt das Startbild für fünf Sekunden und pollt anschließend LED-Taster; **derzeit nur Diagnose, keine Motorbefehle**. Die frühere MD-Arbeitsnotiz liegt im Archiv. I²C-Pins stehen im [Pinout](../pinouts/README.md); PCF-Port-Belegung in der [HW-Test-Referenz](../../../FY_HW_TEST/FY_HW_TEST/include/HW_Test.h) prüfen. Keine Pinwerte doppelt hier pflegen.
 
 - [x] Issue- und Architekturbezug erstellt.
-- [x] fehlenden ESP32-Code ausgewiesen.
-- [ ] echte Platinenbelegung / Pull-ups / Pegel verifizieren.
-- [ ] Keyboard.cpp/.h, 4-Zeilen-Display, Polling und STOP implementieren.
+- [x] Keyboard-Modul aus `main.cpp` in `lib/Keyboard/` übertragen (Build/HW-Prüfung dieses Refactorings offen).
+- [x] reale Platinenbelegung / I2C-Adressen / Taster und LEDs im vorigen HW3-Test verifiziert.
+- [ ] Menüzustände, lokale Kommandofreigabe und STOP-Priorität implementieren; **noch keine Motorsteuerung aus dem Keyboard**.
 - [ ] HW- und MISRA-/Review-Nachweise erfassen.
 
 Offen: [VERIFICATION_GAPS.md](../VERIFICATION_GAPS.md). Ausgangsdokument: [archive/Keyboard.md](archive/Keyboard.md).
@@ -50,3 +50,7 @@ flowchart TD
 **HW3-Nachweis (27.10.2026):** Scan 0x27 und 0x3C, PCF8574=OK, OLED=OK; Tasten und LEDs im realen Hardwaretest bestätigt. Diagnosesoftware zunächst von produktiver Fahrfreigabe getrennt halten, bis Status-/ACK-Routing eingerichtet und physisch geprüft ist.
 
 **Hardwareentscheidung:** SPI-Erweiterung wird nicht aufgebaut. HW3 bleibt wie verdrahtet; CAN allenfalls später als eigenständige Erweiterung.
+
+## Eingabefilter und gemeinsame Befehlsannahme
+
+Keyboard-Druckereignisse werden zuerst durch die zustandsabhängige Menüführung geprüft. Tastendrücke ohne gültige Funktion werden **ignoriert**, nicht gesammelt und nicht später ausgeführt. Insbesondere GO+LINKS ist eine **atomare Kombination**: weder GO noch LINKS darf vorher als Einzelaktion auslösen. Nach der Freigabe müssen die gültigen lokalen Aktionen als bereits decodierte Kommandos durch **dieselbe Befehlsannahme und Zustandsprüfung** wie UART zu Muninn gelangen. UART-spezifische CRC-Prüfung gehört nur zum seriellen Eingang. STOP bleibt vorrangig; Queue-Antworten benötigen einen Quellbezug, damit die lokale OLED-Anzeige die eigenen Ergebnisse erhält und UART keine fremden ACKs ausgibt. Keine zusätzliche Fahrbefehlswarteschlange beim Keyboard. Solange Quellzuordnung, Zustands-Snapshots und Validierungsrückmeldung nicht implementiert sind, bleibt das extrahierte Modul ausdrücklich ohne Fahrfunktion.
