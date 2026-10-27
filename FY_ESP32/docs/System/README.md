@@ -44,3 +44,36 @@ flowchart TD
 - [ ] Gesamtfreigabe nach #159 durchführen.
 
 **Offen:** [VERIFICATION_GAPS.md](../VERIFICATION_GAPS.md).
+
+## Daten- und Funktionsdiagramme (Release 2.0.0)
+
+## Komponenten und Funktionsfluss
+
+```mermaid
+flowchart LR
+  K["I2C-Keyboard"] --> C["CommandMessage"]
+  U["UART / Huginn"] --> C
+  C --> Q["Queues, STOP priorisiert"]
+  Q --> M["Muninn / Motor"]
+  M --> E["MotorEvents"]
+  E --> K
+  E --> U
+  M --> S["Snapshots"]
+  S --> K
+  S --> U
+  M --> N["NVM"]
+```
+
+```mermaid
+sequenceDiagram
+  participant Bedienung
+  participant Queue
+  participant Muninn
+  Bedienung->>Queue: decodierter Auftrag
+  Queue->>Muninn: Nachricht
+  Muninn-->>Bedienung: ACK/NACK über Quell-Queue
+  Bedienung->>Muninn: Status lesen
+  Muninn-->>Bedienung: Snapshot
+```
+
+**Zugehörige Issues:** [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150), [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
