@@ -1,110 +1,79 @@
-# FY Produktivsoftware – technische Roadmap
+# FY ESP32 – Roadmap und Funktionsampel
 
-**Aktiver Entwicklungsbranch:** `FY_Motor`  
-**Basis:** aktueller, kompilierbarer Stand von `main` (Branch-Erstellung nach Abschluss und Merge der UART-Phase)  
-**Phasenziel:** Timer-/STEP-Ausführung und Bewegungsprofil gegen den verifizierten HW-Test abgleichen; Timerbasis, Prescaler, Compare-Berechnung, Rampenbeschleunigung und Segmentwechsel konsistent machen. Danach Motoraufträge und Sicherheits-/Referenzpfade schrittweise umsetzen und gezielt testen.
+**Stand: 26.10.2026, nach HW3-Fahrtests.** Branch `feature/FY_ESP32_Port`, Projekt `FY_ESP32_Bringup/`. Stand des zuletzt eingecheckten UART-Bootbanner-Fixes: `b8803bf`. Übergeordnet: [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150).
 
-> Arbeitsdiagramm für die schrittweise Überführung der Erkenntnisse aus dem FY_HW_TEST in die Produktivsoftware.
+## Nächster Meilenstein – bis spätestens 01.11.2026
 
-```mermaid
-flowchart TD
-    A["HW-Test Erkenntnisse<br/>#105"] --> B["Motor / Profil<br/>#104"]
-    V["Firmware-Identität<br/>#107/ DONE"] -. Build-/Diagnosebasis .-> B
+**Lokale Bedienung an HW3:** Das vorhandene I²C-Keyboard am ESP32 anschließen und anbinden. Die Tasten sollen die Bühne **manuell links/rechts bewegen, STOP auslösen und eine Referenzfahrt starten**. Die bestehende produktive Fahrsteuerung wird wiederverwendet; kein neuer Motorpfad, keine ISR-Umbauten. Tastatur, PCF8574, LEDs und OLED nur im tatsächlich geprüften Umfang als fertig melden. Hardwareanschluss und Softwareintegration dürfen parallel laufen ([#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157)).
 
-    B --> C["UART / Intermediate Commands<br/>#13"]
-    C --> D["Erstes Positions-Command / Motor-Schnittstelle<br/>#28"]
-    D --> E["Parameter / Profilwerte<br/>#106 + #104"]
-    E --> F["Motorbewegung / Execution / STEP<br/>#51"]
+**Parallel am 27.10. – Dokumentation und Kommentarstil:** Code als Wahrheit, Dokumente daran angleichen; veraltete FAKE-REF-/BENCH-Texte gezielt entfernen. Englische Bezeichner/UART-Protokollnamen erhalten, **deutsche knappe Codekommentare und Doxygen-Funktionsverträge**, deutsche Markdown-Dokumente. Doxygen, Graphviz, Doxygen Awesome und spätere GitHub Pages **vorbereiten**, nicht als Fertigstellungsbedingung und vorerst **kein neues GitHub-Issue**. Für Funktionen: Zweck, Parameter und Einheit, Rückgabe/Fehler, wichtige Voraussetzungen/Core-Zuständigkeit; keine offensichtlichen Zeilen nacherzählen. Vor dem späteren Merge dokumentations- und codebezogener Abgleich gegen `main`.
 
-    F -. parallel .-> T["Tests / Native<br/>#46 + PC-Tests"]
-    F --> G["Motorzustand / Sicherheit<br/>#86 + #26 + #50 + #52"]
-    G --> H["Sensoren<br/>#93"]
-    H --> I["Referenz<br/>#85 + #94"]
-    I --> J["Position / Trackmodell<br/>#11"]
-    J --> K["Keyboard / LOCAL<br/>#88 + #89"]
-    K --> L["Display<br/>#90"]
-    K --> M["UART / Service<br/>#13 + #17 + #28 + #29 + #39"]
-    L --> N["LOCAL / REMOTE<br/>#91"]
-    M --> N
-    M -. Service .-> S["Servicebetrieb<br/>#95"]
-    N --> O["System Executive<br/>#96"]
-    O --> P["Gesamtintegration<br/>#30 + Tests"]
+## Ampel für den tatsächlichen Funktionsstand
 
-    T -. Validierung .-> G
-    T -. Validierung .-> I
-    T -. Validierung .-> J
-    T -. Validierung .-> P
-```
+**🔴 nicht vorhanden · 🟠 geplant/beschlossen · 🟡 implementiert/teilweise geprüft · 🟣 konkrete physische oder Randfallprüfung fehlt · 🟢 im angegebenen Umfang auf HW3 geprüft und dokumentiert.** Die Ampel bezeichnet jeweils *genau den genannten Funktionsumfang*, nicht eine pauschale Gesamtfreigabe.
 
-## Arbeitsreihenfolge
+| Befehl / Bereich | Status | Nachweis vom 26.10. / konkreter Rest |
+| --- | --- | --- |
+| POR und sichere Freigabe | 🟢 | `STATUS 20 = 50 00 04 00 70`: nach POR STOPPED, Antrieb aus. Elektrischer Reset-/Flash-Failsafe separat offen (#159/#161). |
+| `STOP AA 55`, `GO AA 55` | 🟢 | ACK, definierte Entriegelung und Treiberfreigabe. **STOP während Fahrt und anschließende Neu-REF** noch 🟣 (#154/#152). |
+| Echte `REFERENCE 00` | 🟢 | Mit gespeicherter Kalibrierung: `REF: VALID pos=1000 end=8334`; anschließend BG3. `STATUS 30 = 30 01 97`. |
+| Lange `REFERENCE 01` | 🟡 | Kalibrier-/Persistenzpfad vorhanden; gezielte Wiederhol-/Sensor-/Fehlerfälle noch 🟣 (#155/#158/#159). |
+| `SET_POSITION` | 🟢 | Reale Fahrt auf 3200 (`80 0C`); ohne aktuelle REF unzulässig. |
+| `MOVE` | 🟢 | `31 32 00` = 50 Schritte bei festem 1/8-Modus, ACK `60 0F 0A`; reale Position 3250 danach. Ungültiger 1/4-Modus `21 …` → NACK `70 24 AB`. Unreferenzierte Inbetriebnahmefahrt und Randgrenzen separat 🟣. |
+| `SET_TRACK` | 🟢 | Gleise angefahren; nach freier Absolut-/Relativfahrt erneute Rückfahrt auf gewünschtes Gleis bestätigt. |
+| `GET_POSITION`, `STATUS 20/30`, `TRACK 00` | 🟢 | Realer Positions-Snapshot `20 B2 0C 00 00 80` = 3250, Motor IDLE, REF gültig; freie Fahrt meldet `40 00 00 02 88`. GET_TRACK-Bedeutung *während* Fahrt noch offen (#156). |
+| Sechsphasiges Motorprofil | 🟡 | Reale Fahrten und 50-Step-POSI-Kurzfahrt geprüft. **ACC1/ACC2/KONST/BRE1/BRE2**, Signalform und STOP während laufender Fahrt gezielt 🟣 prüfen (#153). |
+| Realer Lastbetrieb | 🟢 | Fahrtestfolge mit **1.452 g (1,452 kg) Zusatzlast**, gemessen mit Haushaltswaage; keine erkennbaren Schrittverluste bei beobachteter Ausrichtung. Keine unabhängige Schrittzählung oder quantitative Wiederholgenauigkeit behaupten (#153). |
+| Motorparameter GET / RESTORE | 🟢 | `SET_PARAM 7E 02 AA 55` ACK; GET bestätigt V_MIN=120, V_POS=120, A1_LEN=100, POSI_MIN=160, KONST_MIN=400. |
+| NVM v2: Laden/Status nach POR | 🟢 | `STATUS 60 = 61 00 00 07 BB` vor und nach POR; alle drei Segmente gültig und fehlerfrei; kurze REF mit gespeicherten Kalibrierdaten möglich. |
+| NVM SET/SAVE/Recovery | 🟣 | **Geänderten Parameter** speichern, POR, erneut auslesen; CRC-/Versions-/Invalidierungs- und STOP-bei-SAVE-Fälle offen (#158). |
+| UART-Parser, ACK/NACK, Parameterabfragen | 🟡 | Real verwendete Befehle/Antworten bestätigt. Robustheit, Systemstatus `10`, HELP/Firmware und Antwort-/BUSY-Korrelation noch offen (#156/#152). |
+| Zusätzlicher Fahrbefehl während BUSY | 🟣 | Keine wartende Fahrbefehlsliste; zweiter Befehl während laufender Bewegung gezielt abweisen und prüfen (#152). |
+| I²C-Keyboard / PCF8574 / OLED | 🟠 | Physischer Anschluss an HW3 und ESP32-Integration ab 27.10.; REF, STOP, links/rechts zuerst (#157). |
+| Teach-in / Web / JMRI / Beleuchtung | 🟠 | Nach erstem Keyboard- und Software-Abschluss getrennt: #167/#166/#160/#165. |
 
-Die Motorintegration wird bewusst in kleinen, testbaren Schritten aufgebaut. Die echte Hardware ist dabei zunächst **nicht erforderlich**; die Produktivsoftware wird auf dem Schreibtisch-Mockup entwickelt und geprüft.
+## Bereits als geschlossener Funktionsnachweis betrachtete Fahrkette
 
-1. **Firmware-Identität** als kleine Build-/Diagnosebasis festlegen.
-2. **Motor-/Profil-Erkenntnisse aus dem HW-Test** übernehmen, ohne den HW-Test-Code zu kopieren.
-3. **Intermediate Commands** zuerst produktiv stabilisieren. Damit wird die Kommunikation CMD → Verarbeitung → Response unabhängig von echter Motorbewegung überprüfbar.
-4. **Erstes Positions-Command / Motor-Schnittstelle** einführen. Zunächst reicht die Verbindung bis zur Motorlogik bzw. zum Mockup; die vollständige STEP-Ausführung folgt später.
-5. **Parameter- und Profilmodell** schrittweise festlegen. Als Startpunkt werden die im HW-Test verifizierten und veränderbaren Parameterwerte verwendet. Die endgültige Klassifizierung von Default-, Konfigurations-, Kalibrier-, Laufzeit- und Diagnosewerten erfolgt in #106.
-6. **Motorbewegung / Execution / STEP** in die Produktivsoftware überführen. Die verifizierte Profilberechnung aus #104 und die STEP-Ausführung aus #51 werden dabei getrennt gehalten: Profil berechnet, Execution führt aus.
-7. **Mockup vollständig gegen die Produktivschnittstellen testen.**
-8. Erst wenn Kommunikation, Position, Parameter und Motor-Execution auf dem Mockup funktionieren, erfolgt der **erste Live-Test mit Steppertreiber und echter Motor-Hardware**.
-9. Danach Motorzustand, Sicherheit, Sensoren und Referenz schrittweise ergänzen.
-10. Erst auf diesem stabilen Kern folgen Bedienung, Service und Systemintegration.
+1. `REFERENCE 00` mit gültiger gespeicherter Kalibrierung; `pos=1000`, Gegenendlage `8334`, anschließende BG3-Fahrt.
+2. `SET_POSITION 80 0C` auf Koordinate **3200**.
+3. `MOVE 31 32 00` = **+50** → `POSITION` bestätigt **3250**, aktuelle REF weiter gültig.
+4. Anschließend `SET_TRACK` → Bühne fährt wieder zum passenden Gleis.
+5. Alle diese Realfahrten unter **1,452 kg Zusatzlast**, keine sicht-/beobachtbaren Schrittverluste.
 
-## Arbeitsprinzip
+Dies ist **keine Gesamt-Abnahme** für Sicherheitsverhalten, Sensorfehler, Pulse unter Last oder alle Profilparameter.
 
-- Die drei Command-Klassen werden bewusst nacheinander genutzt: **INTERMEDIATE → Positions-/Bewegungsauftrag → weitere ausführende Commands**.
-- Kommunikation wird vor echter Motorbewegung stabilisiert.
-- Das erste Positions-Command bildet die Brücke zwischen UART und Motor-Schnittstelle.
-- Parameter werden zunächst aus dem HW-Test übernommen, aber ihre endgültige Struktur wird nicht vorweggenommen.
-- Die reale Hardware dient erst dann als Integrationsprüfung, wenn die Produktivlogik auf dem Mockup nachvollziehbar funktioniert.
-- Der Steppertreiber ist eine nachgelagerte Hardware-Schnittstelle; seine konkrete Implementierung wird nicht zum Vorab-Gegenstand der Motor-API gemacht.
-- Der HW-Test-Code wird nicht kopiert.
-- Übernommen werden bestätigte Anforderungen, Zustände, Abläufe, Parameter und technische Prinzipien.
-- UART bleibt bei jedem Entwicklungsschritt funktionsfähig, damit der Nano weiterhin beobachtet und getestet werden kann.
-- Referenzkompensation zunächst nicht erzwingen; die Architektur dafür bleibt offen.
-- Parameter und EEPROM werden in #106 schrittweise klassifiziert.
-- `response()` der Produktiv-UART wird im Zuge der UART-Überarbeitung konkretisiert.
-- Neue Issues nur anlegen, wenn aus der Umsetzung tatsächlich eine Lücke entsteht.
-- Die Firmware-Identität wird zentral gepflegt: Release-Version manuell, Builddatum/-zeit und Git-Commit automatisch aus dem Build ableiten.
+## Nächste Reihenfolge
 
-## Gemeinsame Software-Komponenten und Versionierung
+1. **27.10.: Dokumentation konsolidieren**, Sprachkonvention umsetzen, kurze deutsche Doxygen-Funktionsverträge nachführen, Vorbereitung Doxygen/Graphviz/Awesome. Dokumente aus Code und realen Testergebnissen aktualisieren; keine neue Baustelle daraus machen ([#12](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/12)).
+2. **27.10.–01.11.: Keyboard an HW3 anschließen und integrieren.** Vorhandenen lokalen Tastenvertrag nutzen, UART- und Keyboard-Aufträge durch denselben Motor-Befehlsweg führen; STOP-Vorrang erhalten (#157).
+3. **Gezielte verbleibende HW3-Funktionstests:** komplette Rampen über längere Strecke, STOP während Bewegung → REF ungültig → Entriegeln/GO/Neu-REF, zweiter Fahrbefehl bei BUSY, ungewöhnliche kurze/unreferenzierte MOVE-Fahrt (#153/#154/#152).
+4. **NVM vervollständigen:** geänderte Werte SET→SAVE→POR→GET und verbleibende Fehler-/CRC-/Wiederherstellungsfälle (#158). Motor-NVM wurde auf Version 2 (34 Bytes) erweitert; alte Version benötigt explizites Restore.
+5. **UART/Diagnose abgleichen:** tatsächlich implementierten Befehlsumfang einschließlich `MOVE`/`SET_POSITION`/`SET_TRACK`, Status und NVM in [UART-Spickzettel](../FY_ESP32_Bringup/src/UART_Command_Spickzettel.md) berichtigen; offene GET_TRACK-/BUSY-/Systemstatus-Verträge klären (#156/#152).
+6. **Vor erstem Merge nach `main`:** funktionalen Code und Dokumentation bereinigen, MISRA/Cppcheck-Befunde prüfen, Hauptzweigstand vergleichen, stabilen HW3-Stand sichern. Größeres Benennungs-/Mock-Cleanup gemäß #169 **erst nach** dem ersten Merge.
 
-Gemeinsame Dateien oder Bibliotheksbestandteile zwischen HW-Test und Produktivsoftware sind grundsätzlich zulässig, wenn sie tatsächlich ein gemeinsames Verfahren oder einen gemeinsamen Mechanismus beschreiben. Das gilt insbesondere für hardwarefreie Berechnungen oder eindeutig definierte Datenstrukturen.
+## Verbindliche Fahrregeln
 
-Dabei gilt:
+- `MOVE`: relativ, Richtung und Schrittzahl; begrenzte Inbetriebnahmefahrt auch ohne REF. Bei gültiger REF Ziel im kalibrierten Fahrweg prüfen. Fest eingestellter A4988-Mikroschrittmodus: **1/8**, Byte0 `30` bzw. `31`; für aktuelle Richtung `31` beim geprüften Beispiel.
+- `SET_POSITION`: absolute Koordinate, **nur mit aktuell gültiger realer REF** und innerhalb der Endlagen; kein POR-Mittenanker.
+- `SET_TRACK`: Gleis 1–5 über gespeicherte Position; gültige Kalibrierung, Gleisdaten und aktuelle REF erforderlich.
+- `STOP`: Antrieb aus, Auftrag verwerfen, aktuelle REF ungültig, keine Wiederaufnahme. `STOP AA 55` entriegelt, `GO AA 55` aktiviert ohne eigene Fahrt, danach neu referenzieren.
+- **BUSY:** zweiter Fahrbefehl nicht auf Vorrat sammeln; bestehende PRIORITY-STOP-Queue erhalten.
+- Keine spontanen DONE-/ALIVE-Meldungen, ACK ist Annahme, nicht Fahrabschluss. Abschluss via STATUS/POSITION/TRACK prüfen.
 
-- Eine gemeinsame Datei ist eine **gemeinsame Software-Komponente**, nicht automatisch Bestandteil jeder Firmware-Version.
-- Änderungen an einer gemeinsamen Komponente dürfen **keine stille Verhaltensänderung** in einem anderen Projekt erzeugen.
-- Die Übernahme einer geänderten gemeinsamen Komponente in eine Firmware muss deshalb **bewusst und nachvollziehbar** erfolgen.
-- Die verwendete Version bzw. der konkrete Git-Stand der Komponente muss aus dem jeweiligen Projektstand nachvollziehbar sein.
-- Eine Änderung der gemeinsamen Komponente wird zunächst isoliert geprüft. Erst danach wird sie in die jeweils betroffenen Firmwarebereiche übernommen.
-- Wenn HW-Test und Produktivsoftware fachlich auseinanderlaufen, darf eine gemeinsame Datei aufgelöst werden. Beide Projekte erhalten dann bewusst eigene Implementierungen.
-- **Submodule oder Subrepositories werden dafür nicht vorausgesetzt.** Die gemeinsame Komponente kann im selben Repository liegen; entscheidend ist die nachvollziehbare Übernahme und nicht die technische Verpackung.
-- Vor einer Änderung an `FY_Common` wird daher geprüft, welche Projekte die Komponente tatsächlich verwenden und ob eine gemeinsame Weiterentwicklung noch sinnvoll ist.
+## Offene Themen und Eigentümer
 
-Für `FY_Common/MotorProfile.h` ist damit zunächst **keine automatische gemeinsame Weiterentwicklung festgelegt**. Vor der nächsten Änderung wird geklärt, ob die Profilberechnung weiterhin eine echte gemeinsame Komponente sein soll oder ob HW-Test und Produktivsoftware an diesem Punkt bewusst getrennte Wege gehen.
+| Issue | Nächste wirklich offene Punkte |
+| --- | --- |
+| [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150) HEAD | Gesamtfortschritt, erste stabile ESP32-Fassung und Merge |
+| [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152) Router/Queues | BUSY ohne Nachstart, STOP und Antworttransport |
+| [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153) Motorprofil | vollständige Rampen, Puls-/Stop-Prüfung, parallele Kommunikation |
+| [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) Fahrbefehle | STOP-/GO-/Neu-REF-Folge, Randgrenzen und Abschluss |
+| [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155) Sensorik | Referenz-/Endlagenfehler und mechanische Sicherheit |
+| [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) UART | Status/HELP/Firmware, offene Protokoll- und Robustheitstests |
+| [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157) Keyboard | Vier Tasten, PCF8574, LED/OLED, lokale Bedienung |
+| [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158) NVM | SAVE→POR→GET, CRC/Fehler, Parameterausbau |
+| [#159](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/159) Abnahme | benannte Randfälle, Bühnen-/Reset-Abnahme, Merge-Gate |
+| [#163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163) Qualität | Cppcheck/MISRA und Dokumentationsqualität |
+| [#169](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/169) Cleanup | ausdrücklich nach erstem Merge |
 
-## Branch- und Merge-Regel
-
-`main` ist die maßgebliche Referenz für den aktuellen Produktivstand. Die jeweils laufende Implementierungsphase erhält einen eigenen, klar benannten Branch, der aus dem aktuellen `main` erstellt wird. Es wird nicht parallel auf mehreren Produktiv-Branches gearbeitet.
-
-**Aktuelle Phase:** `FY_Motor`  
-**Ausgangsbasis:** `main` zum Stand der abgeschlossenen UART-Phase; die bewusst akzeptierten `unused`- und MISRA-Warnings bleiben zunächst akzeptiert.
-
-Ziele der Phase:
-
-1. Timer1-Konfiguration und Prescaler mit dem HW-Test vergleichen und eine gemeinsame, nachvollziehbare Zeitbasis festlegen.
-2. Compare-Wert-Berechnung einschließlich Rundung, Wertebereich und Frequenzgrenzen korrigieren bzw. bestätigen.
-3. Prüfen, wie die Profilbeschleunigung den Compare-Wert verändert und ob Rampenintervalle, STEP-Flanken und Beschleunigungswerte zum gewählten Timer-Takt passen.
-4. Den Segmentwechsel so umsetzen bzw. verifizieren, dass Segmente mit `Steps == 0` unmittelbar übersprungen werden und das Profilende sicher erkannt wird.
-5. Bewährte STEP-/Portzugriffe, Endschalterkoordinaten und Positionslogik gezielt in die Produktivarchitektur übertragen.
-6. Anschließend Bewegungsaufträge, Abbruch-/Fehlerpfade und Referenzabläufe schrittweise implementieren und testen.
-7. Hardwarefreie Tests und Buildprüfungen durchführen; nicht ausgeführte Hardwaretests ausdrücklich offenhalten.
-
-`FY_Motor` wurde aus dem aktuellen `main` erstellt. Der bisherige Branch `FY_Controller_Motor` bleibt als historischer Entwicklungsstand erhalten und wird nicht gelöscht. Nach Abschlussprüfung wird `FY_Motor` gezielt nach `main` gemergt; die nächste Phase wird erst danach festgelegt.
-
-Vor jeder Übernahme werden Commit-Historie, relevante Issues und bewusste Architekturentscheidungen geprüft. Eine Abweichung zwischen Branches gilt nicht automatisch als Fehler. Bereits bewusst in `main` vorgenommene Änderungen werden respektiert; es werden nur tatsächlich relevante Unterschiede als offene Punkte gemeldet.
-
-Vor jedem neuen Arbeitsabschnitt werden aktiver Branch und Ausgangscommit geprüft und benannt. Es wird nicht stillschweigend zwischen unterschiedlichen Branch-Ständen gewechselt.
-
+**Dokumentationsquellen:** [UART-Spickzettel](../FY_ESP32_Bringup/src/UART_Command_Spickzettel.md) · [Motor](../FY_ESP32_Bringup/docs/Motor/README.md) · [NVM v2](../FY_ESP32_Bringup/docs/nvm/README.md) · [Dokumentationsregeln](../FY_ESP32_Bringup/docs/DOCUMENTATION_RULES.md). Historische Fake-REF-/Bench-Angaben nicht als aktuellen HW3-Stand darstellen.

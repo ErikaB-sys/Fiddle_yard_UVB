@@ -9,7 +9,8 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | GET_STATUS | `0x19` | 1 Byte Selektor (Hex) | `STATUS 10`, `STATUS 20`, `STATUS 40`, `STATUS 50` |
 | GET_ERROR | `0x1A` | – | `ERROR` |
 | REFERENCE | `0x16` | – | `REFERENCE` |
-| SET_PARAM | `0x2B` | Parameter-ID + 24-Bit-Rohwert (4 DATA-Byte) | `SET_PARAM <ID> <Rohwert>` |
+| SET_PARAM | `0x2B` | Parameter-ID + 24-Bit-Rohwert (4 DATA-Byte) | `SET_PARAM ID B0 B1 B2` (ESP32: Hex-Bytes) |
+| GET_PARAM | `0x2C` | 1 Byte: Parameter-ID | `GET_PARAM ID` (ESP32-Erweiterung, Handler folgt) |
 | STOPP | `0x01` | 2 Byte: `55 AA` = STOPP aktivieren, `AA 55` = STOPP aufheben | `STOPP 55AA` / `STOPP AA55` (auch `STOP` als Alias) |
 | LEFT | `0x0B` | – | `LEFT` |
 | RIGHT | `0x0D` | – | `RIGHT` |
@@ -24,6 +25,78 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 
 > `GO` schaltet nur den Motortreiber ein oder aus; es startet keine Bewegung. Die STOPP-Sperre hat Vorrang vor `GO AA55`.
 
+## Parameter-GET/SET und SAVE – ESP32-Protokollvertrag (#158)
+
+> **Implementierungsstand:** IDs, Telegrammlaengen und SAVE-Muster stehen jetzt in
+> `FY_ESP32_Bringup/include/Protokoll.h`. Die eigentlichen GET-/SET-/SAVE-Handler
+> und die NVM-/Motoranbindung folgen. Der alte Nano-Spickzettel bleibt fuer
+> existierende Nano-Befehle bestehen; neue Parameterbefehle noch nicht am Motor testen.
+
+- `GET_PARAM ID`: ein Byte `ID`; Antwort `STATUS_Parameter (0x2D)` mit
+  `[ID, V0, V1, V2]` (vier DATA-Byte), **derselbe ID-Raum** wie SET.
+- `SET_PARAM ID V0 V1 V2`: vier DATA-Byte; unsigned 24-bit LE
+  (`Wert = V0 + 256*V1 + 65536*V2`), nur im Stillstand, zuerst nur RAM.
+- `SET_PARAM 7F BEREICH AA 55`: expliziter SAVE-Auftrag fuer **genau ein**
+  Segment. Bereich `01` = Gleispositionen, `02` = Motorparameter.
+  Kalibrierung wird ausschliesslich nach der Messfahrt geschrieben.
+  Das Muster ist exakt zu pruefen; andere Werte
+  muessen mit NACK abgelehnt werden. SAVE nur im Stillstand; waehrend SAVE
+  keine zweite FY-Aktion zulaessig. STOP darf einen bereits begonnenen
+  NVS-Commit nicht abbrechen oder dessen Daten beschaedigen; eingehender
+  STOP ist nach dem Commit vorrangig abzuarbeiten. Kalibrierungswerte werden **nicht**
+  durch SET oder SAVE erzeugt.
+- Kalibrierungs-GETs sind read-only. Gleispositionen sind bis zur Teach-in-
+  Funktion per SET veraenderbar; Motorparameter werden beim SET validiert.
+- Ein SAVE ohne geaenderte Daten des gewaehlten Segments schreibt nichts und entwertet die aktuelle
+  Referenz nicht. Ein erfolgreicher SAVE mit tatsaechlicher Parameter-
+  Aenderung entwertet die aktuelle Referenz (nicht die Kalibrierdaten/CRC).
+- A/B-Profilwerte sind **unsigned**: die Kennzeichnung als A (Beschleunigung)
+  beziehungsweise B (Bremsung) bestimmt die Richtung der Timer-Aenderung;
+  negative Zahlen gehoeren nicht auf die UART-Leitung.
+
+| ID (hex) | Name | GET | SET | Inhalt |
+|---|---|---|---|---|
+| `01` | V_MIN | ja | ja | Minimale Fahrgeschwindigkeit |
+| `02` | V_MAX | ja | ja | Maximale Fahrgeschwindigkeit |
+| `03` | V_POS | ja | ja | Positioniergeschwindigkeit; erst mit angebundenem Verhalten freigeben |
+| `04` | V_REF_MIN | ja | ja | Langsame Referenzgeschwindigkeit |
+| `05` | V_REF | ja | ja | Referenzgeschwindigkeit |
+| `06`–`09` | A1, A2, B1, B2 | ja | ja | Positive Beschleunigungs-/Bremsparameter |
+| `0A`–`0D` | A1_ST, A2_ST, B1_ST, B2_ST | ja | ja | Rampenintervalle in Schritten |
+| `20` | POS_LSR | ja | **nein** | Gemessene Gegenendlage |
+| `21` | POS_REF_A | ja | **nein** | Gemessene Fahnenflanke A |
+| `22` | POS_REF_B | ja | **nein** | Gemessene Fahnenflanke B |
+| `30`–`34` | TRACK_BG1 bis TRACK_BG5 | ja | ja | Eingelernte Gleispositionen |
+| `7E` | RESTORE_DEFAULT | **nein** | ja (Muster) | `7E 01 AA 55` = Gleise; `7E 02 AA 55` = Motor; geplant |
+| `7F` | SAVE | **nein** | ja (Muster) | `7F 01 AA 55` = Gleise; `7F 02 AA 55` = Motor |
+
+**Beispiel-Bytes (ESP32, noch nicht lauffaehig):**
+
+```text
+GET_PARAM 30          ; BG1 abfragen
+SET_PARAM 30 15 06 00 ; BG1 = 0x000615 = 1557 (nur RAM)
+SET_PARAM 7F 01 AA 55 ; nur geaenderte Gleispositionen ins NVS
+SET_PARAM 7F 02 AA 55 ; nur geaenderte Motorparameter ins NVS
+GET_STATUS 60         ; NVM: Fehlerflag, Fehlerbits, gueltige Segmente
+```
+
+Bei neuem ESP32: fehlende Motor- und Gleissegmente mit gueltiger CRC aus
+Defaultwerten initialisieren. **Ungueltige vorhandene Daten nicht
+automatisch neu schreiben.** Kalibrierung ausschliesslich durch
+erfolgreiche lange Referenzfahrt; keine Kalibrierdefaults. Alle Segment-CRC
+sind unabhaengig.
+
+## NVM-Diagnose und Wiederherstellung (Issue #158)
+
+- `GET_STATUS 60` meldet `STATUS_NVM (0x61)` mit 3 DATA-Byte: `[ErrorFlag, FaultMask, ValidMask]`.
+- Bits der beiden Masken: Bit 0 = Kalibrierung, Bit 1 = Gleise, Bit 2 = Motorparameter; Bits 3–7 für spätere Datensätze.
+- ErrorFlag: `00` = kein NVM-Fehler, `01` = mindestens ein korruptes/ungeprüftes Segment.
+- `NOT_FOUND` bei Kalibrierung ist auf frischem ESP32 kein NVM-Fehler; das Gültigkeitsbit ist aber 0 (lange REF erforderlich).
+- CRC-/Formatfehler an erforderlichen Segmenten und ungültige Motorparameter führen bei Bewegungsaufträgen zu NACK. Kein automatischer Default-Reset bei vorhandenen korrupten Daten.
+- Geplanter Wartungsbefehl `SET_PARAM 7E 01 AA 55` (Tracks) oder `SET_PARAM 7E 02 AA 55` (Motor): stellt das **gewählte** Segment explizit wieder her: Defaults validieren, **sofort mit gültiger CRC ins NVS schreiben**, bei Erfolg erst dann RAM übernehmen und ACK senden. Kein weiteres SAVE erforderlich; bei fehlgeschlagenem NVS-Commit NACK und keine RAM-Uebernahme. Gilt auch bei beschädigtem Vorwert. Für die Kalibrierung **nicht erlaubt**; sie wird nur durch Messung neu gültig.
+- `SAVE` und `RESTORE` arbeiten ausschließlich im Stillstand. STOP darf einen bereits begonnenen NVS-Commit nicht unterbrechen oder beschädigen; anschließend wird STOP prioritär verarbeitet.
+- **Implementierungsstatus:** Definitionen im Protokoll, Handler/Recovery noch nicht abgenommen; siehe [NVM-Spezifikation](../../FY_ESP32_Bringup/docs/nvm/README.md).
+
 ## Status-Selektoren
 
 | Selektor | Abfrage | Antwort-ID |
@@ -32,6 +105,7 @@ Kurzübersicht für `FY_Controller_Motor/src/main.cpp` und den seriellen Termina
 | `20` | Motor (Bit 0 Treiber aktiv, Bit 1 Bewegung) | `0x50` |
 | `40` | Digitale Eingänge REF, TRIM_LEFT, TRIM_RIGHT, TIMING_BELT in Bit 0–3 | `0x41` |
 | `50` | Tastatur verbunden (Bit 0) | `0x51` |
+| `60` | NVM-Fehler, Segmentmaske und Gültigkeitsmaske | `0x61` |
 
 Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 
@@ -56,6 +130,8 @@ Selektor als Hex-Text ohne `0x`; BabelFish berechnet die CRC automatisch.
 | Reference | `0x30` | 1 Byte |
 | Track | `0x40` | 3 Byte: Zielgleis, zuletzt bestätigtes Gleis, Bewegungsstatus |
 | Motor | `0x50` | 3 Byte |
+| Parameter | `0x2D` | 4 Byte: Parameter-ID, Wertbyte 0, 1, 2 (Little Endian); Handler folgt |
+| NVM | `0x61` | 3 Byte: Fehlerflag, Fehlersegment-Bitmaske, Gültigkeits-Bitmaske |
 | ACK | `0x60` | 1 Byte: bestätigte Command-ID |
 | NACK | `0x70` | 1 Byte: Fehlerort/Modul (oberes Nibble) + Ablehnungsgrund (unteres Nibble) |
 | DEV_RESPONSE | `0xFF` | 2 Byte: Modulkennung, Entwicklungsfehlercode (unerwarteter Implementierungszustand) |

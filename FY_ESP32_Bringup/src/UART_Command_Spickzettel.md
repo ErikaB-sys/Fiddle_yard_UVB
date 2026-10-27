@@ -1,0 +1,151 @@
+# FY ESP32 – UART-Spickzettel und Umsetzungsgrad
+
+**Stand: 25.10.2026.** Branch `feature/FY_ESP32_Port/FY_ESP32_Bringup`. Echte Kurz-/Langreferenz in Arbeit: Quellcode für Muninn/STEP-ISR eingebunden, **noch nicht gebaut oder an HW3 abgefahren**. Hinweise zum alten Fake-REF-Bench-Test sind historisch!
+
+**Grün heißt: Softwarefunktion im genannten Umfang geprüft und dokumentiert.** Die Tisch-Funktionsnachweise zählen. Echte Kalibrierung, Sensorik und Bühnenintegration sind separate Restpunkte in [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155)/[#159](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/159).
+
+[Kurze Roadmap](../../Documents/FY_Productivsoftware_Roadmap.md) · [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150) Überblick · [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154) Fahrvertrag · [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) UART · [Motorzustände](../docs/Motor/README.md)
+
+## Ampel
+
+- 🟢 geprüft und dokumentiert im beschriebenen Funktionsumfang.
+- 🟡 Teilfunktion vorhanden, konkreter funktionaler Rest offen.
+- 🟠 beschlossen/geplant, noch kein ausführbarer Funktionspfad.
+- 🟣 benannter Prüf-/Messnachweis fehlt; kein pauschales Zurückstufen fertiger Funktionen.
+- ⚪ Legacy-/Option: derzeit nicht aktiv; kein zusätzlicher Pflichtumfang ohne Entscheidung.
+
+**ACHTUNG VOR DEM NÄCHSTEN UPLOAD:** `REFERENCE 00` ist **nicht mehr der synthetische Fake-Anker**, sondern eine **echte Referenzfahrt** mit STEP-Pulsen; `REFERENCE 01` beginnt die lange Kalibrierfahrt. Beide können die Brücke bewegen. Der Code ist **ungebaut/ungetestet**; bei Sensorfehler können die vorbereitenden Suchbewegungen den Fahrweg überschreiten. Mechanik erst nach kontrolliertem Test mit funktionierender unmittelbarer Antriebsabschaltung und unabhängigem Anschlagschutz koppeln.
+
+## Verbindliche Fahrregeln
+
+| Fall | Vereinbartes Verhalten | Heute |
+| --- | --- | --- |
+| MOVE ohne REF | Relativ eine begrenzte Schrittzahl in eine Richtung; für Inbetriebnahme zulässig. | 🟢 Vorhandener begrenzter MOVE-Pfad. |
+| SET_POSITION ohne REF | Nicht zulässig; POR-Mitten-/Einzelfahrtvariante entfällt. | Kein zusätzlicher Implementierungsauftrag. |
+| SET_POSITION mit gültiger REF | Fahrt nur im kalibrierten Bewegungsraum. | 🟠 Reale REF/Grenzen fehlen. Vorhandener synthetischer Positionspfad funktioniert. |
+| Kurze REF | Erst mit gültigen Kalibrierdaten erfolgreich. | 🟡 Reale Motorfahrt zur Motorseite und Koordinate 1000 im Code; nur nach erfolgreicher langer Kalibrierfahrt derselben Laufzeit. HW3-Test und NVS-Laden fehlen. |
+| SET_TRACK | Gleis 1..5; kalibriert **und** aktuelle REF gültig. | 🟢 Track→Position/Fahrt geprüft; 🟠 reale Kalibrier-/Referenzanbindung offen. |
+| STOP / GO | STOP verwirft Job, Antrieb aus, REF ungültig. Entriegeln/GO aktiviert nur den Antrieb; danach für normale Fahrt neu mindestens kurz referenzieren. | Grundpfad vorhanden; gezielte Prüfung des STOP-/Antworttransports [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152) schließen. |
+
+Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Positionszähler sind davon getrennt. Ein gültiger neuer Fahrbefehl startet nach Prepare OK unmittelbar, kein GO je Fahrjob. Kein Pause/Resume.
+
+## Serielle Befehle – tatsächlicher Iststand
+
+115200 Baud, derzeit ASCII über BabelFish mit binären Antworten. Jedes DATA-Byte als **zwei Hex-Zeichen**, getrennt durch Leerzeichen; uint16 Little Endian. `STOP`/`STOPP`, `POSITION`/`GET_POSITION` sind gültige Namen. Keine unbeauftragten DONE-/ALIVE-Telegramme.
+
+| Command | ID | Eingabe / DATA | Stand | Funktionsumfang / konkreter Rest |
+| --- | ---: | --- | --- | --- |
+| STOP / STOPP | 01 | `STOP 55 AA`; `STOP AA 55` entriegeln | 🟡 | Abschalten/Verriegeln/Verwerfen vorhanden und Grundweg geprüft. Eigene Priority-Queue vorhanden. Frühere Pending-voll-Fehlerbehauptung präzisiert: im gültigen aktuellen UART-Pfad nicht erreichbar; Antworttransport bei Stau gezielt beurteilen: [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152). |
+| GO | 07 | `GO AA 55` EIN; `GO 55 AA` AUS | 🟢 | Treiberfreigabe ohne automatisches Losfahren geprüft. Kein Wiederaufnehmen eines alten Jobs. |
+| MOVE | 0F | `MOVE 21 32 00` = 50 Viertelschritte von der Motorseite weg (neu links) | 🟢 | Einziger relativer Fahrbefehl, mit Richtung/Mikroschritt/Schritten. Profilfahrt geprüft; 1..10000 je aktuellem Testauftrag. |
+| SET_POSITION – vorhandener Positionspfad | 13 | nach FAKE-REF: `SET_POSITION 15 06` = 1557 | 🟢 | Prepare-/Profil-/STEP-Funktion geprüft, auch über SET_TRACK genutzt. Neue Koordinaten benötigen keinen zweiten identischen Funktionsabschluss. |
+| GET_POSITION / POSITION | 15 | `POSITION` | 🟢 | Antwort 20 + 4 LE-Bytes + CRC; laufender Muninn-Snapshot. Bit16 kennzeichnet synthetische Position. |
+| GET_STATUS Motor | 19 | `STATUS 20` | 🟢 | Antwort 50, ENABLE/MOVING plus MotorState; IDLE nach Fahrt dokumentiert. |
+| GET_STATUS Referenz | 19 | `STATUS 30` | 🟢 | Antwort 30: 00 ungültig, 01 echt, 02 FAKE. FAKE-Wert dokumentiert. |
+| GET_STATUS System | 19 | `STATUS 10` | 🟡 | Antwort 10 noch fester Wert 04/INIT; tatsächliche Init-/Fehlerflags anschließen. |
+| GET_STATUS Sensoren | 19 | `STATUS 40` | 🟢 **HW3** | Muninn liest G36/39/34/35 (LSL/LSR/LSREF/LS4), initial einmal und danach nur bei Pegeländerung. Eigene 1-Slot-Overwrite-Queue; Huginn antwortet `41 <Snapshot> <CRC>`. G35 ist informativer Riemenspannungseingang ohne ISR-Eingriff; HIGH→LOW auf HW3 geprüft. |
+| GET_STATUS Keyboard | 19 | `STATUS 50` | 🟠 | Antwort 51 mit 0=nicht verbunden; I²C-Keyboard-Code fehlt. |
+| GET_ERROR / ERROR | 1A | `ERROR` | 🟡 | Antwort F0, Systembyte + drei Fehlerbytes; UART-Fehler vorhanden, zentrale Motor-/Sensoraggregation fehlt. |
+| GET_TRACK / TRACK | 23 | `TRACK 00` | 🟢 Ist-Abfrage | Ziel/fährt/erreicht geprüft. Während Fahrt setzt Code bestätigtes Gleis auf 0; Bedeutung gegenüber alter letzter Bestätigung noch in [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) klären. |
+| SET_TRACK | 1C | `SET_TRACK 03` | 🟢 Zuordnung/Fahrt | 1..5 auf Positionen abgebildet; Fahrten 01/03/05 dokumentiert. Reale Kalibriert-/REF-Prüfung noch ergänzen. |
+| REFERENCE – Testanker (historisch) | 16 | `REFERENCE 00` | ⚪ ersetzt | **Alter Bench-Fake-Test vom 23.10.** Im neuen Code führt `REFERENCE 00` eine **echte Motorfahrt** aus; nicht mehr als No-Motion-Test verwenden! |
+| REFERENCE – real kurz/lang | 16 | `REFERENCE 00` / `REFERENCE 01` | 🟡 HW3-Test offen | `01`: Motorseite → Gegenseite, REF-Fahne in beiden Richtungen ausmessen; `00`: Motorseite suchen und 1000 setzen, **nur bei RAM-Kalibrierung**. Beide starten nach Erfolg die Profilfahrt nach **BG3=4757**. ISR erfasst REF-Flanken und Endlagen; keine NVS/CRC, kein unabhängiger Ausfallschutz für defekte Endschalter. |
+| SET_PARAM | 2B | 4 DATA-Bytes: ID + 24-Bit-LE-Wert | 🟠 | Telegramm vorhanden, keine Parameterübernahme/SAVE; IDs und erster Umfang festlegen. |
+| SET_MODE | 26 | `SET_MODE 55 AA` / `SET_MODE AA 55` | 🟠 | Muster geprüft, derzeit NOT_READY. Bedienhoheit/Stillstandsumschaltung noch umsetzen. |
+| HELP | 25 | `HELP` | 🟡 | Stringantwort 18 vorhanden; Link zeigt noch auf Nano-Spickzettel. |
+| GET_FIRMWARE / FIRMWARE | 27 | `FIRMWARE` | 🟡 | Stringantwort 28 vorhanden; Git-Hash fällt noch auf unknown zurück. |
+
+**Entfallen:** separate LEFT-/RIGHT-Kommandos. MOVE mit Richtungsangabe übernimmt die relative Fahrt; die historischen IDs 0B/0D werden im heutigen Code abgewiesen. [Konzept-Einstieg](../docs/README.md).
+
+### Antworten und offene Nachweise
+
+- 🟢 ACK `60 <Command-ID> <CRC>` bestätigt Annahme; NACK `70 <Ort/Grund> <CRC>` ist unmittelbare Ablehnung. Ort im hohen, NackReason im niedrigen Nibble.
+- 🟢 Abschluss wird mit STATUS 20 bis IDLE abgefragt; keine spontane DONE-Sendung.
+- 🟡 Queue-/Pending-/Event-Robustheit: gezielte Prüfung [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152). Kein nachgewiesener STOP-Ausfall im normalen UART-Ablauf; Pending wird bereits mit ACK/NACK frei. Stau-/Mehrquellenfälle gesondert beurteilen.
+- 🟣 Benannte STEP-/Rampen-/Lastmessungen [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153); reale Bühnenintegration [#159](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/159) getrennt von erledigter Logik.
+- Der aktuelle serielle **Eingang ist ASCII/BabelFish**; erzeugte/geprüfte CRC innerhalb dieser Kette belegt keinen vollständigen binären RX-/Leitungsfehler-Test. Empfangsumfang [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) klären.
+
+## Datenformate und konkrete Testtelegramme
+
+- `uint8`: ein Hex-Byte, Beispiel `SET_TRACK 03` (mit expliziter Fake-REF im Bench ACK).
+- `uint16`: **zwei Little-Endian-Hexbytes**, Beispiel BG1 = dezimal 1557 = `0x0615` → `SET_POSITION 15 06`. Historische HW2-Position 29567 gehört zum alten virtuellen Koordinatensystem.
+- `SET_PARAM`: Parameter-ID + drei Rohwertbytes, z. B. `SET_PARAM 01 50 00 00` (momentan NACK).
+- `MOVE`: DATA[0] oberes Nibble = Mikroschritt-Modus **0 voll / 1 halb / 2 viertel / 3 achtel / 4 sechzehntel**, Bit 0 = bisherige Motor-Richtung (0 zur Motorseite = neu rechts, 1 von der Motorseite weg = neu links), Bits 3..1 reserviert; DATA[1..2] Schrittzahl LE **1..10000**.
+- Nur Bench-`SET_POSITION`: **1..65534** als virtueller Positionsraum; maximal **10600 Viertelschritte je SET_POSITION-Auftrag**; **ab dieser Version erst nach `reference 00`**, keine automatische Position 32767. Andere Mikroschrittauflösung invalidiert die simulierte Referenz.
+- Status Motor, DATA[0]: Bit0 Treiber an, Bit1 in Bewegung; DATA[1] **ESP32-Erweiterung** des Nano-Protokolls: `0 IDLE / 1 CONF / 2 REFRUN / 3 MOVING / 4 STOPPED / 5 ERROR`. Kompatibilitätsfreigabe hierzu noch in [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156).
+- Bench-`GET_POSITION`: `0x00010000 | virtuelle_16bit_position`, also DATA[2] = `01`; **kein echter REF-Nachweis**. `POSITION_UNKNOWN` (ohne Bench-Bit) = `0x00007FFF`.
+- NACK-Typen: `1 BUSY`, `2 NOT_READY`, `3 INVALID_COMMAND`, `4 INVALID_PARAMETER`, `5 EXECUTION_ERROR`, `6 INVALID_TELEGRAM`. Fehlerort z. B. UART `0x10`, Motor `0x20`.
+
+### Referenzfahrt aus Nano-HW_TEST – Portstatus 25.10.2026
+
+**Nacharbeit nach HW3-Fehlversuch:** Für die Phasenübergänge wurden zusätzliche gegenüber Nano eingeführte Plausibilitätsabweisungen zurückgenommen. Die Suchgeschwindigkeit beträgt vorläufig **160 Hz zur Motorseite / 200 Hz zur Gegenseite und zurück zur Fahne** (vorher 120/140); die beiden präzisen Fahnenmessungen bleiben bei **80 Hz**. Bei `REF: ERROR` erscheint einmalig `phase=<Stufe> pos=<Koordinate>` auf der seriellen Diagnose. Keine zusätzlichen Timeouts/Wegbegrenzungen eingeführt; der Referenzlauf ist nach dieser Änderung **noch nicht erneut hardwaregeprüft**.
+
+
+Die gesamte Referenz-Zustandsmaschine liegt in `Motor.h/.cpp`. STEP und Sensorflanken liegen ausschließlich in der ESP32-Timer-ISR; die Core-Grenze bleibt Muninn/Huginn. Die separate `ReferenceRun.h` wurde entfernt.
+
+
+Gemessene Tracktabelle in **1/4-Schritt-Koordinaten**: BG1 1557, BG2 3157, **BG3 4757**, BG4 6357, BG5 7957. **Motorseite = vom Einfahrtsgleis aus RECHTS / GPIO36 (Code-Alias LSL)**. Bei Erreichen des Motor-Endschalters setzt die STEP-ISR den Referenzanker auf **1000**. In alter Nano-Koordinatenrichtung werden die Positionen zur Gegenseite größer (GPIO39, Code-Alias LSR).
+
+- `REFERENCE 01` (lange Kalibrierfahrt): Motorseite suchen → 1000 setzen → Gegenseite suchen und Schritte/Fahnenkante erfassen → Fahne zurück langsam ausmessen → zurücksetzen → Fahne in Gegenrichtung ein zweites Mal ausmessen (mechanisches Spiel). **Gültige Kalibrierung zunächst nur RAM, NVS/CRC aus #158 nicht integriert.**
+- `REFERENCE 00` (kurze Referenzfahrt): nur mit gültiger Kalibrierung derselben Laufzeit, zur Motorseite und bei Sensorflanke 1000 setzen.
+- **Nach erfolgreichem `REFERENCE 00` oder `01`:** automatisch BG3 = 4757 mit dem vorhandenen 6-Phasen-Profil anfahren. Der letzte Endschalter wird im STEP-Timer geprüft; bei vorzeitigem Endanschlag gilt der Vorgang als fehlgeschlagen.
+- Im UART: `STATUS 30` → 00 keine aktuelle Referenz, 01 echte REF; `STATUS 20` zeigt REFRUN / MOVING / IDLE; `TRACK 00` meldet BG3 erst bei tatsächlichem Erreichen. **Kein spontanes DONE.**
+
+**Nicht vorgetäuscht:** Echte kurze REF direkt nach ESP32-Neustart wird bis zur NVS-Integration abgelehnt. Nach einer realen REF blockiert die bisherige Bench-SET_TRACK-Implementation weitere manuelle Gleisfahrten – diese Anbindung ist ein Folgeschritt und kein Hardwaretest-Ergebnis. Die früheren Fake-REF-Antworttelegramme sind nur historische HW3-Mitschnitte.
+
+**Noch offen:** echter PlatformIO-Build, physische Tests beider Sensorfolgen, vorab definierte Ausfallbegrenzung bei defekten Sensoren, persistente Kalibrierung/CRC und die produktive Freigabe der absoluten Gleisfahrt. Das implizite Limit des STEP-Zählertyps ist **kein** sicherheitstechnischer Timeout/Ersatz für den Endanschlag.
+
+### HW3-Sensor-Snapshot (G35/LS4 am 27.10.2026 hardwaregeprüft)
+
+`status 40` fragt Huginns zuletzt empfangenen Sensorstatus ab. Muninn sendet beim ersten Einlesen **einmal den vollständigen Rohzustand**, danach ausschließlich bei Änderung. Transport: **eigene Queue der Länge 1** mit `xQueueOverwrite()`, unabhängig von Motorantworten.
+
+Antwort `STATUS_Switches = 0x41` mit **einem Datenbyte**: Bit 0 G36/Motorseite (Code `LSL`, neu rechts), Bit 1 G39/Gegenseite (Code `LSR`, neu links), Bit 2 LSREF/G34, Bit 3 LS4/G35 (**Riemenspannung, informativ, HW3-geprüft**). Bits 4..7: Änderungszähler **0..E**, `F` für zukünftige Fehler reserviert. Bits zeigen Rohpegel (HIGH=1); elektrische Aktiv-Polarität an HW3 prüfen. Ohne Initial-Snapshot gibt `status 40` `NOT_READY` zurück, **nicht** fälschlich alle Sensoren frei.
+
+**KISS-Hardwaretest:** `status 40` zuerst im Ruhezustand und anschließend nach einzelnem Auslösen von LSL, LSR und LSREF abfragen. Jede Änderung muss das jeweilige Bit und den Zähler beeinflussen. Die Riemenspannungsanzeige G35 beeinflusst weder Fahrfreigabe noch ISR; Endlagen- und Referenzfunktionen sind separat zu prüfen.
+
+### HW3: STEP/ENABLE-GPIO-Tausch und einmalige SLEEP-Startfreigabe (23.10.2026)
+
+HW3: **!ENABLE G25 (Blau)**, **DIR G26 (Gelb)**, **STEP G27 (Weiß)**, **!SLEEP + !RESET G32 (Rot)**.
+
+**LED-Polaritäten aus tatsächlicher Verdrahtung:** Rot (Anode an G32, Vorwiderstand nach GND) leuchtet bei **G32 HIGH = A4988 wach** und ist bei LOW (Sleep/Reset) AUS. Blau/Gelb/Weiß haben gemeinsames Plus an 3,3 V und leuchten bei **GPIO LOW**.
+
+`setup()` hält G32 anfangs LOW. Nach Motor-/MS-/Timer-Initialisierung setzt `Muninn_initMotorMock()` G32 **einmalig HIGH (Rot AN)**, wartet **1,5 ms** und lässt erst danach die Tasks starten. **Die ISR wurde nicht geändert** und nimmt ihren STEP-GPIO unverändert aus `MOTOR_PWM_PIN`. Beim Start ist die POR-STOP-Sperre aktiv, ENABLE HIGH, Blau AUS. `STOP AA 55` entriegelt nur STOP. `GO AA 55` setzt ENABLE LOW (Blau AN); `GO 55 AA` sowie beide STOP-Varianten deaktivieren ENABLE, ohne G32 nochmals zu verändern.
+
+**HW3 am 23.10.2026 gebaut und betrieben:** G32-SLEEP/RESET-Freigabe sowie GO/STOP und STEP/DIR/ENABLE im Motor-Bench bestätigt. Upload mit anliegender 12-V-Versorgung blieb im beobachteten Versuch ohne Motorzucken. **Kein vollständiger Boot-/Reset-/Flash-Failsafe-Nachweis.** Vor VMOT den G32-SLEEP-/RESET-LOW-Pegel während Boot/Reset prüfen; 10-kΩ-Pull-down gegen den am Modul gemessenen ca. 97-kΩ-Pull-up. Siehe [HW3-Pinout](../docs/pinouts/01_PINOUT_ESP32.md) und [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153).
+
+### Historische HW2-Sequenz (alter Build mit Startposition 32767 – nicht mehr aktuelle FW)
+
+```text
+stop aa 55               # POR-STOP-Sperre entriegeln, Treiber aus
+go aa 55                 # Motor einschalten
+position                 # 20 FF 7F 01 00 2A  -> virtuell BG3
+set_position 7f 73       # BG3 -> BG1 (3200 Viertelschritte)
+status 20                # nach Fahrt: 50 01 00 00 4F -> IDLE
+position                 # 20 7F 73 01 00 E1  -> 29567 (BG1)
+set_position 7f 8c       # BG1 -> BG5 (6400 Viertelschritte)
+position                 # 20 7F 8C 01 00 CA  -> 35967 (BG5)
+stop 55 aa               # STOP aktivieren, ENABLE aus
+```
+
+**Bestätigte Plausibilitätsprüfung:** Von BG5 `set_position 50 50` versucht **15407** Schritte und wird mit `70 24 AB` (zu langer Einzelfahrweg) abgewiesen. Mit einer Zwischenfahrt über BG1 geht es; keine globale mechanische Grenzüberwachung daraus ableiten.
+
+**Ungetestet für das neue ISR-Profil:** vollständiger STOP-Test während Bewegung, tatsächliche Timer-Halbperioden/Sechs-Phasen-Geschwindigkeiten, Jitter unter Last und reale LS-/Endschalter. Die erfolgreiche STEP-Zählung ist keine unabhängige Messung der realen Bühne.
+
+## Prepare / interner Pfad
+
+Huginn validiert → typisierte Queue → Muninn prüft Betriebsbedingungen/Prepare → Profil → STEP-Timer → angefragter Snapshot. Kein Pflichtnachbau von Nano-`setJob()`/`Update()`.
+
+| Funktion | Stand | Rest |
+| --- | --- | --- |
+| calcProfile / prepareMove | 🟢 geprüfter Funktionsumfang | Konkrete Timer-/Lastnachweise [#153](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/153). |
+| prepareSetPosition | 🟢 vorhandener synthetischer Pfad | 🟠 Reale Kalibrier-/REF-Anbindung und Raumgrenzen; kein unreferenzierter Absolutpfad [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154)/[#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
+| prepareSetTrack | 🟢 Track→Position/Fahrt | 🟠 Kalibriert-/REF-Gate anschließen [#154](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/154)/[#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
+| prepareReference | 🟢 Testanker / 🟠 real | Kalibrierfahrt und kurze REF aus HW_TEST [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155). |
+| Parameter / SAVE | 🟠 | Übernahme und Persistenz [#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158). |
+| Grenzen / Fehler | 🟡 Testbereich / 🟠 real | Fahrraum/Sensoren [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155), Fehlertransport [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152)/[#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158). |
+
+Die alten Nano-Detailissues sind am 24.10. abgeschlossen oder in die aktuellen Fachissues übernommen worden. Ihre Zustände bedeuten nicht, dass alle dort ursprünglich beschriebenen Nano-Tests bestanden seien. Die Zuordnung und verbleibenden Fragen stehen in [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150).
+
+### Nachweis Riemenspannungssensor G35 – 27.10.2026
+
+`STATUS 40` vor Betätigung: `41 08 F8` (G35 HIGH, Änderungszähler 0). Nach Betätigung: `41 10 B0` (G35 LOW, Änderungszähler 1). Damit ist Bit 3 und die Änderungszählung über die echte HW3-UART nachgewiesen. Freigabe LOW→HIGH im gezeigten Log nicht separat enthalten. Nur Statusinformation aus der Muninn-Hauptschleife, **kein STEP-ISR-Sensor und keine Fahrverriegelung**.
