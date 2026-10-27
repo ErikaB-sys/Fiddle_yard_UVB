@@ -67,3 +67,12 @@ Keyboard-Druckereignisse werden zuerst durch die zustandsabhängige Menüführun
 - **Noch nicht als HW3-getestet markieren:** Diese neue produktive Keyboard-Fassung muss zuerst unter PlatformIO bauen und dann schrittweise an der Mechanik geprüft werden. Der letzte bestandene Test betraf nur das ältere Diagnosemodul.
 - **Startbild-Version:** aktuell noch temporäre Kennung `FY ESP32 / HW3`, keine aus den Firmware-Konstanten gelesene Release-Version; vor Merge nachziehen.
 - **Fehler/STOP:** Kein erneutes automatisches Losfahren; Fehleranzeige erfordert STOP und danach erneute bewusste Freigabe.
+
+## Betriebs-LEDs – implementiert am 27.10.2026
+
+- **Blau LINKS** leuchtet bei laufendem STEP-Timer und DIR HIGH (physisch zur G39-Seite, vom Motor weg).
+- **Blau RECHTS** leuchtet bei laufendem STEP-Timer und DIR LOW (physisch zur G36-Motorseite).
+- **Rot** zeigt den STOPPED-Zustand; **Grün** den tatsächlich aktivierten Motortreiber.
+- Auswertung ausschließlich im Keyboard-Polling; keine Änderung an der STEP-ISR. Während einer Fahrt hat die Richtungsanzeige Vorrang vor der reinen Tastenbeleuchtung.
+- **HW3-Nachweis offen**: Links-/Rechtsfahrt einschließlich REF-Richtungswechsel, STOP während Fahrt und LED-Zuordnung physisch prüfen. Build auf Nutzerrechner erforderlich.
+- Geplantes REMOTE-Blinken (2 Hz) und Remote-Anzeigemenü gehören ausdrücklich **nicht** zu diesem Commit.
