@@ -21,3 +21,31 @@ flowchart LR
 - [ ] MISRA-/Reviewstand und Robustheit der Diagnosenachrichten unter Last prüfen.
 
 Offen: [VERIFICATION_GAPS.md](../VERIFICATION_GAPS.md). Historischer Entwurf: [archive/Switches.md](archive/Switches.md).
+
+## Daten- und Funktionsdiagramme (Release 2.0.0)
+
+## Sensorsignale (im Muninn-Motorpfad)
+
+```mermaid
+flowchart LR
+  G["GPIO34 REF / 35 Riemen / 36 und 39 Endlagen"] --> M["Muninn: Sensoraufnahme"]
+  M --> P["Referenz- und Schutzentscheidung"]
+  M --> S["Sensor-Snapshot"]
+  S --> U["UART GET_STATUS 40"]
+```
+
+```mermaid
+sequenceDiagram
+  participant Sensoren
+  participant Muninn
+  participant UART
+  Muninn->>Sensoren: Eingänge lesen
+  Sensoren-->>Muninn: Pegel
+  Muninn->>Muninn: Referenz-/Endlagenprüfung
+  Muninn-->>UART: Status-Snapshot
+  UART-->>UART: GET_STATUS 40 beantworten
+```
+
+**Wichtig:** Die früher geplante eigenständige Switches-Klasse ist **nicht** die aktive Sensorquelle. Der Code liest die Hardware im Motor-Modul.
+
+**Zugehörige Issues:** [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150), [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
