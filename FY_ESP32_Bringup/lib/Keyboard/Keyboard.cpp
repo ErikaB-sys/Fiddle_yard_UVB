@@ -4,6 +4,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "HW_Config.h"
+#include "Motor.h"
 
 namespace fy {
 namespace {
@@ -25,6 +26,15 @@ uint32_t kbLastChangeMs = 0U;
 uint32_t kbLastPollMs = 0U;
 uint32_t kbSplashAt = 0U;
 bool kbSplashDone = false;
+BringupContext* kbContext = nullptr;
+enum class Menu { LOCKED, UNLOCK, ENABLE, REF_MENU, REF_RUN, TRACK_MENU, TRACK_RUN, ERROR };
+Menu kbMenu = Menu::LOCKED;
+bool kbLongRef = false;
+uint8_t kbTrack = 3U;
+uint32_t kbSeq = 0U;
+uint32_t kbAwaitSeq = 0U;
+bool kbWaiting = false;
+uint32_t kbRunAt = 0U;
 
 // @brief Schreibt LED-Zustände; alle vier Tasterleitungen bleiben HIGH.
 void keyboardWriteLeds(uint8_t activeButtons) {
