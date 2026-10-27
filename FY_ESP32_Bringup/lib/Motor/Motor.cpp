@@ -465,7 +465,9 @@ void emit(BringupContext* context, const CommandMessage& cmd,
         accepted ? STATUS_ACK : STATUS_NACK,
         data
     };
-    (void)xQueueSend(context->events, &event, portMAX_DELAY);
+    const bool local = (cmd.sequence & 0x80000000UL) != 0UL;
+    QueueHandle_t destination = local ? context->keyboardEvents : context->events;
+    if (destination != nullptr) (void)xQueueSend(destination, &event, portMAX_DELAY);
 }
 } // anonymous namespace
 
