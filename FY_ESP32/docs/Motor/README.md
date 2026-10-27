@@ -56,3 +56,37 @@ Dies ist das **Soll**, keine Behauptung, dass CONF/REFRUN/alle Fehlerpfade berei
 - **Offen:** echter Kalibriert-/Kurz-REF-Vertrag, reale Referenz-/Endlageneingänge und Bewegungsraum, SET_PARAM/CONF; STOP-Robustheit bei voller Pending-/Event-Verwaltung. Kein namensgleicher Nachbau von Nano-setJob/Update nötig.
 
 Pinwerte ausschließlich im [zentralen Pinout](../pinouts/README.md). [Spickzettel](../../src/UART_Command_Spickzettel.md) nennt aktuelle Telegramme und Ampeln; [Testprotokoll](../MOTOR_TIMER_BENCH.md) die Beobachtungen. Alte Nano-Diagramme unter [archive/](archive/) sind Historie und keine zweite aktive Spezifikation.
+
+## Daten- und Funktionsdiagramme (Release 2.0.0)
+
+## Aktueller Steuer- und Datenfluss
+
+```mermaid
+flowchart TD
+  Q["Normale / STOP-Prioritätsqueue"] --> M["Muninn Motor-State-Machine"]
+  M --> P["Prepare und Profilplan"]
+  P --> T["StepTimer: STEP/DIR"]
+  T --> A["A4988 / Bühne"]
+  S["G34/G35/G36/G39 Sensorik"] --> M
+  M --> N["NVM-Kalibrierung und Parameter"]
+  M --> U["Atomare STATUS-Snapshots"]
+  M --> R["ACK / NACK nach Quelle"]
+```
+
+```mermaid
+stateDiagram-v2
+  [*] --> STOPPED
+  STOPPED --> IDLE: STOP lösen, GO
+  IDLE --> REFRUN: REFERENCE
+  REFRUN --> MOVING: gültige REF, BG3 anfahren
+  MOVING --> IDLE: Ziel erreicht
+  IDLE --> MOVING: SET_TRACK / SET_POSITION / MOVE
+  MOVING --> STOPPED: STOP
+  REFRUN --> STOPPED: STOP
+  IDLE --> STOPPED: STOP
+  REFRUN --> ERROR: Sensor-/Referenzfehler
+  MOVING --> ERROR: Bewegungsfehler
+  ERROR --> STOPPED: STOP
+```
+
+**Zugehörige Issues:** [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150), [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
