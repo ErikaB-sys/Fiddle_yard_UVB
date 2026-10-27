@@ -25,28 +25,28 @@ GPIO-Zahlen sind **GPIO-Nummern, keine Steckerpositionsnummern**. Die beiden rei
 
 | Gruppe | Funktion / Anschluss | HW3 GPIO | Richtung am ESP32 | Code-Stand / Änderung gegenüber HW2 |
 |---|---|---:|---|---|
-| Motor | ⚪ A4988 STEP | **G27** | Ausgang | **kein zusätzlicher Pull**; weiße STEP-Diagnose-LED (gemeinsames Plus, LOW = an); HW3-Tausch von G25 |
-| Motor | 🟡 A4988 DIR | G26 | Ausgang | **kein externer Pull-down in HW3-Testbestückung**; gelbe DIR-Diagnose-LED |
-| Motor | 🔵 A4988 !ENABLE / EN | **G25** | Ausgang | **kein zusätzlicher Pull**; blaue EN-Diagnose-LED (LOW = an); HW3-Tausch von G27 |
-| Motor | M0 → A4988 MS1 | G13 | Ausgang | G13, unverändert |
-| Motor | M1 → A4988 MS2 | G14 | Ausgang | G14, unverändert |
-| Motor | M2 → A4988 MS3 | G4 | Ausgang | G4, unverändert |
-| Motor | 🔴 A4988 !SLEEP / SLP, mit !RESET verbunden | **G32** | Ausgang | **10 kΩ Pull-down nach GND**; rote LED bei HIGH an (Anode an G32); Resetpegel noch nachzuweisen |
-| Sensor | Lichtschranke REF / LSREF | **G34** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G32 |
-| Sensor | Lichtschranke 2 / Riemen / LS4 | **G35** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G33 |
-| Sensor | Endschalter Motorseite / neu RECHTS (Code noch `LSL`) | **G36 / SENSOR_VP** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G16 |
-| Sensor | Endschalter Gegenseite / neu LINKS (Code noch `LSR`) | **G39 / SENSOR_VN** | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G17 |
-| I²C | SDA – PCF8574 und OLED | G21 | bidirektional | **4,7 kΩ Pull-up nach 3,3 V am Bus**; G21, unverändert |
-| I²C | SCL – PCF8574 und OLED | G22 | Open-Drain-Bus | **4,7 kΩ Pull-up nach 3,3 V am Bus**; G22, unverändert |
-| SPI | SCLK – gemeinsam | G18 | Ausgang | Konstante reserviert; SPI-Ansteuerung offen |
-| SPI | MISO – MCP23S17, ggf. Display | G19 | Eingang | Konstante reserviert; SPI-Ansteuerung offen |
-| SPI | MOSI – gemeinsam | G23 | Ausgang | Konstante reserviert; SPI-Ansteuerung offen |
-| SPI | !CS_DISPLAY | **G16** | Ausgang | **10 kΩ Pull-up nach 3,3 V**; SPI-Ansteuerung offen |
-| SPI | !CS_EXPANDER | **G17** | Ausgang | **10 kΩ Pull-up nach 3,3 V**; SPI-Ansteuerung offen |
-| SPI | Display D/C | **G33** | Ausgang | **10 kΩ Pull-down nach GND**; SPI-Ansteuerung offen |
-| Service | UART0 TX → USB-UART | G1 / TX0 | Ausgang | für USB/UART0 freihalten |
-| Service | UART0 RX ← USB-UART | G3 / RX0 | Eingang | für USB/UART0 freihalten |
-| Diagnose | bisherige Test-LED-Funktion | G2 | Ausgang | reserviert; tatsächliche Board-Bestückung beachten |
+| Motor | ⚪ A4988 STEP | **G27** 🟢| Ausgang | **kein zusätzlicher Pull**; weiße STEP-Diagnose-LED (gemeinsames Plus, LOW = an); HW3-Tausch von G25 |
+| Motor | 🟡 A4988 DIR | G26🟢 | Ausgang | **kein externer Pull-down in HW3-Testbestückung**; gelbe DIR-Diagnose-LED |
+| Motor | 🔵 A4988 !ENABLE / EN | **G25** 🟢| Ausgang | **kein zusätzlicher Pull**; blaue EN-Diagnose-LED (LOW = an); HW3-Tausch von G27 |
+| Motor | M0 → A4988 MS1 | G13 🟢 | Ausgang | G13, unverändert |
+| Motor | M1 → A4988 MS2 | G14 🟢 | Ausgang | G14, unverändert |
+| Motor | M2 → A4988 MS3 | G4 🟢| Ausgang | G4, unverändert |
+| Motor | 🔴 A4988 !SLEEP / SLP, mit !RESET verbunden | **G32**🟢 | Ausgang | **10 kΩ Pull-down nach GND**; rote LED bei HIGH an (Anode an G32); Resetpegel noch nachzuweisen |
+| Sensor | Lichtschranke REF / LSREF | **G34** 🟢| nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G32 |
+| Sensor | Lichtschranke 2 / Riemen / LS4 | **G35**🟢 | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G33 |
+| Sensor | Endschalter Motorseite / neu RECHTS (Code noch `LSL`) | **G36 / SENSOR_VP**🟢 | nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G16 |
+| Sensor | Endschalter Gegenseite / neu LINKS (Code noch `LSR`) | **G39 / SENSOR_VN** 🟢| nur Eingang | **10 kΩ Pull-up nach 3,3 V**; umgestellt von G17 |
+| I²C | SDA – PCF8574 und OLED | G21 ; weis 🟢| bidirektional | **4,7 kΩ Pull-up nach 3,3 V am Bus wird nicht benötigt , da der extender  bereits über Pullups verfügt**; G21, unverändert |
+| I²C | SCL – PCF8574 und OLED | G22 ; blau 🟢|  Open-Drain-Bus | **4,7 kΩ Pull-up nach 3,3 V am Bus wird nicht benötigt , da der extender  bereits über Pullups verfügt**; G22, unverändert |
+| SPI | SCLK – gemeinsam | G18 🟡 | Ausgang | Konstante reserviert; SPI-Ansteuerung offen |
+| SPI | MISO – MCP23S17, ggf. Display | G19 🟡| Eingang | Konstante reserviert; SPI-Ansteuerung offen |
+| SPI | MOSI – gemeinsam | G23🟡 | Ausgang | Konstante reserviert; SPI-Ansteuerung offen |
+| SPI | !CS_DISPLAY | **G16**🟡 | Ausgang | **10 kΩ Pull-up nach 3,3 V**; SPI-Ansteuerung offen |
+| SPI | !CS_EXPANDER | **G17**🟡 | Ausgang | **10 kΩ Pull-up nach 3,3 V**; SPI-Ansteuerung offen |
+| SPI | Display D/C | **G33** 🟡| Ausgang | **10 kΩ Pull-down nach GND**; SPI-Ansteuerung offen |
+| Service | UART0 TX → USB-UART | G1 / TX0 🟢 | Ausgang | für USB/UART0 freihalten |
+| Service | UART0 RX ← USB-UART | G3 / RX0 🟢 | Eingang | für USB/UART0 freihalten |
+| Diagnose | bisherige Test-LED-Funktion | G2 🟢 | Ausgang | reserviert; tatsächliche Board-Bestückung beachten |
 
 **Bilanz:** 19 Funktions-GPIOs einschließlich Sensorik, I²C, SPI und SLEEP, zusätzlich zwei UART0-Pins und G2 für Diagnose. Keine Doppelbelegung. Die normalen, frei nutzbaren Ausgangspins sind damit verplant.
 
@@ -66,9 +66,9 @@ GPIO-Zahlen sind **GPIO-Nummern, keine Steckerpositionsnummern**. Die beiden rei
 | Endschalter Gegenseite/links / G39 | **10 kΩ Pull-up an 3,3 V** | HIGH |
 | I²C SDA / G21 | **4,7 kΩ Pull-up an 3,3 V, einmal je Bus** | HIGH |
 | I²C SCL / G22 | **4,7 kΩ Pull-up an 3,3 V, einmal je Bus** | HIGH |
-| SPI !CS_DISPLAY / G16 | **10 kΩ Pull-up an 3,3 V** | HIGH: Display abgewählt |
-| SPI !CS_EXPANDER / G17 | **10 kΩ Pull-up an 3,3 V** | HIGH: MCP23S17 abgewählt |
-| SPI Display D/C / G33 | **10 kΩ Pull-down an GND** | LOW: definierter Startpegel |
+| SPI !CS_DISPLAY / G16 🟡 | **10 kΩ Pull-up an 3,3 V** | HIGH: Display abgewählt |
+| SPI !CS_EXPANDER / G17 🟡| **10 kΩ Pull-up an 3,3 V** | HIGH: MCP23S17 abgewählt |
+| SPI Display D/C / G33 🟡| **10 kΩ Pull-down an GND** | LOW: definierter Startpegel |
 
 ## HW3-Motortreiber: Diagnose-LEDs und Farben
 
