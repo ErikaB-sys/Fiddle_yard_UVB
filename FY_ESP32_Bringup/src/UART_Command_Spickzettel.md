@@ -43,7 +43,7 @@ Kalibrierwerte bleiben nach STOP erhalten; aktuelle Referenzgültigkeit und Posi
 | GET_STATUS Motor | 19 | `STATUS 20` | 🟢 | Antwort 50, ENABLE/MOVING plus MotorState; IDLE nach Fahrt dokumentiert. |
 | GET_STATUS Referenz | 19 | `STATUS 30` | 🟢 | Antwort 30: 00 ungültig, 01 echt, 02 FAKE. FAKE-Wert dokumentiert. |
 | GET_STATUS System | 19 | `STATUS 10` | 🟡 | Antwort 10 noch fester Wert 04/INIT; tatsächliche Init-/Fehlerflags anschließen. |
-| GET_STATUS Sensoren | 19 | `STATUS 40` | 🟢 **HW3** | Muninn liest G36/39/34 (LSL/LSR/LSREF), initial einmal und danach nur bei Pegeländerung. Eigene 1-Slot-Overwrite-Queue; Huginn antwortet `41 <Snapshot> <CRC>` ohne selbst GPIOs zu lesen. G35/LS4 reserviert, unbeschaltet. |
+| GET_STATUS Sensoren | 19 | `STATUS 40` | 🟢 **HW3** | Muninn liest G36/39/34/35 (LSL/LSR/LSREF/LS4), initial einmal und danach nur bei Pegeländerung. Eigene 1-Slot-Overwrite-Queue; Huginn antwortet `41 <Snapshot> <CRC>`. G35 ist informativer Riemenspannungseingang ohne ISR-Eingriff; HIGH→LOW auf HW3 geprüft. |
 | GET_STATUS Keyboard | 19 | `STATUS 50` | 🟠 | Antwort 51 mit 0=nicht verbunden; I²C-Keyboard-Code fehlt. |
 | GET_ERROR / ERROR | 1A | `ERROR` | 🟡 | Antwort F0, Systembyte + drei Fehlerbytes; UART-Fehler vorhanden, zentrale Motor-/Sensoraggregation fehlt. |
 | GET_TRACK / TRACK | 23 | `TRACK 00` | 🟢 Ist-Abfrage | Ziel/fährt/erreicht geprüft. Während Fahrt setzt Code bestätigtes Gleis auf 0; Bedeutung gegenüber alter letzter Bestätigung noch in [#156](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/156) klären. |
@@ -95,13 +95,13 @@ Gemessene Tracktabelle in **1/4-Schritt-Koordinaten**: BG1 1557, BG2 3157, **BG3
 
 **Noch offen:** echter PlatformIO-Build, physische Tests beider Sensorfolgen, vorab definierte Ausfallbegrenzung bei defekten Sensoren, persistente Kalibrierung/CRC und die produktive Freigabe der absoluten Gleisfahrt. Das implizite Limit des STEP-Zählertyps ist **kein** sicherheitstechnischer Timeout/Ersatz für den Endanschlag.
 
-### HW3-Sensor-Snapshot (im Code, Hardwaretest offen)
+### HW3-Sensor-Snapshot (G35/LS4 am 27.10.2026 hardwaregeprüft)
 
 `status 40` fragt Huginns zuletzt empfangenen Sensorstatus ab. Muninn sendet beim ersten Einlesen **einmal den vollständigen Rohzustand**, danach ausschließlich bei Änderung. Transport: **eigene Queue der Länge 1** mit `xQueueOverwrite()`, unabhängig von Motorantworten.
 
-Antwort `STATUS_Switches = 0x41` mit **einem Datenbyte**: Bit 0 G36/Motorseite (Code `LSL`, neu rechts), Bit 1 G39/Gegenseite (Code `LSR`, neu links), Bit 2 LSREF/G34, Bit 3 LS4/G35 (**noch nicht angeschlossen, deshalb 0**). Bits 4..7: Änderungszähler **0..E**, `F` für zukünftige Fehler reserviert. Bits zeigen Rohpegel (HIGH=1); elektrische Aktiv-Polarität an HW3 prüfen. Ohne Initial-Snapshot gibt `status 40` `NOT_READY` zurück, **nicht** fälschlich alle Sensoren frei.
+Antwort `STATUS_Switches = 0x41` mit **einem Datenbyte**: Bit 0 G36/Motorseite (Code `LSL`, neu rechts), Bit 1 G39/Gegenseite (Code `LSR`, neu links), Bit 2 LSREF/G34, Bit 3 LS4/G35 (**Riemenspannung, informativ, HW3-geprüft**). Bits 4..7: Änderungszähler **0..E**, `F` für zukünftige Fehler reserviert. Bits zeigen Rohpegel (HIGH=1); elektrische Aktiv-Polarität an HW3 prüfen. Ohne Initial-Snapshot gibt `status 40` `NOT_READY` zurück, **nicht** fälschlich alle Sensoren frei.
 
-**KISS-Hardwaretest:** `status 40` zuerst im Ruhezustand und anschließend nach einzelnem Auslösen von LSL, LSR und LSREF abfragen. Jede Änderung muss das jeweilige Bit und den Zähler beeinflussen. **Noch keine Fahrfreigabe, Endlagenabschaltung oder reale Referenzfahrt:** Muninns lokale Sicherheitseingriffe werden separat implementiert und getestet.
+**KISS-Hardwaretest:** `status 40` zuerst im Ruhezustand und anschließend nach einzelnem Auslösen von LSL, LSR und LSREF abfragen. Jede Änderung muss das jeweilige Bit und den Zähler beeinflussen. Die Riemenspannungsanzeige G35 beeinflusst weder Fahrfreigabe noch ISR; Endlagen- und Referenzfunktionen sind separat zu prüfen.
 
 ### HW3: STEP/ENABLE-GPIO-Tausch und einmalige SLEEP-Startfreigabe (23.10.2026)
 
@@ -145,3 +145,7 @@ Huginn validiert → typisierte Queue → Muninn prüft Betriebsbedingungen/Prep
 | Grenzen / Fehler | 🟡 Testbereich / 🟠 real | Fahrraum/Sensoren [#155](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/155), Fehlertransport [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152)/[#158](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/158). |
 
 Die alten Nano-Detailissues sind am 24.10. abgeschlossen oder in die aktuellen Fachissues übernommen worden. Ihre Zustände bedeuten nicht, dass alle dort ursprünglich beschriebenen Nano-Tests bestanden seien. Die Zuordnung und verbleibenden Fragen stehen in [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150).
+
+### Nachweis Riemenspannungssensor G35 – 27.10.2026
+
+`STATUS 40` vor Betätigung: `41 08 F8` (G35 HIGH, Änderungszähler 0). Nach Betätigung: `41 10 B0` (G35 LOW, Änderungszähler 1). Damit ist Bit 3 und die Änderungszählung über die echte HW3-UART nachgewiesen. Freigabe LOW→HIGH im gezeigten Log nicht separat enthalten. Nur Statusinformation aus der Muninn-Hauptschleife, **kein STEP-ISR-Sensor und keine Fahrverriegelung**.
