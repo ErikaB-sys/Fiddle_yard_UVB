@@ -479,6 +479,14 @@ bool Muninn_isMoving() {
     return motorMoving.load(std::memory_order_acquire);
 }
 
+uint8_t Muninn_motionDirectionSnapshot() {
+    if (!motorMoving.load(std::memory_order_acquire) || !stepTimerRunning())
+        return 0U;
+    // HW3: DIR HIGH fährt vom Motor weg (= physisch links/G39).
+    // DIR LOW fährt zur Motorseite (= physisch rechts/G36).
+    return digitalRead(MOTOR_DIR_PIN) == HIGH ? 1U : 2U;
+}
+
 uint32_t Muninn_positionSnapshot() {
     return positionSnapshot.load(std::memory_order_acquire);
 }
