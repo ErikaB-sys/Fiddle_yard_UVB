@@ -22,6 +22,8 @@ uint32_t kbLastChangeMs = 0U;
 uint32_t kbLastPollMs = 0U;
 uint32_t kbSplashAt = 0U;
 bool kbSplashDone = false;
+bool kbStartReleased = false;
+bool kbStartWarningShown = false;
 BringupContext* kbContext = nullptr;
 enum class Menu { LOCKED, UNLOCK, ENABLE, REF_MENU, REF_RUN, TRACK_MENU, TRACK_RUN, ERROR };
 Menu kbMenu = Menu::LOCKED;
@@ -82,6 +84,18 @@ void keyboardWriteLeds(uint8_t activeButtons) {
     Wire.beginTransmission(KB_PCF_ADDRESS);
     Wire.write(desired);
     if (Wire.endTransmission() == 0U) kbLedByte = desired;
+}
+
+/** @brief Fordert beim Systemstart die gleichzeitige Ruhelage aller Tasten an. */
+void keyboardShowReleaseHint() {
+    if (!kbOledReady) return;
+    kbDisplay.clearDisplay();
+    kbDisplay.setCursor(0, 0);
+    kbDisplay.println(F("FY UVB / LOCAL"));
+    kbDisplay.println(F("Tasten gedrueckt!"));
+    kbDisplay.println(F("Bitte alle Tasten"));
+    kbDisplay.println(F("loslassen"));
+    kbDisplay.display();
 }
 
 // LEDs zeigen den echten Betriebszustand statt nur den Tastendruck.
@@ -176,6 +190,24 @@ void keyboardTestPoll() {
     uint8_t active = 0U;
     for (uint8_t i = 0U; i < 4U; ++i) {
         if ((raw & (1U << KB_BUTTON_BITS[i])) == 0U) active |= static_cast<uint8_t>(1U << i);
+    }
+    // Vor der ersten Bedienflanke muessen alle vier Tasten gleichzeitig frei sein.
+    // Absoluter Pegel statt einer Flankenerkennung: gehaltene Starttasten
+    // koennen damit weder STOP noch Freigabe- oder Menueaktionen ausloesen.
+    if (!kbStartReleased) {
+        if (active != 0U) {
+            if (!kbStartWarningShown) {
+                keyboardShowReleaseHint();
+                kbStartWarningShown = true;
+            }
+            return;
+        }
+        kbStartReleased = true;
+        kbLastRaw = 0U;
+        kbStable = 0U;
+        kbLastChangeMs = now;
+        keyboardShow(0U);
+        return;
     }
     if (active != kbLastRaw) {
         kbLastRaw = active;
