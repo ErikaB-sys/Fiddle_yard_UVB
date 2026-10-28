@@ -1,6 +1,6 @@
 # Keyboard und OLED – Bedienvertrag
 
-**Cleanup #177:** GESCANNT ✅ · GEÄNDERT (KB-07) ✅ · GEPRÜFT ⏳ (Build und HW-Test offen).
+**Cleanup #177:** GESCANNT ✅ · GEÄNDERT (KB-01/02/03/07/11) ✅ · GEPRÜFT ⏳ (Build und HW-Test offen).
 
 Die lokale Bedienung besteht aus **vier LED-Tasten**, einem **PCF8574 (I²C `0x27`)** und einem **SSD1306-OLED (128×32, I²C `0x3C`)**. SDA = GPIO21, SCL = GPIO22, 100 kHz. Das Keyboard steuert **keine Motor-GPIOs direkt**: Es gibt decodierte Befehle über die vorhandenen Muninn-Queues ab. Die Motorsteuerung entscheidet über die Ausführung.
 
@@ -62,3 +62,15 @@ stateDiagram-v2
 **Quellen:** [Keyboard.cpp](../../lib/Keyboard/Keyboard.cpp), [Motor.cpp](../../lib/Motor/Motor.cpp), [Pinout](../pinouts/01_PINOUT_ESP32.md), [UART-Vertrag](../../src/UART_Command_Spickzettel.md).
 
 **Zugehörige Issues:** [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157), [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152), [#166](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/166), [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
+
+## Cleanup-Entscheidungen (28.10.2026)
+
+- **KB-01:** Test-Helfernamen in `keyboardHardwareBegin()` und `keyboardScanButtons()` umbenannt; rein interne Funktionen.
+- **KB-02:** Unbenutzten Parameter `activeButtons` aus `keyboardShow()` samt sämtlichen Aufrufen entfernt.
+- **KB-03:** Nur geschriebene, niemals ausgewertete Variable `kbRunAt` entfernt.
+- **KB-07:** Start erst nach gleichzeitigem Ruhezustand aller vier Tasten; an HW3 vom Anwender erfolgreich geprüft.
+- **KB-11:** Deutsche Doxygen-Verträge an den bearbeiteten Funktionen ergänzt.
+- **Behalten:** Entprellwerte, Sequenz-/Wartezustände, lokale Zielgleiswahl und LED-Schreibcache erfüllen unterschiedliche Aufgaben.
+- **Zurückgestellt:** KB-08 (ausbleibende Antwort), KB-09 (STOP-Prioritätsqueue-Grenzfälle) → #171; KB-10 (Initialisierungsreihenfolge) → #172; KB-12 (Snapshot-Design) → #173.
+
+Die Änderungen ab KB-01/02/03/11 sind noch **nicht lokal gebaut oder hardwaregeprüft**; `GEPRÜFT` bleibt offen. Übergreifender Merge erst nach Abschluss der Cleanup-Reihe.
