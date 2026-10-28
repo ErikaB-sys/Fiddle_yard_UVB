@@ -32,11 +32,17 @@ uint8_t kbTrack = 3U;
 uint32_t kbSeq = 0U;
 uint32_t kbAwaitSeq = 0U;
 bool kbWaiting = false;
-uint32_t kbRunAt = 0U;
 
-void keyboardShow(uint8_t activeButtons);
+void keyboardShow();
 
 // Lokale Telegramme erhalten das High-Bit als Quellenkennung.
+/** @brief Sendet einen lokalen Auftrag über die passende Muninn-Queue.
+ *  @param id Protokoll-ID des Auftrags.
+ *  @param a Erstes Datenbyte.
+ *  @param b Zweites Datenbyte.
+ *  @param priority Verwendet bei true die Prioritätsqueue.
+ *  @return true, wenn die Nachricht eingereiht wurde.
+ */
 bool sendLocal(uint8_t id, uint8_t a, uint8_t b, bool priority) {
     if (kbWaiting || kbContext == nullptr) return false;
     CommandMessage msg{};
@@ -49,11 +55,11 @@ bool sendLocal(uint8_t id, uint8_t a, uint8_t b, bool priority) {
     if (q == nullptr || xQueueSend(q, &msg, 0) != pdTRUE) return false;
     kbAwaitSeq = msg.sequence;
     kbWaiting = true;
-    kbRunAt = millis();
     return true;
 }
 
 // Antwort nur aus der dem Keyboard zugeteilten Queue lesen.
+/** @brief Verarbeitet korrelierte ACK/NACK-Antworten des lokalen Bedienauftrags. */
 void pollLocalReply() {
     if (kbContext == nullptr || kbContext->keyboardEvents == nullptr) return;
     MotorEvent reply{};
@@ -68,11 +74,13 @@ void pollLocalReply() {
         } else if (kbMenu == Menu::ENABLE) {
             kbMenu = Menu::REF_MENU;
         }
-        keyboardShow(0U);
+        keyboardShow();
     }
 }
 
-// @brief Schreibt LED-Zustände; alle vier Tasterleitungen bleiben HIGH.
+/** @brief Aktualisiert die PCF8574-LED-Ausgänge und belässt Tasteneingänge auf HIGH.
+ *  @param activeButtons LED-Bitmaske der vier Tastenplätze.
+ */
 void keyboardWriteLeds(uint8_t activeButtons) {
     uint8_t desired = 0xFFU;
     for (uint8_t i = 0U; i < 4U; ++i) {
@@ -100,6 +108,7 @@ void keyboardShowReleaseHint() {
 
 // LEDs zeigen den echten Betriebszustand statt nur den Tastendruck.
 // Bei Bewegung hat die entsprechende blaue Richtungs-LED Vorrang.
+/** @brief Überträgt STOP-, Treiber- und Richtungssnapshots auf die LEDs. */
 void updateStatusLeds() {
     if (!kbPcfReady || !kbSplashDone) return;
     uint8_t leds = 0U;
@@ -111,8 +120,8 @@ void updateStatusLeds() {
     keyboardWriteLeds(leds);
 }
 
-// @brief Zeigt die lokale Menüführung auf dem SSD1306 an.
-void keyboardShow(uint8_t activeButtons) {
+/** @brief Stellt den aktuellen lokalen Menüzustand am OLED dar. */
+void keyboardShow() {
     if (!kbOledReady) return;
     kbDisplay.clearDisplay();
     kbDisplay.setCursor(0, 0);
@@ -145,8 +154,10 @@ void keyboardShow(uint8_t activeButtons) {
 
 }
 
-// @brief Initialisiert I2C-Geräte und das fünfsekündige Startbild.
-void keyboardTestBegin() {
+/** @brief Prüft I2C-Geräte und zeigt das fünfsekündige Startbild an.
+ *  @note Erwartet einen bereits initialisierten Wire-Bus.
+ */
+void keyboardHardwareBegin() {
     Wire.beginTransmission(KB_PCF_ADDRESS);
     kbPcfReady = (Wire.endTransmission() == 0U);
     if (kbPcfReady) {
@@ -175,12 +186,14 @@ void keyboardTestBegin() {
     kbSplashAt = millis();
 }
 
-// @brief Entprellt Tasten alle 25 ms und verwirft ungültige Bedienfolgen.
-void keyboardTestPoll() {
+/** @brief Liest und entprellt Tasten zyklisch und verarbeitet gültige Bedienflanken.
+ *  @note Beim Start wird zunächst die gleichzeitige Ruhelage aller Tasten verlangt.
+ */
+void keyboardScanButtons() {
     const uint32_t now = millis();
     if (!kbSplashDone && now - kbSplashAt >= 5000U) {
         kbSplashDone = true;
-        keyboardShow(0U);
+        keyboardShow();
     }
     if (!kbPcfReady || !kbSplashDone) return;
     if ((now - kbLastPollMs) < 25U) return;
@@ -206,7 +219,7 @@ void keyboardTestPoll() {
         kbLastRaw = 0U;
         kbStable = 0U;
         kbLastChangeMs = now;
-        keyboardShow(0U);
+        keyboardShow();
         return;
     }
     if (active != kbLastRaw) {
@@ -252,9 +265,10 @@ void keyboardTestPoll() {
             }
         }
     }
-    keyboardShow(active);
+    keyboardShow();
 }
 
+/** @brief Prüft den bestätigten Fahrtabschluss und schaltet das Menü weiter. */
 void progress() {
     if (kbWaiting) return;
     const auto state = Muninn_motorState();
@@ -264,25 +278,30 @@ void progress() {
             ((track >> 8U) & 0xFFU) == 3U &&
             ((track >> 16U) & 0xFFU) == TRACK_STATUS_REACHED &&
             !Muninn_isMoving() && state == MotorState_t::IDLE) {
-            kbTrack = 3U; kbMenu = Menu::TRACK_MENU; keyboardShow(0U);
+            kbTrack = 3U; kbMenu = Menu::TRACK_MENU; keyboardShow();
         } else if (state == MotorState_t::ERROR) {
-            kbMenu = Menu::ERROR; keyboardShow(0U);
+            kbMenu = Menu::ERROR; keyboardShow();
         }
     } else if (kbMenu == Menu::TRACK_RUN) {
         if (state == MotorState_t::ERROR) {
-            kbMenu = Menu::ERROR; keyboardShow(0U);
+            kbMenu = Menu::ERROR; keyboardShow();
         } else if (!Muninn_isMoving() && state == MotorState_t::IDLE &&
                    ((track >> 8U) & 0xFFU) == kbTrack &&
                    ((track >> 16U) & 0xFFU) == TRACK_STATUS_REACHED) {
-            kbMenu = Menu::TRACK_MENU; keyboardShow(0U);
+            kbMenu = Menu::TRACK_MENU; keyboardShow();
         }
     }
 }
 } // namespace
 
-/** @brief Initialisiert das I2C-Keyboard mit eigenem Kommando-Rückkanal. */
-void Keyboard_begin(BringupContext* context) { kbContext = context; keyboardTestBegin(); }
+/** @brief Initialisiert I2C-Keyboard und lokalen Befehlsrückkanal.
+ *  @param context Gemeinsamer Kontext mit Befehls- und Antwortqueues.
+ *  @note Der Kontext muss während der gesamten Betriebszeit gültig bleiben.
+ */
+void Keyboard_begin(BringupContext* context) { kbContext = context; keyboardHardwareBegin(); }
 
-/** @brief Verarbeitet lokale Bedienung und Muninn-Status. */
-void Keyboard_poll() { pollLocalReply(); keyboardTestPoll(); progress(); updateStatusLeds(); }
+/** @brief Pollt lokale Antworten, Tasten, Fahrstatus und LEDs.
+ *  @note Regelmäßig aus dem Arduino-Hauptloop aufrufen; kein direkter Motor-GPIO-Zugriff.
+ */
+void Keyboard_poll() { pollLocalReply(); keyboardScanButtons(); progress(); updateStatusLeds(); }
 } // namespace fy
