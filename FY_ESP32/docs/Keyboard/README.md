@@ -1,5 +1,7 @@
 # Keyboard und OLED – Bedienvertrag
 
+**Cleanup #177:** GESCANNT ✅ · GEÄNDERT (KB-07) ✅ · GEPRÜFT ⏳ (Build und HW-Test offen).
+
 Die lokale Bedienung besteht aus **vier LED-Tasten**, einem **PCF8574 (I²C `0x27`)** und einem **SSD1306-OLED (128×32, I²C `0x3C`)**. SDA = GPIO21, SCL = GPIO22, 100 kHz. Das Keyboard steuert **keine Motor-GPIOs direkt**: Es gibt decodierte Befehle über die vorhandenen Muninn-Queues ab. Die Motorsteuerung entscheidet über die Ausführung.
 
 ## Was kann das Keyboard?
@@ -14,7 +16,7 @@ Die lokale Bedienung besteht aus **vier LED-Tasten**, einem **PCF8574 (I²C `0x2
 | GO in Gleiswahl | Zielgleis anfahren |
 | Andere Mehrfachbetätigungen | Keine Fahrt auslösen |
 
-Beim Einschalten sind STOP und Motorfreigabe verriegelt. Das Startbild steht fünf Sekunden, anschließend erscheint die LOCAL-Bedienung. Ein angenommener Befehl ist noch keine abgeschlossene Bewegung: Die Bedienung wartet auf die von Muninn bestätigte BG3-Ankunft beziehungsweise Gleiserreichung.
+Beim Einschalten sind STOP und Motorfreigabe verriegelt. Das Startbild steht fünf Sekunden. Danach muss **einmal ein gleichzeitig freier Pegel aller vier Tasten** erkannt werden, bevor Tastenflanken verarbeitet werden. Wenn noch eine Taste gedrückt ist, erscheint „Tasten gedrueckt! Bitte alle Tasten loslassen“. Erst nach dem Loslassen erscheint die LOCAL-Bedienung. Ein angenommener Befehl ist noch keine abgeschlossene Bewegung: Die Bedienung wartet auf die von Muninn bestätigte BG3-Ankunft beziehungsweise Gleiserreichung.
 
 **LEDs:** Rot zeigt den Motorzustand STOPPED, Grün den aktivierten Motortreiber. Blau LINKS beziehungsweise RECHTS folgt der wirklichen DIR-Richtung bei laufendem STEP-Timer. Die Richtungen sind aus Sicht der Einfahrt definiert: LINKS = G39, RECHTS/Motorseite = G36. Beim Blick von der Motorseite wirken sie spiegelbildlich.
 
