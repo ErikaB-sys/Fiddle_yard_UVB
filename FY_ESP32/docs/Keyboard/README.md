@@ -82,6 +82,6 @@ Branch: `experiment/FY_ESP32_U8g2` (Basis: `feature/FY_ESP32_Cleanup`). Ziel: al
 
 - Display: SSD1306 **128×32**, I²C-Adresse `0x3C`, U8g2-Konstruktor `U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C`, Drehung `U8G2_R2`.
 - `Wire` / PCF8574 und alle Keyboard-Kommandos bleiben unverändert. U8g2 prüft beim `begin()` allein nicht zuverlässig die OLED-Anwesenheit; daher wird zuvor der I²C-ACK geprüft.
-- Schrift: `u8g2_font_helvB08_tr` (Helvetica Bold, 8 Pixel), vier Zeilen ab y=0/8/16/24. Gegenüber 5×8 soll sie etwas kräftiger und höher wirken. **HW-Test dieser Schrift noch offen.**
+- Schrift: `u8g2_font_5x8_tr`, vier Zeilen ab y=0/8/16/24. Anwendervergleich am OLED: klar und lesbar; die größere Helvetica-Bold-Schrift wurde als zu groß und zu kräftig verworfen.
 - **Noch offen:** Clean Build; Boot-/Splashbild, 180°-Drehung, alle Menüs, Textlängen, gedrückte Starttasten sowie Keyboard-STOP und Freigabe auf HW3 testen.
 - Bei Problemen **Testbranch verwerfen**, normal auf `feature/FY_ESP32_Cleanup` weiterarbeiten. Nur bei bestandenem Test die beiden Code-/Abhängigkeitsänderungen gezielt übernehmen; den Testbranch nicht automatisch nach `main` mergen.
