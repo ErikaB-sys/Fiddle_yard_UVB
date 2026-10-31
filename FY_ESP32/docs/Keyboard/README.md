@@ -1,7 +1,7 @@
-# Keyboard und OLED – Bedienvertrag
+# Keyboard und OLED – Lokale Bedienung
 
-**Cleanup #177:** GESCANNT ✅ · GEÄNDERT (KB-01/02/03/07/11) ✅ · GEPRÜFT ⏳ (Build und HW-Test offen).  
-**OLED-Bibliothek:** U8g2 mit `u8g2_font_5x8_tr` ersetzt Adafruit GFX/SSD1306. Lesbarkeit und Schriftwahl am echten OLED bestätigt; vollständiger Keyboard-Regressionstest noch offen.
+**Modulstatus:** GESCANNT ✅ · GEÄNDERT ✅ · GEPRÜFT ✅. Erfolgreicher PlatformIO-Build und Funktionstest an HW3 bestätigt; einschließlich STOP während Gleis-zu-Gleis-Fahrten. Die anschließende reine Startbild-Textänderung und die Doxygen-Ergänzung wurden noch nicht separat erneut gebaut.
+
 
 Die lokale Bedienung besteht aus **vier LED-Tasten**, einem **PCF8574 (I²C `0x27`)** und einem **SSD1306-OLED (128×32, I²C `0x3C`)**. SDA = GPIO21, SCL = GPIO22, 100 kHz. Das Keyboard steuert **keine Motor-GPIOs direkt**: Es gibt decodierte Befehle über die vorhandenen Muninn-Queues ab. Die Motorsteuerung entscheidet über die Ausführung.
 
@@ -17,7 +17,7 @@ Die lokale Bedienung besteht aus **vier LED-Tasten**, einem **PCF8574 (I²C `0x2
 | GO in Gleiswahl | Zielgleis anfahren |
 | Andere Mehrfachbetätigungen | Keine Fahrt auslösen |
 
-Beim Einschalten sind STOP und Motorfreigabe verriegelt. Das Startbild steht fünf Sekunden. Danach muss **einmal ein gleichzeitig freier Pegel aller vier Tasten** erkannt werden, bevor Tastenflanken verarbeitet werden. Wenn noch eine Taste gedrückt ist, erscheint „Tasten gedrueckt! Bitte alle Tasten loslassen“. Erst nach dem Loslassen erscheint die LOCAL-Bedienung. Ein angenommener Befehl ist noch keine abgeschlossene Bewegung: Die Bedienung wartet auf die von Muninn bestätigte BG3-Ankunft beziehungsweise Gleiserreichung.
+Beim Einschalten sind STOP und Motorfreigabe verriegelt. Das fünfsekündige Startbild zeigt „FY UVB / LOCAL“, „ESP32 / HW3“, „Start in 5 Sek.“ und „Tasten loslassen“. Danach muss **einmal ein gleichzeitig freier Pegel aller vier Tasten** erkannt werden, bevor Tastenflanken verarbeitet werden. Wenn noch eine Taste gedrückt ist, erscheint „Tasten gedrueckt! Bitte alle Tasten loslassen“. Erst nach dem Loslassen erscheint die LOCAL-Bedienung. Ein angenommener Befehl ist noch keine abgeschlossene Bewegung: Die Bedienung wartet auf die von Muninn bestätigte BG3-Ankunft beziehungsweise Gleiserreichung.
 
 **LEDs:** Rot zeigt den Motorzustand STOPPED, Grün den aktivierten Motortreiber. Blau LINKS beziehungsweise RECHTS folgt der wirklichen DIR-Richtung bei laufendem STEP-Timer. Die Richtungen sind aus Sicht der Einfahrt definiert: LINKS = G39, RECHTS/Motorseite = G36. Beim Blick von der Motorseite wirken sie spiegelbildlich.
 
@@ -58,28 +58,24 @@ stateDiagram-v2
     GLEISFAHRT --> STOP_VERRIEGELT: STOP
 ```
 
-**Nicht Bestandteil von 2.0.0:** Wechsel LOCAL/REMOTE, Bildschirm für REMOTE, 2-Hz-Blinkanzeige, Hot-Plug und WRITE2KEYBOARD. Ein abgezogenes Keyboard wird aktuell noch **nicht** automatisch als Betriebsartenwechsel behandelt. Für einen fehlenden/festhängenden I²C-Bus gibt es noch keinen geprüften Hot-Plug-Vertrag.
+**Derzeit nicht umgesetzt:** Wechsel LOCAL/REMOTE, Bildschirm für REMOTE, 2-Hz-Blinkanzeige, Hot-Plug und WRITE2KEYBOARD. Ein abgezogenes Keyboard wird aktuell noch **nicht** automatisch als Betriebsartenwechsel behandelt. Für einen fehlenden/festhängenden I²C-Bus gibt es noch keinen geprüften Hot-Plug-Vertrag.
 
 **Quellen:** [Keyboard.cpp](../../lib/Keyboard/Keyboard.cpp), [Motor.cpp](../../lib/Motor/Motor.cpp), [Pinout](../pinouts/01_PINOUT_ESP32.md), [UART-Vertrag](../../src/UART_Command_Spickzettel.md).
 
 **Zugehörige Issues:** [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157), [#152](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/152), [#166](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/166), [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
 
-## Cleanup-Entscheidungen (28.10.2026)
+## Hardware und Umsetzung
 
-- **KB-01:** Test-Helfernamen in `keyboardHardwareBegin()` und `keyboardScanButtons()` umbenannt; rein interne Funktionen.
-- **KB-02:** Unbenutzten Parameter `activeButtons` aus `keyboardShow()` samt sämtlichen Aufrufen entfernt.
-- **KB-03:** Nur geschriebene, niemals ausgewertete Variable `kbRunAt` entfernt.
-- **KB-07:** Start erst nach gleichzeitigem Ruhezustand aller vier Tasten; an HW3 vom Anwender erfolgreich geprüft.
-- **KB-11:** Deutsche Doxygen-Verträge an den bearbeiteten Funktionen ergänzt.
-- **Behalten:** Entprellwerte, Sequenz-/Wartezustände, lokale Zielgleiswahl und LED-Schreibcache erfüllen unterschiedliche Aufgaben.
-- **Zurückgestellt:** KB-08 (ausbleibende Antwort), KB-09 (STOP-Prioritätsqueue-Grenzfälle) → #171; KB-10 (Initialisierungsreihenfolge) → #172; KB-12 (Snapshot-Design) → #173.
+| Bestandteil | Implementierung |
+|---|---|
+| Vier LED-Tasten | PCF8574, I²C-Adresse `0x27` |
+| OLED | SSD1306 128×32, I²C-Adresse `0x3C` |
+| I²C-Bus | SDA GPIO21, SCL GPIO22, 100 kHz |
+| Anzeige | U8g2, `u8g2_font_5x8_tr`, vier Zeilen mit y = 0/8/16/24 |
+| Ausrichtung | `U8G2_R2` (180° gedreht) |
+| Entprellung | 25 ms Poll- und Stabilitätsintervall |
+| Kommunikation | `CommandMessage` an Muninn-Queues; lokale Antworten über `keyboardEvents` |
 
-Die Änderungen ab KB-01/02/03/11 sind noch **nicht lokal gebaut oder hardwaregeprüft**; `GEPRÜFT` bleibt offen. Übergreifender Merge erst nach Abschluss der Cleanup-Reihe.
+Der Keyboard-Code besitzt ausschließlich die Bedien-, Auswahl- und Entprellzustände. Motorzustand, Bewegung und bestätigte Zielposition werden aus Muninn-Snapshots gelesen. Die grüne und die roten/blauen Tasten-LEDs werden entsprechend dem tatsächlichen Betriebszustand angesteuert; die Motor-GPIOs bleiben ausschließlich bei Muninn.
 
-## OLED-Ausgabe mit U8g2
-
-- Display: SSD1306 **128×32**, I²C-Adresse `0x3C`, U8g2-Konstruktor `U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C`, Drehung `U8G2_R2`.
-- `Wire` / PCF8574 und alle Keyboard-Kommandos bleiben unverändert. U8g2 prüft beim `begin()` allein nicht zuverlässig die OLED-Anwesenheit; daher wird zuvor der I²C-ACK geprüft.
-- Schrift: `u8g2_font_5x8_tr`, vier Zeilen ab y=0/8/16/24. Anwendervergleich am OLED: klar und lesbar; die größere Helvetica-Bold-Schrift wurde als zu groß und zu kräftig verworfen.
-- **Prüfung:** OLED-Schriftwahl am HW3 geprüft. Ein abschließender Clean Build und der Regressionstest für Menüs, Starttasten, STOP und Freigabe bleiben bis zur Modulfreigabe offen.
-- Der Font-Vergleich ist abgeschlossen. Das aktuelle Layout bleibt mit `5x8` bestehen; eine größere Helvetica-Bold-Schrift wurde verworfen.
+**Systemgrenzen:** Die Initialisierungsreihenfolge in `main.cpp` wird im [System-Cleanup #172](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/172) behandelt. Snapshot-Abfragen gehören zum [Motor-Cleanup #173](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/173). Ausbleibende Antworten und Grenzfälle der STOP-Priorisierung bleiben im [Test-Issue #171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171). Historische Cleanup-Entscheidungen und das Font-Experiment stehen in [#177](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/177).
