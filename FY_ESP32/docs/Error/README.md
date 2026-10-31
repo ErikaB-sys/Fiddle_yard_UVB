@@ -1,6 +1,6 @@
 # Error – Fehler und Diagnose (FY ESP32)
 
-**Cleanup #178:** GESCANNT ✅ · GEÄNDERT ✅ · GEPRÜFT ⏳ (Build und Regression noch offen).
+**Cleanup #178:** GESCANNT ✅ · GEÄNDERT ✅ · GEPRÜFT ⏳ (PlatformIO-Build vom Anwender erfolgreich; gezielter UART-Funktionstest noch offen).
 
 ## Fehlercode und Fehlerspeicher
 
