@@ -1,6 +1,6 @@
 # Error – Fehler und Diagnose (FY ESP32)
 
-**Cleanup #178:** GESCANNT ✅ · GEÄNDERT ✅ · GEPRÜFT ⏳ (PlatformIO-Build vom Anwender erfolgreich; gezielter UART-Funktionstest noch offen).
+**Cleanup #178:** GESCANNT ✅ · GEÄNDERT ✅ · GEPRÜFT ✅ (PlatformIO-Build und UART-Regressionsprüfung am 31.10.2026 bestätigt: GET_ERROR leer → ungültige Eingabe/NACK → GET_ERROR enthält Fehler `0x16`).
 
 ## Fehlercode und Fehlerspeicher
 
