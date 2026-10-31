@@ -1,5 +1,7 @@
 # Fehler und Diagnose – ESP32
 
+**Cleanup #178:** GESCANNT ✅ · GEÄNDERT ⏳ · GEPRÜFT ⏳. Befunde und offene Entscheidungen sind in [#178](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/178) dokumentiert. Das untenstehende Motor-/Sensor-/NVM-Diagramm ist noch ein Zielbild, **nicht** der tatsächliche zentrale Fehlerdatenfluss.
+
 Die UART-Implementierung hält ihre eigenen Parser-/Telegrammfehler in einer `Error`-Instanz. `GET_ERROR` liefert das dort hinterlegte Systembyte und drei Fehlerbytes. Ein abgelehnter Auftrag liefert **NACK (0x70)**, dessen oberes Halbbyte den Ort und dessen unteres den Ablehnungsgrund trägt.
 
 **Grenze:** Der aktuelle `GET_ERROR`-Pfad stellt **keine nachgewiesen vollständige, Core-übergreifende Fehleraggregation** aller Motor-/Sensor-/NVM-Fehler bereit. Motorfehler werden zusätzlich über die Motor-Snapshots beziehungsweise die ACK/NACK-Auftragsantwort sichtbar. Deshalb NACK und Statusabfragen für die Host-Logik berücksichtigen.
