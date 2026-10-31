@@ -1,8 +1,7 @@
 #include "Keyboard.h"
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <U8g2lib.h>
 #include "HW_Config.h"
 #include "Motor.h"
 
@@ -12,7 +11,8 @@ constexpr uint8_t KB_PCF_ADDRESS = 0x27U;
 constexpr uint8_t KB_OLED_ADDRESS = 0x3CU;
 constexpr uint8_t KB_BUTTON_BITS[4] = {7U, 6U, 5U, 4U};
 constexpr uint8_t KB_LED_BITS[4] = {3U, 2U, 1U, 0U};
-Adafruit_SSD1306 kbDisplay(128, 32, &Wire, -1);
+// 128x32, I2C, um 180 Grad gedreht wie in der HW3-Installation.
+U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C kbDisplay(U8G2_R2, U8X8_PIN_NONE);
 bool kbOledReady = false;
 bool kbPcfReady = false;
 uint8_t kbLastRaw = 0U;
@@ -97,13 +97,12 @@ void keyboardWriteLeds(uint8_t activeButtons) {
 /** @brief Fordert beim Systemstart die gleichzeitige Ruhelage aller Tasten an. */
 void keyboardShowReleaseHint() {
     if (!kbOledReady) return;
-    kbDisplay.clearDisplay();
-    kbDisplay.setCursor(0, 0);
-    kbDisplay.println(F("FY UVB / LOCAL"));
-    kbDisplay.println(F("Tasten gedrueckt!"));
-    kbDisplay.println(F("Bitte alle Tasten"));
-    kbDisplay.println(F("loslassen"));
-    kbDisplay.display();
+    kbDisplay.clearBuffer();
+    kbDisplay.drawStr(0, 0,  "FY UVB / LOCAL");
+    kbDisplay.drawStr(0, 8,  "Tasten gedrueckt!");
+    kbDisplay.drawStr(0, 16, "Bitte alle Tasten");
+    kbDisplay.drawStr(0, 24, "loslassen");
+    kbDisplay.sendBuffer();
 }
 
 // LEDs zeigen den echten Betriebszustand statt nur den Tastendruck.
@@ -123,35 +122,33 @@ void updateStatusLeds() {
 /** @brief Stellt den aktuellen lokalen Menüzustand am OLED dar. */
 void keyboardShow() {
     if (!kbOledReady) return;
-    kbDisplay.clearDisplay();
-    kbDisplay.setCursor(0, 0);
-    kbDisplay.println(F("FY UVB / LOCAL"));
+    kbDisplay.clearBuffer();
+    kbDisplay.drawStr(0, 0, "FY UVB / LOCAL");
     if (kbMenu == Menu::LOCKED) {
-        kbDisplay.println(F("STOP verriegelt"));
-        kbDisplay.println(F("LINKS halten"));
-        kbDisplay.println(F("dann GO"));
+        kbDisplay.drawStr(0, 8,  "STOP verriegelt");
+        kbDisplay.drawStr(0, 16, "LINKS halten");
+        kbDisplay.drawStr(0, 24, "dann GO");
     } else if (kbMenu == Menu::REF_MENU) {
-        kbDisplay.print(F("REF: "));
-        kbDisplay.println(kbLongRef ? F("LONG") : F("SHORT"));
-        kbDisplay.println(F("LINKS/RECHTS Wahl"));
-        kbDisplay.println(F("GO: Start"));
+        kbDisplay.drawStr(0, 8,  kbLongRef ? "REF: LONG" : "REF: SHORT");
+        kbDisplay.drawStr(0, 16, "LINKS/RECHTS Wahl");
+        kbDisplay.drawStr(0, 24, "GO: Start");
     } else if (kbMenu == Menu::TRACK_MENU) {
-        kbDisplay.print(F("Ziel BG"));
-        kbDisplay.println(kbTrack);
-        kbDisplay.println(F("LINKS/RECHTS Wahl"));
-        kbDisplay.println(F("GO: Fahren"));
+        char trackLine[] = "Ziel BG0";
+        trackLine[7] = static_cast<char>('0' + kbTrack); // BG1..BG5
+        kbDisplay.drawStr(0, 8,  trackLine);
+        kbDisplay.drawStr(0, 16, "LINKS/RECHTS Wahl");
+        kbDisplay.drawStr(0, 24, "GO: Fahren");
     } else if (kbMenu == Menu::REF_RUN) {
-        kbDisplay.println(F("Referenzfahrt"));
-        kbDisplay.println(F("danach BG3"));
+        kbDisplay.drawStr(0, 8,  "Referenzfahrt");
+        kbDisplay.drawStr(0, 16, "danach BG3");
     } else if (kbMenu == Menu::TRACK_RUN) {
-        kbDisplay.println(F("Gleisfahrt aktiv"));
+        kbDisplay.drawStr(0, 8, "Gleisfahrt aktiv");
     } else if (kbMenu == Menu::ERROR) {
-        kbDisplay.println(F("FEHLER / STOP"));
+        kbDisplay.drawStr(0, 8, "FEHLER / STOP");
     } else {
-        kbDisplay.println(F("Motorfreigabe"));
+        kbDisplay.drawStr(0, 8, "Motorfreigabe");
     }
-    kbDisplay.display();
-
+    kbDisplay.sendBuffer();
 }
 
 /** @brief Prüft I2C-Geräte und zeigt das fünfsekündige Startbild an.
@@ -165,18 +162,24 @@ void keyboardHardwareBegin() {
         Wire.write(0xFFU);  // LEDs aus; P4..P7 als Eingänge frei
         kbPcfReady = (Wire.endTransmission() == 0U);
     }
-    kbOledReady = kbDisplay.begin(SSD1306_SWITCHCAPVCC, KB_OLED_ADDRESS);
+
+    // U8g2::begin() meldet auch ohne physisches Display Erfolg.
+    // Deshalb zuerst den tatsächlichen I2C-ACK des OLED prüfen.
+    Wire.beginTransmission(KB_OLED_ADDRESS);
+    kbOledReady = (Wire.endTransmission() == 0U);
     if (kbOledReady) {
-        kbDisplay.setRotation(2);  // HW_TEST-Orientierung
-        kbDisplay.setTextSize(1);
-        kbDisplay.setTextColor(SSD1306_WHITE);
-        kbDisplay.clearDisplay();
-        kbDisplay.setCursor(0, 0);
-        kbDisplay.println(F("Hello my friend"));
-        kbDisplay.println(F("FY ESP32 / HW3"));
-        kbDisplay.println(F("I2C OK"));
-        kbDisplay.println(F("Keyboard Test"));
-        kbDisplay.display();
+        kbDisplay.setI2CAddress(static_cast<uint8_t>(KB_OLED_ADDRESS << 1U));
+        kbOledReady = kbDisplay.begin();
+    }
+    if (kbOledReady) {
+        kbDisplay.setFont(u8g2_font_5x8_tr);
+        kbDisplay.setFontPosTop();
+        kbDisplay.clearBuffer();
+        kbDisplay.drawStr(0, 0,  "Hello my friend");
+        kbDisplay.drawStr(0, 8,  "FY ESP32 / HW3");
+        kbDisplay.drawStr(0, 16, "I2C OK");
+        kbDisplay.drawStr(0, 24, "Keyboard Test");
+        kbDisplay.sendBuffer();
     }
     Serial.print(F("KEYBOARD: PCF8574="));
     Serial.print(kbPcfReady ? F("OK") : F("ERROR"));
