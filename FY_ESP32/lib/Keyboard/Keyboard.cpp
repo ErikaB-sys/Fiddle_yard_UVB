@@ -172,7 +172,7 @@ void keyboardHardwareBegin() {
         kbOledReady = kbDisplay.begin();
     }
     if (kbOledReady) {
-        kbDisplay.setFont(u8g2_font_helvB08_tr);
+        kbDisplay.setFont(u8g2_font_5x8_tr);
         kbDisplay.setFontPosTop();
         kbDisplay.clearBuffer();
         kbDisplay.drawStr(0, 0,  "Hello my friend");
