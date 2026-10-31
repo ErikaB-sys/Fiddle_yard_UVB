@@ -1,6 +1,6 @@
 # Keyboard und OLED – Lokale Bedienung
 
-**Modulstatus:** GESCANNT ✅ · GEÄNDERT ✅ · GEPRÜFT ✅. Erfolgreicher PlatformIO-Build und Funktionstest an HW3 bestätigt; einschließlich STOP während Gleis-zu-Gleis-Fahrten. Die anschließende reine Startbild-Textänderung und die Doxygen-Ergänzung wurden noch nicht separat erneut gebaut.
+**Modulstatus:** GESCANNT ✅ · GEÄNDERT ✅ · GEPRÜFT ✅. PlatformIO-Build und Funktionstest an HW3 bestätigt, einschließlich STOP während Gleis-zu-Gleis-Fahrten. Auch das abschließend bereinigte Startbild wurde auf HW3 erfolgreich geprüft.
 
 
 Die lokale Bedienung besteht aus **vier LED-Tasten**, einem **PCF8574 (I²C `0x27`)** und einem **SSD1306-OLED (128×32, I²C `0x3C`)**. SDA = GPIO21, SCL = GPIO22, 100 kHz. Das Keyboard steuert **keine Motor-GPIOs direkt**: Es gibt decodierte Befehle über die vorhandenen Muninn-Queues ab. Die Motorsteuerung entscheidet über die Ausführung.
