@@ -175,10 +175,10 @@ void keyboardHardwareBegin() {
         kbDisplay.setFont(u8g2_font_5x8_tr);
         kbDisplay.setFontPosTop();
         kbDisplay.clearBuffer();
-        kbDisplay.drawStr(0, 0,  "Hello my friend");
-        kbDisplay.drawStr(0, 8,  "FY ESP32 / HW3");
-        kbDisplay.drawStr(0, 16, "I2C OK");
-        kbDisplay.drawStr(0, 24, "Keyboard Test");
+        kbDisplay.drawStr(0, 0,  "FY UVB / LOCAL");
+        kbDisplay.drawStr(0, 8,  "ESP32 / HW3");
+        kbDisplay.drawStr(0, 16, "Start in 5 Sek.");
+        kbDisplay.drawStr(0, 24, "Tasten loslassen");
         kbDisplay.sendBuffer();
     }
     Serial.print(F("KEYBOARD: PCF8574="));
