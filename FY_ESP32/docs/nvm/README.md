@@ -4,15 +4,17 @@ Das ESP32-Modul `NVM` verwendet Arduino-ESP32 `Preferences` (NVS). Es ist ein **
 
 ## Persistenzvertrag
 
+Die aktuellen Deskriptoren verwenden den Namespace `fy_uvb` und die folgenden Nutzdatenlaengen. Das Format ist jeweils Kennung `FYNV`, Version (16 Bit), Laenge (16 Bit), Nutzdaten und CRC32 (Little Endian). Die CRC ist Fehlererkennung, keine Verschluesselung.
+
 | Segment | Zweck | Verhalten |
 |---|---|---|
-| CALIBRATION | Lange Referenzmessung: Endlage und Fahnenflanken | Kein künstlicher Default für eine echte Messung |
-| TRACK_POSITIONS | Positionen von BG1–BG5 | Eigene gespeicherte Werte, Defaults nur gemäß Segmentzustand |
-| MOTOR_PARAMETERS | Fahrprofil und Referenzparameter | Bereichsbezogen laden/speichern und Defaults |
+| CALIBRATION (`calib`, v1, 12 Bytes) | Lange Referenzmessung: Endlage und Fahnenflanken | Kein künstlicher Default für eine echte Messung |
+| TRACK_POSITIONS (`tracks`, v1, 20 Bytes) | Positionen von BG1–BG5 | Eigene gespeicherte Werte, Defaults nur gemäß Segmentzustand |
+| MOTOR_PARAMETERS (`motor`, v2, 34 Bytes) | Fahrprofil und Referenzparameter | Bereichsbezogen laden/speichern und Defaults |
 
-Jedes Segment besitzt eigene Kennung, Version, Länge und **CRC32**. `GET_STATUS 60` liefert Fehlerflag, Fehler- und Gültigkeitsmasken. `SET_PARAM` ändert Werte zunächst im RAM; `SAVE` schreibt **einen benannten Bereich**, `RESTORE_DEFAULT` setzt die zulässigen Defaultwerte eines Bereichs. Ein abgebrochener Motorauftrag bedeutet nicht, dass ein bereits begonnener NVS-Commit unterbrochen werden dürfte.
+Jedes Segment besitzt einen eigenen NVS-Schluessel sowie Formatversion, Laenge und **CRC32**. Die aktuelle Segmentgroesse wird zur Compile-Zeit gegen den festen 256-Byte-Nutzdatenpuffer geprueft. Eine Erweiterung des Segmentformats erfordert eine bewusste Versions-/Migrationsentscheidung. `GET_STATUS 60` liefert Fehlerflag, Fehler- und Gültigkeitsmasken. `SET_PARAM` ändert Werte zunächst im RAM; `SAVE` schreibt **einen benannten Bereich**, `RESTORE_DEFAULT` setzt die zulässigen Defaultwerte eines Bereichs. Ein abgebrochener Motorauftrag bedeutet nicht, dass ein bereits begonnener NVS-Commit unterbrochen werden dürfte.
 
-**Grenze:** Der vollständige Nachweis von CRC-Beschädigung, Versionskonflikt, SAVE unter konkurrierenden Anforderungen und Power-Cycle-Grenzfällen gehört zum [Testing-Issue #171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171), nicht zum behaupteten Funktionsumfang der Release-Abnahme.
+**Fehlerfall:** `NOT_FOUND` bezeichnet einen fehlenden Datensatz und kann vom Fachmodul zur Erstinitialisierung genutzt werden. `INVALID_DATA` bezeichnet einen vorhandenen, aber ungueltigen Datensatz und darf nicht stillschweigend durch Defaults ueberschrieben werden. `load()` laesst bei Fehlern den Zielpuffer unveraendert. `save()` prueft Bytegleichheit, nicht die fachliche Plausibilitaet der Nutzdaten; diese gehoert dem aufrufenden Fachmodul. NVM besitzt keine eigene Schreibsperre oder Stillstandspruefung. Web-/Netzwerkkonfiguration ist noch nicht Bestandteil dieses Persistenzvertrags.\n\n**Grenze:** Der vollständige Nachweis von CRC-Beschädigung, Versionskonflikt, SAVE unter konkurrierenden Anforderungen und Power-Cycle-Grenzfällen gehört zum [Testing-Issue #171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171), nicht zum behaupteten Funktionsumfang der Release-Abnahme.
 
 [Protokoll und Parameter-IDs](../../include/Protokoll.h) · [NvmAreas.h](../../include/NvmAreas.h) · [NVM.cpp](../../lib/NVM/NVM.cpp) · [UART-Vertrag](../../src/UART_Command_Spickzettel.md)
 
