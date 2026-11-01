@@ -13,5 +13,5 @@ static constexpr char FW_RESPONSE[] =
     "GIT: " FW_GIT_COMMIT;
 static constexpr char HELP_RESPONSE[] =
     "Ta det med ro, hjelpen er p\xC3\xA5 vei! Spickzettel: "
-    "https://github.com/ErikaB-sys/Fiddle_yard_UVB/blob/FY_Command_and_Responses/"
-    "FY_Controller_Motor/src/UART_Command_Spickzettel.md";
+    "https://github.com/ErikaB-sys/Fiddle_yard_UVB/blob/main/"
+    "FY_ESP32/src/UART_Command_Spickzettel.md";
