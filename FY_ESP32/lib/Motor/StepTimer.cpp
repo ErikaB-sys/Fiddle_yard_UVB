@@ -6,7 +6,7 @@
 #include <soc/gpio_struct.h>
 #include <soc/gpio_reg.h>
 #if ESP_ARDUINO_VERSION_MAJOR < 3
-#include <soc/timer_group_struct.h> // Classic ESP32, Arduino 2.x TIMG registers.
+#include <soc/timer_group_struct.h> // Klassischer ESP32: TIMG-Register unter Arduino 2.x.
 #endif
 
 namespace fy {
@@ -16,13 +16,13 @@ constexpr uint32_t kStepBit = uint32_t{1} << MOTOR_PWM_PIN;
 constexpr uint16_t kMinStepHz = 40U;
 constexpr uint16_t kMaxStepHz = 800U;
 
-// Preserve Nano Timer1 arithmetic: 16 MHz / 256 = 62500 ticks/s,
-// one interrupt per STEP *half* period -> each Nano reload tick = 16 us.
-// Never send a Nano OCR1A value straight to a 1-MHz ESP32 timer.
+// Nano-Timer1-Arithmetik beibehalten: 16 MHz / 256 = 62500 Ticks/s.
+// Ein Interrupt je STEP-Halbperiode; ein Nano-Reload-Tick entspricht 16 us.
+// Nano-OCR1A-Werte nie direkt an den ESP32-Timer mit 1 MHz uebergeben.
 constexpr uint32_t kNanoTickUs = 16U;
 constexpr uint16_t kDefaultVMin = 120U;
 constexpr uint16_t kDefaultVMax = 800U;
-// Single-expression constexpr functions also compile in Arduino's GNU++11.
+// Einfache constexpr-Ausdruecke sind auch mit Arduino GNU++11 uebersetzbar.
 constexpr uint32_t nanoDenominator(uint16_t hz) {
     return 2UL * 256UL * static_cast<uint32_t>(hz);
 }
@@ -48,7 +48,7 @@ volatile bool isFinished = false;
 volatile bool endstopTriggered = false;
 volatile uint32_t completed = 0U;
 volatile uint32_t target = 0U;
-// REF events are captured on the same falling STEP edge as the Nano.
+// REF-Ereignisse werden wie beim Nano an der fallenden STEP-Flanke erfasst.
 volatile bool referenceMode = false;
 volatile bool referenceAway = false;
 volatile bool referenceStopOnExit = false;
@@ -78,8 +78,8 @@ void IRAM_ATTR finishReference(ReferenceEnd end) {
     referenceEnd = end;
 }
 
-// Only Muninn writes a fresh plan, under stepMux, before isRunning=true.
-// The ISR exclusively owns phase / ramp progress while isRunning.
+// Nur Muninn schreibt vor isRunning=true unter stepMux einen neuen Fahrplan.
+// Waehrend der Fahrt fuehrt ausschliesslich die ISR Phasen und Rampenfortschritt.
 StepProfileSegment stages[STEP_PROFILE_PHASES]{};
 volatile bool profileActive = false;
 volatile uint8_t phaseIndex = 0U;
@@ -109,7 +109,7 @@ void IRAM_ATTR stepTimerIsr() {
             portEXIT_CRITICAL_ISR(&stepMux);
             return;
         }
-        // Rising edge triggers the A4988 motor STEP.
+        // Steigende Flanke loest den A4988-Motorschritt aus.
         GPIO.out_w1ts = kStepBit;
         stepIsHigh = true;
     } else {
@@ -143,15 +143,15 @@ void IRAM_ATTR stepTimerIsr() {
         }
 
         if (profileActive) {
-            // Profile timing is unchanged. Every movement now checks only
-            // its destination endstop before STEP rising; reference
-            // moves additionally capture LSREF flanks above.
+            // Profilzeitverhalten unveraendert. Vor steigender STEP-Flanke
+            // wird nur der Endschalter in Fahrtrichtung geprueft.
+            // Referenzfahrten erfassen zusaetzlich LSREF-Flanken.
 
             if (phaseRemaining > 0U)
                 --phaseRemaining;
 
-            // Each phase modifies its own reload after every N completed
-            // steps. Smaller Nano reload = greater STEP speed.
+            // Jede Phase aendert ihren Reload nach N abgeschlossenen Schritten.
+            // Kleinerer Nano-Reload bedeutet hoehere STEP-Geschwindigkeit.
             const int16_t accel = stages[phaseIndex].accel;
             if (accel != 0) {
                 ++rampCounter;
@@ -184,10 +184,9 @@ void IRAM_ATTR stepTimerIsr() {
         }
 #if ESP_ARDUINO_VERSION_MAJOR < 3
         else if (profileActive) {
-            // Arduino-ESP32 2.x timerBegin(1,80,true) = Group 1 / Timer 0
-            // (NOT Group 0 / Timer 1). Group 1 alarm is auto-reloaded.
-            // The ISR updates the *next* interval directly; do NOT call
-            // non-IRAM-safe timerAlarmWrite()/IDF timer APIs in this ISR.
+            // Arduino-ESP32 2.x: timerBegin(1,80,true) ist Gruppe 1 / Timer 0.
+            // Der Alarm laedt automatisch nach. ISR schreibt das naechste
+            // Intervall direkt; keine nicht-IRAM-sicheren Timer-APIs aufrufen.
             TIMERG1.hw_timer[0].alarm_low =
                 (static_cast<uint32_t>(currentNanoReload) + 1UL) *
                 kNanoTickUs;
@@ -233,11 +232,11 @@ bool startPulseTrain(uint16_t steps, bool directionRight,
     portEXIT_CRITICAL(&stepMux);
     if (busy) return false;
 
-    // STOP/GO state checked by Muninn. This timer never enables a driver.
+    // Muninn prueft STOP/GO; der Timer aktiviert niemals den Treiber.
     haltAlarm();
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_DIR_PIN, directionRight ? HIGH : LOW);
-    // DIR setup before first rising STEP edge >= 625us in profile mode.
+    // DIR-Vorlauf vor der ersten steigenden STEP-Flanke: >= 625 us im Profilmodus.
     portENTER_CRITICAL(&stepMux);
     completed = 0U;
     target = steps;
@@ -284,7 +283,7 @@ bool stepTimerBegin() {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
     stepTimer = timerBegin(1000000U);
 #else
-    // Arduino-ESP32 2.x timer index 1 -> TIMG1/T0 at APB / 80 = 1 MHz.
+    // Arduino-ESP32 2.x: Timerindex 1 -> TIMG1/T0 mit APB / 80 = 1 MHz.
     stepTimer = timerBegin(1U, 80U, true);
 #endif
     if (stepTimer == nullptr) return false;
@@ -336,9 +335,9 @@ bool stepTimerStartProfile(uint16_t steps, bool directionRight,
     if (steps == 0U || sum != steps) return false;
 
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
-    // The 3.x GPTimer API needs a separately verified ISR-safe
-    // alarm-reload implementation; never silently execute an incorrect
-    // fixed-speed profile. This backend returns NOT_READY until ported.
+    // Arduino-ESP32 3.x benoetigt eine separat gepruefte ISR-sichere
+    // Alarm-Neuladung. Kein unbemerktes Profil mit konstanter Geschwindigkeit;
+    // dieser Pfad meldet bis zur Portierung NOT_READY.
     (void)directionRight;
     (void)segments;
     (void)startHz;
@@ -388,7 +387,7 @@ bool stepTimerStartReference(bool awayMotor, uint16_t stepHz,
     if (stepHz < kMinStepHz || stepHz > kMaxStepHz) return false;
     const uint32_t halfPeriodUs =
         (500000UL + static_cast<uint32_t>(stepHz / 2U)) / stepHz;
-    // Storage capacity of the existing timer, NOT a safety-calibrated limit.
+    // Timer-Kapazitaetsgrenze, keine sicherheitsgepruefte Wegbegrenzung.
     return startPulseTrain(steps, awayMotor, halfPeriodUs, nullptr,
                            true, stopOnRefExit, captureCoarse);
 }
