@@ -43,7 +43,7 @@ const char PAGE[] PROGMEM = R"html(
     <p class="ok">HTTP-Server laeuft.</p>
     <p>Die Motorsteuerung ist hier bewusst nicht angeschlossen.</p>
     <p>Hostname: <code>fy-uvb.local</code></p>
-    <p><small>Test-Endpunkt: <a href="/api/status" style="color:#bce3ff">/api/status</a></small></p>
+    <p><small>Status: <a href="/api/status" style="color:#bce3ff">/api/status</a><br>Speicherdiagnose: <a href="/api/system" style="color:#bce3ff">/api/system</a></small></p>
   </main>
 </body>
 </html>
@@ -63,6 +63,23 @@ void startHttpServer()
         json += WiFi.localIP().toString();
         json += "\",\"uptime_ms\":";
         json += String(millis());
+        json += "}";
+        server.send(200, "application/json", json);
+    });
+    // Speicherdiagnose: erkannte Flash-Groesse und Laufzeit-Heap, keine Passwoerter.
+    server.on("/api/system", HTTP_GET, []() {
+        String json;
+        json.reserve(240);
+        json += "{\"flash_bytes\":";
+        json += String(ESP.getFlashChipSize());
+        json += ",\"flash_mhz\":";
+        json += String(ESP.getFlashChipSpeed() / 1000000UL);
+        json += ",\"heap_total_bytes\":";
+        json += String(ESP.getHeapSize());
+        json += ",\"heap_free_bytes\":";
+        json += String(ESP.getFreeHeap());
+        json += ",\"heap_min_free_bytes\":";
+        json += String(ESP.getMinFreeHeap());
         json += "}";
         server.send(200, "application/json", json);
     });
