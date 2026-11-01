@@ -27,8 +27,8 @@ Ein separates produktives Switches-Task oder eine aktive Switches-Klasse existie
 
 ## Cleanup-Status
 
-- **GESCANNT (teilweise):** Zwei Lesewege, Eigentümerschaft und Statusübertragung anhand des Codes abgeglichen.
-- **GEÄNDERT (Dokumentation):** Trennung und Datenfluss erläutert; ISR- und Statuslogik unverändert.
-- **GEPRÜFT:** Build und gezielte Regression stehen aus.
+- **GESCANNT:** ISR-Rohpegel, Muninn-Statusaufnahme und Snapshot-Queue mit dem aktuellen Quelltext abgeglichen.
+- **GEÄNDERT:** Fachlich korrekte Modulbeschreibung und Datenfluss; **keine Änderung** an Sensor-, Motor- oder ISR-Logik erforderlich.
+- **GEPRÜFT (Modulreview):** Code-/Doku-Abgleich durchgeführt; bisherige reale REF-/Gleisfahrten als Basisfunktion in #171 bestätigt. **Noch offen in #171:** gezielte Fehlerfall-, Endlagen- und integrierte Regressionstests für den finalen Cleanup-Head.
 
 **Zugehörige Issues:** [#174](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/174), [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150), [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
