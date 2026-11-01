@@ -54,6 +54,8 @@ void UART::begin(BringupContext* context) {
     _errors.begin();
     _babelFish.begin(115200); // ASCII-Eingabe und lokales Echo bleiben erhalten.
     Serial.println(F("Hello my friend"));
+    Serial.print(F("FY ESP32: firmware version "));
+    Serial.println(FY_FW_VERSION);
     Serial.println(F("FY ESP32: Huginn UART ready; Muninn motor task configured"));
     Serial.println(F("HW3 REF: 01=LONG calibration; 00=SHORT with saved calibration"));
     Serial.println(F("FY ESP32: motor/REF status via STATUS 20 / STATUS 30"));

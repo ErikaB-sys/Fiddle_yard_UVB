@@ -1,6 +1,6 @@
 # FY_ESP32 – Handbuch und Lesepfad
 
-**Dokumentierter Code:** `feature/FY_ESP32_Cleanup`, Stand 01.11.2026; Vorbereitung auf **FY_ESP_2.0.0**. Die Firmware ist als LOCAL-Controller an der realen Bühne funktionsgeprüft. Diese Seite ist der Einstieg; Modul-READMEs beschreiben ausschließlich ihre **aktuellen** Schnittstellen und Funktionen.
+**Dokumentierter Code:** `main`, Stand 01.11.2026; Versionskennung **2.1.0**. Die Firmware ist als LOCAL-Controller an der realen Bühne funktionsgeprüft. Diese Seite ist der Einstieg; Modul-READMEs beschreiben ausschließlich ihre **aktuellen** Schnittstellen und Funktionen.
 
 ## Leseweg für Inbetriebnahme und Gegenstelle
 
@@ -30,11 +30,11 @@ flowchart TD
   STATUS --> K
 ```
 
-## Was Version 2.0.0 kann
+## Stand Version 2.1.0 (lokaler FY-Controller)
 
 Lokale STOP-Verriegelung und Wiederfreigabe, echte SHORT-/LONG-Referenzierung mit BG3-Anfahrt, Wahl und Fahrt BG1–BG5, priorisierter STOP per Keyboard und seriell, UART-Statusabfragen, Parameter-/NVM-Grundfunktionen. **ACK bedeutet nicht Fahrtende** – Abschluss wird über Status-Snapshots geprüft.
 
-**Neu im Cleanup (noch nicht hardwaregetestet):** `GET_STATUS 10/50` ermittelt die PCF8574-Erreichbarkeit bei jeder Abfrage ueber I2C; der Wire-Timeout ist auf 20 ms gesetzt. Keine automatische Hot-Plug-Reaktion.
+**Im HW3-Regressionsbericht vom 01.11.2026 geprueft:** `GET_STATUS 10/50` ermittelt die PCF8574-Erreichbarkeit bei jeder Abfrage ueber I2C (PCF8574 vorhanden / entfernt / erneut verbunden); der Wire-Timeout ist auf 20 ms gesetzt. Keine automatische Hot-Plug-Reaktion.
 
 **Bewusst nicht enthalten:** aktive LOCAL/REMOTE-Umschaltung und Host-Zugriffssperre, Web/JMRI, CAN, SPI-Beleuchtung, Keyboard-Hot-Plug, Teach-in, WRITE2KEYBOARD. `SET_MODE` antwortet derzeit mit `NACK/NOT_READY`. Es gibt keine pauschale Zusage vollständiger Fehlerfall-Abdeckung.
 
@@ -43,6 +43,6 @@ Lokale STOP-Verriegelung und Wiederfreigabe, echte SHORT-/LONG-Referenzierung mi
 - **Aktueller Code ist die Wahrheit:** [`src/main.cpp`](../src/main.cpp), [`lib/`](../lib), [`include/`](../include).
 - **Funktionsstatus, offene Änderungen und Testnachweise:** [Roadmap/LOP](../../Documents/FY_Productivsoftware_Roadmap.md), [Testing #171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171) und [MISRA/Cppcheck #163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163).
 - **Historische Unterlagen und Entwicklungsentscheidungen:** [Archivindex](HISTORIE.md). Die Firmware entstand aus Nano-Produktivsoftware und HW_TEST, wurde über HW3-Portierung sowie echte Kurz-/Langreferenzierung in [PR #170](https://github.com/ErikaB-sys/Fiddle_yard_UVB/pull/170) nach `main` integriert und von `FY_ESP32_Bringup` nach `FY_ESP32` umbenannt. Historische Diagramme liegen teilweise in `docs/<Modul>/archive/`; sie sind **keine gültige Betriebsbeschreibung**.
-- **Release:** Git-Tag `FY_ESP_2.0.0` nach finalem Versionsabgleich und Abnahme erzeugen; Stand jetzt **noch nicht getaggt**.
+- **Release-Historie:** `FY_ESP_2.0.0` wurde am 27.10.2026 fuer den ersten ESP32-Meilenstein getaggt. Version 2.1.0 ist der risikobasiert abgenommene HW3-/Cleanup-Abschlussstand; neuer Release-Tag `FY_Release_2.1.0` nach aktuellem Build erstellen. Die Version steht in `include/Firmware.h` und wird mit `GET_FIRMWARE` sowie im UART-Startbanner angezeigt.
 
 **Zugehörige Issues:** [#12](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/12), [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150), [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157), [#169](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/169), [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
