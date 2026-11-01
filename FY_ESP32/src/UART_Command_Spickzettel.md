@@ -48,7 +48,7 @@ Gültig für `FY_ESP32/`. Maßgeblich sind [Protokoll.h](../include/Protokoll.h)
 | `40` Track | 3 Byte | Zielgleis, bestätigtes Gleis, Status `00` erreicht / `01` bewegt / `02` unbekannt oder Fehler |
 | `50` Motor | 3 Byte | DATA[0]: Bit0 Treiber ein, Bit1 bewegt; DATA[1] MotorState_t; DATA[2] reserviert 0 |
 | `41` Switches | 1 Byte | Sensorstatus-Snapshot; Belegung siehe [Motor](../docs/Motor/README.md) |
-| `51` Keyboard | 1 Byte | DATA[0] Bit0 = PCF8574 aktuell per I2C erreichbar; Bits 1..7 = 0, kein Verfügbarkeitsnachweis |
+| `51` Keyboard | 1 Byte | DATA[0] Bit0 = PCF8574 aktuell per I2C erreichbar; Bits 1..7 = 0; reine I2C-Erreichbarkeit, kein vollständiger Funktionstest |
 | `61` NVM | 3 Byte | Fehlerflag, Fehler-Maske, Gültigkeits-Maske |
 | `2D` Parameter | ID + 3 Byte LE | Wert des angeforderten Parameters |
 | `F0` Error | 4 Byte | Systembyte und drei Fehlerbytes |
