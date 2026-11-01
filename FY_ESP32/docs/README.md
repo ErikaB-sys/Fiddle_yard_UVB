@@ -1,6 +1,6 @@
 # FY_ESP32 – Handbuch und Lesepfad
 
-**Firmwarestand:** ESP32-WROOM HW3, Vorbereitung auf **FY_ESP_2.0.0**. Die Firmware ist als LOCAL-Controller an der realen Bühne funktionsgeprüft. Diese Seite ist der Einstieg; Modul-READMEs beschreiben ausschließlich ihre **aktuellen** Schnittstellen und Funktionen.
+**Dokumentierter Code:** `feature/FY_ESP32_Cleanup`, Stand 01.11.2026; Vorbereitung auf **FY_ESP_2.0.0**. Die Firmware ist als LOCAL-Controller an der realen Bühne funktionsgeprüft. Diese Seite ist der Einstieg; Modul-READMEs beschreiben ausschließlich ihre **aktuellen** Schnittstellen und Funktionen.
 
 ## Leseweg für Inbetriebnahme und Gegenstelle
 
@@ -40,7 +40,7 @@ Lokale STOP-Verriegelung und Wiederfreigabe, echte SHORT-/LONG-Referenzierung mi
 
 - **Aktueller Code ist die Wahrheit:** [`src/main.cpp`](../src/main.cpp), [`lib/`](../lib), [`include/`](../include).
 - **Funktionsstatus, offene Änderungen und Testnachweise:** [Roadmap/LOP](../../Documents/FY_Productivsoftware_Roadmap.md), [Testing #171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171) und [MISRA/Cppcheck #163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163).
-- **Historie:** Die Firmware entstand aus Nano-Produktivsoftware und HW_TEST, wurde über HW3-Portierung sowie echte Kurz-/Langreferenzierung in [PR #170](https://github.com/ErikaB-sys/Fiddle_yard_UVB/pull/170) nach `main` integriert und von `FY_ESP32_Bringup` nach `FY_ESP32` umbenannt. Historische Diagramme liegen teilweise in `docs/<Modul>/archive/`; sie sind **keine gültige Betriebsbeschreibung**.
+- **Historische Unterlagen und Entwicklungsentscheidungen:** [Archivindex](HISTORIE.md). Die Firmware entstand aus Nano-Produktivsoftware und HW_TEST, wurde über HW3-Portierung sowie echte Kurz-/Langreferenzierung in [PR #170](https://github.com/ErikaB-sys/Fiddle_yard_UVB/pull/170) nach `main` integriert und von `FY_ESP32_Bringup` nach `FY_ESP32` umbenannt. Historische Diagramme liegen teilweise in `docs/<Modul>/archive/`; sie sind **keine gültige Betriebsbeschreibung**.
 - **Release:** Git-Tag `FY_ESP_2.0.0` nach finalem Versionsabgleich und Abnahme erzeugen; Stand jetzt **noch nicht getaggt**.
 
 **Zugehörige Issues:** [#12](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/12), [#150](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/150), [#157](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/157), [#169](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/169), [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
