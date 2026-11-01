@@ -63,7 +63,7 @@ a{color:var(--aqua)}
 <div class="metric"><div class="cap">Bühne</div><div id="motorLabel" class="val">Stillstand</div></div>
 </section>
 <section class="card">
-<h2>Schiebebühne · exakte Gleisgeometrie</h2>
+<h2>Schiebebühne · fünf SET_TRACK-Stellungen</h2>
 <svg id="plan" class="schematic" viewBox="0 0 980 453" role="img" aria-label="Links drei gerade Gleise, Mitte fünf gemeinsam bewegliche Gleise, rechts neun gerade Abstellgleise. Alle Gleise haben identischen Abstand.">
 <rect x="18" y="34" width="944" height="370" rx="10" fill="none" stroke="#34576c" stroke-width="1.5"/>
 <g id="guides">
@@ -89,19 +89,23 @@ a{color:var(--aqua)}
 <button id="down" type="button">▼ Runter</button>
 <button id="demo" class="primary" type="button">▶ Demo-Fahrt</button>
 <button id="stop" type="button">■ STOP</button>
-<label for="position">BG1-Zeile: <strong id="positionValue">3</strong> von 9</label>
-<input id="position" type="range" min="1" max="9" value="3" step="1">
+<label for="position">SET_TRACK: <strong id="positionValue">3</strong> von 5</label>
+<input id="position" type="range" min="1" max="5" value="3" step="1">
 </div>
 <div class="foot">
 <span id="alignment">Einfahrt ↔ BG3 · BG1 ↔ AB7</span>
-<span class="mini">Abstand: 25 SVG-Einheiten · Bühne: 290/870 = 1/3 · <a href="/api/system">Speicher</a> · <a href="/api/status">Netzstatus</a></span>
+<span class="mini">5 Stellungen · 9 Abstellgleise · Gleisabstand 25 · Bühne 1/3 · <a href="/api/system">Speicher</a> · <a href="/api/status">Netzstatus</a></span>
 </div>
 </section>
 </main>
 <script>
 'use strict';
 // Geometrie: drei Drittel je 290 Einheiten. Neun Gleiszeilen y=72+25*(Zeile-1).
-// Links: Zeilen 2,5,8; rechts: Zeilen 1..9; Bühne: fuenf aufeinanderfolgende Zeilen.
+// Links: Zeilen 2,5,8; rechts: Zeilen 1..9; Bruecke: fuenf feste Gleise.
+// SET_TRACK 1..5 positioniert genau BG1..BG5 an der Einfahrt (Zeile 5).
+// BG1 liegt bei SET_TRACK t auf rechter Abstellgleiszeile (6-t) = AB(4+t).
+// SET_TRACK 4 -> BG4 Einfahrt; SET_TRACK 1 -> BG4 AB2 / AB11.
+// SET_TRACK 1 -> BG1 Einfahrt; SET_TRACK 5 -> BG1 AB9.
 const $=id=>document.getElementById(id);
 const ns='http://www.w3.org/2000/svg';
 function el(tag,parent,attrs,text){
@@ -138,17 +142,17 @@ for(let n=1;n<=5;n++){
 }
 let offset=0,frame=null,timer=null,demoRunning=false,queue=[];
 function show(){
-  const r=3+offset/25;
-  const rounded=Math.round(r);
-  const aligned=Math.abs(r-rounded)<0.003;
+  const track=3-offset/25;
+  const rounded=Math.round(track);
+  const aligned=Math.abs(track-rounded)<0.003&&rounded>=1&&rounded<=5;
   bridge.setAttribute('transform','translate(0,'+offset.toFixed(3)+')');
-  const active=aligned?6-rounded:0;
-  $('entryLabel').textContent=active>=1&&active<=5?'BG'+active:'–';
-  $('storageLabel').textContent=aligned?'AB'+(10-rounded):'–';
-  $('positionValue').textContent=aligned?String(rounded):'zwischen';
-  $('position').value=String(Math.max(1,Math.min(9,rounded)));
+  const active=aligned?rounded:0;
+  $('entryLabel').textContent=aligned?'BG'+active:'–';
+  $('storageLabel').textContent=aligned?'AB'+(4+active):'–';
+  $('positionValue').textContent=aligned?String(active):'zwischen';
+  $('position').value=String(Math.max(1,Math.min(5,rounded)));
   $('alignment').textContent=aligned
-    ? 'Einfahrt ↔ '+(active>=1&&active<=5?'BG'+active:'kein BG')+' · BG1 ↔ AB'+(10-rounded)
+    ? 'Einfahrt ↔ BG'+active+' · BG1 ↔ AB'+(4+active)
     : 'Zwischenposition · keine Gleisfluchtung';
   for(let i=0;i<5;i++){
     rails[i].setAttribute('class',i===active-1?'rail rail-active':'rail');
@@ -164,8 +168,8 @@ function stop(){
   queue=[];demoRunning=false;show();
 }
 function moveTo(target,done){
-  target=Math.max(1,Math.min(9,Math.round(target)));
-  const from=offset,to=(target-3)*25,start=performance.now();
+  target=Math.max(1,Math.min(5,Math.round(target)));
+  const from=offset,to=(3-target)*25,start=performance.now();
   const duration=Math.max(300,Math.abs(to-from)*13);
   if(Math.abs(to-from)<0.1){offset=to;show();if(done)done();return;}
   function tick(t){
@@ -179,8 +183,8 @@ function moveTo(target,done){
   show();
 }
 function manual(target){stop();moveTo(target);}
-$('up').addEventListener('click',()=>manual(Math.round(3+offset/25)-1));
-$('down').addEventListener('click',()=>manual(Math.round(3+offset/25)+1));
+$('up').addEventListener('click',()=>manual(Math.round(3-offset/25)+1));
+$('down').addEventListener('click',()=>manual(Math.round(3-offset/25)-1));
 $('position').addEventListener('input',()=>manual(Number($('position').value)));
 $('stop').addEventListener('click',stop);
 function nextDemo(){
@@ -189,7 +193,7 @@ function nextDemo(){
   moveTo(queue.shift(),()=>{if(demoRunning)timer=setTimeout(nextDemo,650);});
 }
 $('demo').addEventListener('click',()=>{
-  stop();demoRunning=true;queue=[1,9,3];show();nextDemo();
+  stop();demoRunning=true;queue=[1,5,3];show();nextDemo();
 });
 show();
 </script>
