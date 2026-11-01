@@ -3,7 +3,7 @@
 **Datum:** 01.11.2026  
 **Branch:** `feature/FY_ESP32_Cleanup`  
 **Hardware:** ESP32 / HW3 / A4988 / PCF8574 (0x27)  
-**Testergebnis:** OFFEN – erst nach realem Test eintragen.
+**Testergebnis:** PASSED – reale HW3-Regression mit Freigabe zum Merge dokumentiert; Build/Commit unten beziehen sich auf den getesteten Cleanup-Stand.
 
 > Anleitung: [ ] erst nach erfolgreicher Prüfung zu [x] ändern. Fehler und UART-Ausgaben unten notieren. Für einen fehlgeschlagenen Test [ ] belassen und Befund dokumentieren.
 
@@ -75,8 +75,14 @@
 
 ## Nach erfolgreichem Regressionstest
 
-- [ ] Cleanup-Branch nach `main` mergen.
+- [x] Cleanup-Branch nach `main` gemergt: [PR #182](https://github.com/ErikaB-sys/Fiddle_yard_UVB/pull/182) am 01.11.2026.
 - [ ] **Danach** Dokumentationslinks auf `main` prüfen/anpassen, besonders URL im `HELP`-Antworttext.
 - [ ] `HELP` auf `main` erneut prüfen und Linkkorrekturen committen.
 
 **Nicht Bestandteil dieses Tests:** JMRI-Anbindung, Binärdecoder, zweite PlatformIO-Firmwarevariante. Diese Arbeiten beginnen erst nach dem Merge.
+
+## Nachtrag nach dem Merge (01.11.2026)
+
+- **Cleanup ist bereits in `main`** (PR #182). Die ursprüngliche Bezeichnung „vor Merge“ dokumentiert den Zeitpunkt der HW-Abnahme.
+- **Namensbereinigung** `Muninn_*MotorMock` → `Muninn_*Motor` / `Muninn_motorTask` wurde später separat in [PR #183](https://github.com/ErikaB-sys/Fiddle_yard_UVB/pull/183) nach `main` übernommen. Funktionale Motor-/Sensor-/STOP-Logik unverändert.
+- **Prüfgrenze:** Der in diesem Protokoll genannte erfolgreiche Build und HW-Test wurden **vor PR #183** durchgeführt. Ein neuer PlatformIO-Build des umbenannten `main`-Heads ist noch nicht protokolliert; siehe [#171](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/171).
