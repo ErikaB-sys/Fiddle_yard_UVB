@@ -29,8 +29,14 @@ constexpr NvmDescriptor_t kDescriptors[]{
 };
 static_assert(sizeof(kDescriptors) / sizeof(kDescriptors[0]) == 3U,
               "NVM Segmenttabelle pruefen");
-// Jede Segmentgroesse muss in den festen Nutzdatenpuffer passen.
-static_assert(12U <= kMaxPayload && 20U <= kMaxPayload && 34U <= kMaxPayload,
+// Alle Deskriptoren zur Compile-Zeit gegen den festen Puffer pruefen.
+constexpr bool descriptorLengthsValid() {
+    for (const auto& entry : kDescriptors) {
+        if (entry.length == 0U || entry.length > kMaxPayload) return false;
+    }
+    return true;
+}
+static_assert(descriptorLengthsValid(),
               "NVM Segmentgroesse ueberschreitet Nutzdatenpuffer");
 
 /** @brief Sucht den Deskriptor einer festen Segment-ID.
