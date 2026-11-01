@@ -271,7 +271,7 @@ void UART::handleGetStatus() {
     switch (_command.data[0]) {
     case STATUS_SELECTOR_SYSTEM: {
         // Bit 0: Keyboard per I2C erreichbar; restliche Bits reserviert.
-        const uint8_t data[2]{Keyboard_isAvailable() ? 0x01U : 0x00U, 0x00U};
+        const uint8_t data[2]{static_cast<uint8_t>(Keyboard_isAvailable()), 0x00U};
         setResponse(STATUS_System, data, sizeof(data));
         break;
     }
@@ -314,7 +314,7 @@ void UART::handleGetStatus() {
     }
     case STATUS_SELECTOR_KEYBOARD: {
         // Bit 0: PCF8574 antwortet auf die aktuelle I2C-Adressabfrage.
-        const uint8_t data = Keyboard_isAvailable() ? 0x01U : 0x00U;
+        const uint8_t data = static_cast<uint8_t>(Keyboard_isAvailable());
         setResponse(STATUS_Keyboard, &data, 1U);
         break;
     }
