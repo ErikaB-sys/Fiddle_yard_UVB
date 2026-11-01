@@ -824,9 +824,13 @@ void Muninn_initMotorMock() {
 }
 
 namespace {
-// Liest die vier Sensor-Rohpegel für STATUS 40.
-// G35 überwacht ausschließlich informativ die Riemenspannung;
-// keine Auswertung in der STEP-ISR oder Motor-Fahrfreigabe.
+/**
+ * @brief Liest die vier Sensor-Rohpegel für die Statusmeldung 40.
+ * @return Gepackte Eingangspegel: Bit 0 G36, Bit 1 G39, Bit 2 G34, Bit 3 G35.
+ * @note Aufruf ausschließlich im Muninn-Task, nicht in der STEP-ISR.
+ *       G35 liefert nur Riemeninformation und beeinflusst die Fahrfreigabe nicht.
+ *       Die vier Abfragen sind keine zeitgleiche Messung.
+ */
 uint8_t readSensorLevels() {
     return static_cast<uint8_t>(
         ((digitalRead(LSL_PIN) == HIGH) ? 0x01U : 0U) |
@@ -849,11 +853,11 @@ void Muninn_motorMockTask(void* arg) {
     uint8_t targetTrack = 0U; // 0 = unknown, only Muninn changes these.
     uint8_t confirmedTrack = 0U;
 
-    // Sensor inputs belong exclusively to Muninn. External 10k pull-ups.
+    // Sensoreingänge gehören Muninn; externe Pull-ups mit 10 kOhm.
     pinMode(LSL_PIN, INPUT);
     pinMode(LSR_PIN, INPUT);
     pinMode(LSREF_PIN, INPUT);
-    pinMode(LS4_PIN, INPUT); // Riemenspannung: Statusinformation, kein Endschalter.
+    pinMode(LS4_PIN, INPUT); // Riemenspannung: reine Statusinformation, kein Endschalter.
     uint8_t lastSensorLevels = readSensorLevels();
     uint8_t sensorChangeCount = 0U; // high nibble 0..E; F reserved
     uint8_t sensorMessage = lastSensorLevels;
@@ -872,7 +876,7 @@ void Muninn_motorMockTask(void* arg) {
     motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
 
     for (;;) {
-        // Latest-value mailbox: never block STOP or motor event delivery.
+        // Nur den letzten Sensorzustand bereitstellen; STOP und Motorereignisse nicht blockieren.
         const uint8_t sensorLevels = readSensorLevels();
         if (sensorLevels != lastSensorLevels) {
             lastSensorLevels = sensorLevels;
