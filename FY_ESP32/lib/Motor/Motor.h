@@ -222,6 +222,11 @@ uint16_t Muninn_nvmStatusSnapshot();
 // Atomarer Motorstatus: IDLE=0, CONF=1, REFRUN=2, MOVING=3, STOPPED=4, ERROR=5.
 MotorState_t Muninn_motorState();
 
-void Muninn_initMotorMock();
-BaseType_t Muninn_startMotorMock(BringupContext* context);
+/** @brief Initialisiert Motor-Hardware und STEP-Timer vor dem Taskstart. */
+void Muninn_initMotor();
+/** @brief Startet die Muninn-Motor-Task auf Core 1.
+ *  @param context Gueltiger gemeinsamer Kontext mit den FreeRTOS-Queues.
+ *  @return Ergebnis der FreeRTOS-Task-Erstellung.
+ */
+BaseType_t Muninn_startMotor(BringupContext* context);
 }
