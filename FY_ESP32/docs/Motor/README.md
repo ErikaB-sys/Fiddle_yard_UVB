@@ -14,7 +14,7 @@ Muninn besitzt Motorzustand, A4988-Ansteuerung, Sensoren, Referenzierung und Fah
 | STOP | Priorisiert; Antrieb aus, Fahrt verworfen, reale REF ungültig |
 | STOP-Freigabe und GO | Entriegeln und Treiber einschalten, **keine Wiederaufnahme der abgebrochenen Fahrt** |
 
-Die realen Endlagensensoren und die Referenz-Lichtschranke gehen in den Motorpfad ein. GPIO35 liefert zusätzlich die informative Riemenspannungs-Sensorik. Abfragewerte entstehen als Snapshots, nicht als ungeprüfter Zugriff von UART auf die Motorperipherie.
+Die realen Endlagensensoren und die Referenz-Lichtschranke gehen in den Motorpfad ein. GPIO35 ist als informativer Eingang fuer eine moegliche Riemenueberwachung vorgesehen. Eine aktive Riemenbruch-Diagnose oder Motorfreigabepruefung ist nicht implementiert. Abfragewerte entstehen als Snapshots, nicht als ungeprüfter Zugriff von UART auf die Motorperipherie.
 
 **Wichtig:** ACK/NACK beantwortet die Auftragsannahme, das tatsächliche Fahrtende wird aus Motor- und Gleis-Snapshots ermittelt.
 
