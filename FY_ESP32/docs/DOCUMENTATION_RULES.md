@@ -21,7 +21,7 @@ flowchart TD
   J -->|Nein| L["Stand nachvollziehbar"]
 ```
 
-**Soll ist das Issue; Ist ist der Code.** Dokumente werden auf das Soll ausgerichtet, nennen aber den tatsächlich vorhandenen Code **gesondert**. Bei Unterschieden weder das Issue noch den Code heimlich uminterpretieren. Entscheidungspunkte stehen zentral in [VERIFICATION_GAPS.md](VERIFICATION_GAPS.md).
+**Soll ist das Issue; Ist ist der Code.** Dokumente werden auf das Soll ausgerichtet, nennen aber den tatsächlich vorhandenen Code **gesondert**. Bei Unterschieden weder das Issue noch den Code heimlich uminterpretieren. Aktuelle Entscheidungen stehen in den Fachissues und der [Systemarchitektur](SYSTEM_ARCHITECTURE.md); fruehere Soll-Ist-Reviews sind [historisch eingeordnet](HISTORIE.md).
 
 ## 2. Verantwortliche Dokumentationsquellen
 
@@ -29,10 +29,10 @@ flowchart TD
 | --- | --- |
 | `docs/README.md` | Einstieg / Navigation, keine zweite Fachdefinition |
 | `docs/System/` und `docs/SYSTEM_ARCHITECTURE.md` | Überblick, Kerne, Modulschnittstellen, Systemdiagramme |
-| `docs/<Modul>/README.md` | **verbindlicher Modul-Entwurf**, abgeleitet aus referenzierten Issues |
+| `docs/<Modul>/README.md` | **aktueller Modul-Iststand** mit explizit getrennten geplanten Erweiterungen |
 | `docs/pinouts/` | zentraler Hardware-Pinout; mit `include/HW_Config.h` auf Übereinstimmung prüfen |
 | `lib/<Modul>/` | C++ und Doxygen direkt bei den Funktionen/Klassen, keine zweite Modul-MD |
-| `docs/<Modul>/archive/`, `docs/reports/` | eingefrorene historische Notizen/Tests, kein aktueller Sollstand |
+| `docs/<Modul>/archive/`, `docs/reports/`, [HISTORIE.md](HISTORIE.md) | eingefrorene historische Notizen/Tests, kein aktueller Iststand |
 | `reference/` | Nano-Ausgangsstand; `../../Documents/` | externe Datenblätter/Altunterlagen |
 
 **Keine Informationen doppelt pflegen – lieber verlinken.** Keine neue Datei je kleiner Funktion. Diagramme nur, wenn sie etwas erklären. Systemüberblicke müssen interne Zustandsdetails nicht vollständig zeigen; wichtige Abweichungen ausdrücklich kennzeichnen.
@@ -57,7 +57,7 @@ Jedes Modul nennt: (1) Issue-Quellen und Ziel/Abgrenzung, (2) Funktion und Diagr
 
 ## 5. MISRA-/Cppcheck-Check (#163)
 
-Portierung des Nano-Ansatzes, für ESP32-eigene `src/`, `lib/`, `include/`, ohne ESP-IDF/Arduino/FreeRTOS-Fremdcode als FY-Befund zu behandeln. Tool per `pio run -t misra` oder `python scripts/misra_check.py` aus `FY_ESP32_Bringup/` starten; lokal installiertes `cppcheck` erforderlich. Berichte unter `reports/`. **Ist:** separater Prüfaufruf; Konfiguration und PlatformIO-Ziel sind noch zu verbessern. **Neu gewünschter Standard vom 24.10.2026:** Compilerwarnungen und Cppcheck-/MISRA-orientierte Analyse sollen beim normalen Build automatisch mitlaufen. Befunde und Ausführungsfehler sichtbar melden; Fehler-/Baseline-Regeln bei der Einrichtung in #163 konkret festlegen. Die automatische Build-Einbindung ist noch nicht umgesetzt. Ein MISRA-C:2012-Addon auf C++ ersetzt **keine** vollständige MISRA-C++-Konformitätsprüfung. **Nachweisstand aktualisiert 24.10.2026:** lokale ESP32-Läufe und Reports vom 21.10. liegen vor (0 Codebefunde, 45 Konfigurationshinweise, 55 Meldungen insgesamt). Analysekonfiguration und separater PlatformIO-Aufruf bleiben offen; aktueller Reststand in [#163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163).
+Portierung des Nano-Ansatzes, für ESP32-eigene `src/`, `lib/`, `include/`, ohne ESP-IDF/Arduino/FreeRTOS-Fremdcode als FY-Befund zu behandeln. Tool per `pio run -t misra` oder `python scripts/misra_check.py` aus `FY_ESP32/` starten; lokal installiertes `cppcheck` erforderlich. Berichte unter `reports/`. **Ist:** separater Prüfaufruf; Konfiguration und PlatformIO-Ziel sind noch zu verbessern. **Neu gewünschter Standard vom 24.10.2026:** Compilerwarnungen und Cppcheck-/MISRA-orientierte Analyse sollen beim normalen Build automatisch mitlaufen. Befunde und Ausführungsfehler sichtbar melden; Fehler-/Baseline-Regeln bei der Einrichtung in #163 konkret festlegen. Die automatische Build-Einbindung ist noch nicht umgesetzt. Ein MISRA-C:2012-Addon auf C++ ersetzt **keine** vollständige MISRA-C++-Konformitätsprüfung. **Nachweisstand aktualisiert 24.10.2026:** lokale ESP32-Läufe und Reports vom 21.10. liegen vor (0 Codebefunde, 45 Konfigurationshinweise, 55 Meldungen insgesamt). Analysekonfiguration und separater PlatformIO-Aufruf bleiben offen; aktueller Reststand in [#163](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/163).
 
 ## 6. Diagramme, Doxygen und Round-up
 
