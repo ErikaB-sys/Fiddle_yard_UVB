@@ -1,6 +1,7 @@
 #include "UART.h"
 #include "Firmware.h"
 #include "Motor.h"
+#include "Keyboard.h"
 #include <freertos/task.h>
 #include <cstring>
 
@@ -30,7 +31,6 @@ constexpr uint8_t kErrorInvalidData = FY_ERROR_LOCATION_UART | 0x05U;
 constexpr uint8_t kErrorTelegram = FY_ERROR_LOCATION_UART | 0x06U;
 constexpr uint8_t kErrorCrc = FY_ERROR_LOCATION_UART | 0x07U;
 constexpr uint32_t kPositionUnknown = 0x00007FFFU; // Unbekannte Position gemaess Nano-Protokoll.
-constexpr uint8_t kSystemInit = 0x00U; // Fester Initialzustand; zentraler Systemstatus noch nicht angebunden.
 
 // Nano-Befehlstabelle unveraendert lassen. MOVE ist eine eigene
 // ESP32-Erweiterung; LEFT und RIGHT erhalten keine neue Bedeutung.
@@ -270,9 +270,8 @@ void UART::collectMotorResponses() {
 void UART::handleGetStatus() {
     switch (_command.data[0]) {
     case STATUS_SELECTOR_SYSTEM: {
-        // Nano-Bitbelegung: Display, Expander, UART, Motor, Tasten,
-        // Sensoren, Systemfehler. Derzeit feste UART-Maske, kein System-Snapshot.
-        const uint8_t data[2]{0x04U, kSystemInit};
+        // Bit 0: Keyboard per I2C erreichbar; restliche Bits reserviert.
+        const uint8_t data[2]{Keyboard_isAvailable() ? 0x01U : 0x00U, 0x00U};
         setResponse(STATUS_System, data, sizeof(data));
         break;
     }
@@ -314,8 +313,8 @@ void UART::handleGetStatus() {
         break;
     }
     case STATUS_SELECTOR_KEYBOARD: {
-        // Fester Nano-Wert 0; Keyboard-Status ist noch nicht angebunden.
-        const uint8_t data = 0U;
+        // Bit 0: PCF8574 antwortet auf die aktuelle I2C-Adressabfrage.
+        const uint8_t data = Keyboard_isAvailable() ? 0x01U : 0x00U;
         setResponse(STATUS_Keyboard, &data, 1U);
         break;
     }
