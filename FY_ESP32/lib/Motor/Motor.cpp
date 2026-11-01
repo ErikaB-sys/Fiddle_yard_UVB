@@ -467,6 +467,12 @@ void emit(BringupContext* context, const CommandMessage& cmd,
     };
     const bool local = (cmd.sequence & 0x80000000UL) != 0UL;
     QueueHandle_t destination = local ? context->keyboardEvents : context->events;
+    // Integrationspruefung UART/Motor:
+    // portMAX_DELAY verhindert den stillen Verlust einer Antwort bei voller
+    // Event-Queue, kann aber die gesamte Muninn-Task blockieren.
+    // Solange emit() wartet, wird auch die STOP-Prioritaetsqueue nicht gelesen.
+    // UART gibt _pending-Eintraege nur nach passender ACK/NACK-Antwort frei;
+    // ein Timeout fehlt. Queue-Groessen allein loesen dieses Risiko nicht.
     if (destination != nullptr) (void)xQueueSend(destination, &event, portMAX_DELAY);
 }
 } // anonymous namespace
