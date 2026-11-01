@@ -20,7 +20,7 @@ Stand: 20.10.2026 · `feature/FY_ESP32_Port` · **Build und Motor-Benchtest auf 
 **Codepfad:** `SET_POSITION 7F 73` →
 `Huginn::decodeExecute()` →
 `xQueueSend(commands)` →
-`Muninn_motorMockTask()` →
+`Muninn_motorTask()` →
 `Motor::prepareSetPosition()` →
 `Motor::calcProfile()` →
 `stepTimerStartProfile()` →
