@@ -9,7 +9,7 @@
 ## Namenskonvention
 - **Huginn = Core 0:** UART, BabelFish, Keyboard, **Error (aktuell nur UART-lokal; zentrale Aggregation geplant)**, spätere Kommunikation/WLAN.
 - **Muninn = Core 1:** Motor, **Switches/Sensoren**, Position, Referenzfahrt und unmittelbarer Hardwareschutz.
-- Task-bezogene exportierte Funktionen tragen den Owner als Präfix: `Huginn_startUART()`, `Muninn_startMotorMock()`. Gleiches bei späteren Core-gebundenen Funktionen.
+- Task-bezogene exportierte Funktionen tragen den Owner als Präfix: `Huginn_startUART()`, `Muninn_startMotor()`. Gleiches bei späteren Core-gebundenen Funktionen.
 - **Ausnahme:** Bestehende Nano-API- und Protokollnamen (z. B. `SetCommand()`, `setJob()`, `prepareGo()`, `prepareStop()`) werden **nicht** nur für die Namenskonvention umbenannt: Parität und Nachvollziehbarkeit gehen vor. Private Helfer benötigen keinen Owner-Präfix.
 - Die numerischen Core-IDs bleiben als `CORE_HUGINN=0` und `CORE_MUNINN=1` nachvollziehbar.
 - FreeRTOS-Tasknamen beginnen mit `Huginn_` bzw. `Muninn_`.
