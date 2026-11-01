@@ -66,26 +66,39 @@ enum class MotorJobResult_t { NONE, DONE, ENDSTOP_LEFT, ENDSTOP_RIGHT };
 // Other Motor state and ISR functions will be integrated in the next step.
 class Motor {
 public:
+    /** @brief Berechnet die sechs Profilabschnitte fuer eine Fahrstrecke. */
     bool calcProfile(uint16_t distance);
     // Parameter preparation for unreferenced commissioning moves.
     // Motor operational state (GO, STOP, MOVING) is still owned by Muninn.
+    /** @brief Prueft und bereitet einen relativen MOVE-Auftrag vor. */
     MotorCommandResult_t prepareMove(const uint8_t* data,
                                      MoveRequest& request);
     // Staged Motor state machine; ownership remains solely on Muninn/core 1.
     MotorState_t state() const { return _State; }
     bool referenced() const { return _ReferenceValid; }
+    /** @brief Wechselt nach GO-Freigabe gegebenenfalls in IDLE. */
     void onGoEnabled();
+    /** @brief Uebernimmt den STOP-Zustand und verwirft die aktuelle Referenz. */
     void onStop(bool latched);
+    /** @brief Kennzeichnet den Beginn einer Bewegung. */
     void onMoveStarted();
+    /** @brief Kennzeichnet den Abschluss einer Bewegung. */
     void onMoveFinished();
+    /** @brief Setzt den Motorzustand nach einem Profilfehler auf ERROR. */
     void onProfileError();
+    /** @brief Kennzeichnet den Beginn einer Referenzfahrt. */
     void onReferenceStarted();
+    /** @brief Uebernimmt das Ergebnis einer Referenzfahrt. */
     void onReferenceFinished(bool success);
+    /** @brief Prueft einen Referenzauftrag. */
     MotorCommandResult_t prepareReference(uint8_t mode);
     // Nano HW_TEST reference_run() port: state and calibration belong to Motor.
     // StepTimer is the only ESP32-specific sensor/STEP bridge.
+    /** @brief Startet die physische Referenzsequenz. */
     bool referenceBegin(bool full);
+    /** @brief Bricht eine laufende Referenzsequenz ab. */
     void referenceCancel();
+    /** @brief Verarbeitet den naechsten Referenz-Timerabschluss. */
     void referenceUpdate();
     bool referenceCalibrated() const { return _calibrated; }
     bool referenceActive() const { return _active; }
@@ -93,36 +106,52 @@ public:
     uint32_t referencePosition() const { return _position; }
     uint32_t referenceOppositeEnd() const { return _oppositeEnd; }
     // Boot-Load, Defaults und physikalische Langreferenz-Kalibrierung.
+    /** @brief Laedt persistente Kalibrierung, Gleise und Rampenparameter. */
     void initializeStorage();
     bool calibrationSavePending() const { return _calibrationPending; }
+    /** @brief Speichert eine vorgemerkte Kalibrierung. */
     bool persistCalibration();
+    /** @brief Liest eine gespeicherte Gleisposition. */
     bool trackPosition(uint8_t track, uint32_t& out) const;
     /** @brief Setzt alle Gleis-Defaults erst im NVM und danach im RAM. */
     bool restoreTrackDefaults();
+    /** @brief Liest einen Rampenparameter. */
     bool getRampParameter(uint8_t id, uint32_t& value) const;
+    /** @brief Aendert einen Rampenparameter im RAM. */
     bool setRampParameter(uint8_t id, uint32_t value);
+    /** @brief Speichert die Rampenparameter. */
     bool saveRampParameters(bool& changed);
+    /** @brief Stellt die Rampen-Standardwerte wieder her. */
     bool restoreRampDefaults(bool& changed);
     bool rampParametersValid() const { return _rampParametersValid; }
     void invalidateCurrentReference() { _ReferenceValid = false; }
     /** @brief Aendert eine Gleisposition nur im RAM; prueft den Wertebereich. */
+    /** @brief Aendert eine Gleisposition im RAM. */
     bool setTrackPosition(uint8_t track, uint32_t position);
     /** @brief Speichert die aktuellen Gleispositionen persistent mit CRC. */
+    /** @brief Speichert die Gleispositionen persistent. */
     bool saveTrackPositions();
     bool tracksValid() const { return _tracksValid; }
     bool hasNvmFault() const { return _nvmFaultMask != 0U; }
 
     // Synthetic short REF (without motion) is BENCH ONLY, never sets _ReferenceValid.
+    /** @brief Setzt die simulierte Testposition zurueck. */
     void resetBenchPosition();  // Called exclusively after accepted fake REFERENCE 00.
+    /** @brief Verwirft die simulierte Testposition. */
     void invalidateBenchPosition();
     bool benchPositionValid() const { return _BenchPositionValid; }
     bool benchReferenceValid() const { return _BenchReferenceValid && _BenchPositionValid; }
     uint16_t benchPosition() const { return _BenchPosition; }
+    /** @brief Bereitet eine Fahrt zu einem Gleis vor. */
     MotorCommandResult_t prepareSetTrack(uint8_t track, MoveRequest& request);
+    /** @brief Bereitet eine Fahrt zu einer absoluten Position vor. */
     MotorCommandResult_t prepareSetPosition(uint16_t target,
                                              MoveRequest& request);
+    /** @brief Uebernimmt eine angenommene Bewegung. */
     void onMotionAccepted(const MoveRequest& request);
+    /** @brief Aktualisiert den Fortschritt einer Bewegung. */
     void onMotionProgress(uint32_t completedSteps);
+    /** @brief Prueft die Gueltigkeit des Fahrprofils. */
     bool isProfileValid(uint16_t distance) const;
     const Profilelement_t* profile() const { return Motor_profil; }
     const MotorProfileParam_t& profileParams() const { return _ProfileParam; }
@@ -132,9 +161,12 @@ private:
         IDLE, SEEK_MOTOR, SEEK_OPPOSITE, APPROACH, FIRST_PASS,
         BACKOFF, SECOND_PASS, DONE, ERROR
     };
+    /** @brief Startet einen Referenzabschnitt ueber StepTimer. */
     bool referenceLaunch(bool away, uint16_t hz, bool stopAtExit,
                          bool coarse, uint16_t steps = UINT16_MAX);
+    /** @brief Schliesst eine Referenzsequenz erfolgreich ab. */
     void referenceFinish();
+    /** @brief Beendet die Referenzsequenz mit Fehler. */
     void referenceFail();
     RefRunState _stage = RefRunState::IDLE;
     bool _active = false;
