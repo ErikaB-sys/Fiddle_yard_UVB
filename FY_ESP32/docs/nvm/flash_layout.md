@@ -35,12 +35,12 @@ flowchart TB
 - Der NVS-Bereich ist nicht leer. Herkunft **nicht bestätigt**.
 - `coredump` ist im Dump vollständig `0xFF` (gelöscht).
 
-## Geplante FY-NVM-Nutzung
+## Aktuelle FY-NVM-Nutzung
 
-- Getrennte Datensätze `params` und `calib` mit eigener Version, Länge, CRC und unabhängiger Gültigkeit.
-- Parameterdefaults bei fehlender/ungültiger Parameter-NVS; ungültige Kalibrierung erfordert lange Referenzfahrt.
-- Kalibrierungsmessungen im Motor vergleichen; bei allen Abweichungen ≤10 STEP-Impulsen keine Flash-Aktualisierung. NVM selbst führt nur exakte Bytevergleiche aus.
-- WLAN-Profile/Passwörter sind eine gesonderte Domäne; Schutz im Flash vor Speicherung klären (Issue #166).
+- Im Namespace `fy_uvb` existieren drei definierte Segmenttypen: `calib` (v1, 12 Bytes), `tracks` (v1, 20 Bytes) und `motor` (v2, 34 Bytes), jeweils mit eigenem Formatheader und CRC32.
+- Fehlende Datensaetze (`NOT_FOUND`) und ungueltige Datensaetze (`INVALID_DATA`) werden unterschieden. Die Entscheidung ueber Erstinitialisierung, Defaults und Referenzgueltigkeit trifft das jeweilige Fachmodul, nicht der NVM-Dienst.
+- Der NVM-Dienst vergleicht beim Speichern den gesamten kodierten Datensatz bytegenau und vermeidet identische Flash-Schreibvorgaenge. Fachliche Toleranzen von Kalibriermessungen gehoeren in die Motorlogik.
+- WLAN-Profile, Passwoerter und kuenftige Webkonfiguration sind noch keine Segmente dieses Dienstes. Speicherung und Schutz gesondert entwerfen (Issue #166).
 
 ## OTA – spätere Umsetzung
 
