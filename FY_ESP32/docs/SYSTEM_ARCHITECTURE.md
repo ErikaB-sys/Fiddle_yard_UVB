@@ -28,6 +28,8 @@ flowchart LR
     SNAP --> KB
 ```
 
+Die Statusabfragen SYSTEM (Selektor `10`) und KEYBOARD (`50`) pruefen den PCF8574 (`0x27`) bei Bedarf per I2C-ACK; `Wire.setTimeOut(20)` ist konfiguriert. Ein I2C-Abzieh-/Fehlertest steht aus. `SET_MODE` bleibt `NOT_READY` und LOCAL/REMOTE ist nicht implementiert.
+
 Die Darstellung bezeichnet **keinen separaten Keyboard-Task**: Das Keyboard wird im Arduino-`loop()` alle etwa 10 ms abgefragt. Die Arduino-Laufzeit verwaltet den Loop selbst; seine tatsächliche Core-Zuordnung wird hier nicht als eigener gepinnter Huginn-Task behauptet. BabelFish ist ein Hilfsadapter innerhalb des UART-Pfads, keine zweite Motorsteuerung. Eine zentrale Core-uebergreifende Error-Aggregation ist noch **nicht** implementiert (siehe #181).
 
 ## 2. Startfolge – implementiert
