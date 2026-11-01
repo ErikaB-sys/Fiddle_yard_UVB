@@ -62,8 +62,14 @@ volatile bool referenceCoarseSeen = false;
 volatile bool referenceEntrySeen = false;
 volatile bool referenceExitSeen = false;
 volatile ReferenceEnd referenceEnd = ReferenceEnd::NONE;
+/**
+ * @brief Liest einen Sensorpegel unmittelbar aus dem ESP32-Eingangsregister.
+ * @param pin GPIO-Nummer eines Eingangs ab GPIO32.
+ * @return true bei HIGH-Pegel, andernfalls false.
+ * @note ISR-tauglicher direkter Registerzugriff; nicht durch Status-Queue ersetzen.
+ */
 inline bool IRAM_ATTR readSensor(uint8_t pin) {
-    // Classic ESP32 input GPIO34/36/39: GPIO_IN1_REG bits 2/4/7.
+    // ESP32: GPIO34/36/39 entsprechen den Registerbits 2/4/7.
     return (REG_READ(GPIO_IN1_REG) & (uint32_t{1} << (pin - 32U))) != 0U;
 }
 void IRAM_ATTR finishReference(ReferenceEnd end) {
@@ -87,10 +93,10 @@ void IRAM_ATTR stepTimerIsr() {
         GPIO.out_w1tc = kStepBit;
         stepIsHigh = false;
     } else if (!stepIsHigh) {
-        // Check the destination endstop BEFORE sending a new STEP edge.
+        // Endschalter in Fahrtrichtung VOR der nächsten STEP-Flanke prüfen.
         if (readSensor(referenceAway ? LSR_PIN : LSL_PIN)) {
-            // Only the endstop in the direction of travel counts.
-            // An opposite-side switch must not interfere with movement.
+            // Der gegenüberliegende Endschalter beeinflusst die Fahrt nicht.
+            // Nur die Endlage in Fahrtrichtung ist maßgeblich.
             if (referenceMode) {
                 finishReference(ReferenceEnd::ENDSTOP);
             } else {
@@ -107,7 +113,7 @@ void IRAM_ATTR stepTimerIsr() {
         GPIO.out_w1ts = kStepBit;
         stepIsHigh = true;
     } else {
-        // Nano convention: falling edge ends the current STEP pulse.
+        // Wie beim Nano beendet die fallende Flanke den aktuellen STEP-Puls.
         GPIO.out_w1tc = kStepBit;
         stepIsHigh = false;
         ++completed;
