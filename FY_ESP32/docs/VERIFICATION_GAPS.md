@@ -21,7 +21,7 @@ Der Stand berücksichtigt die Funktionstests vom 20./23./25.10., die Cppcheck-Be
 
 - [x] **D15 – Nano-Diagramme als Historie getrennt:** alte Arbeitsdiagramme liegen unter Modul-`archive/`; aktive Modulbeschreibungen und zentraler [Lesepfad](README.md) benennen Ziel und Iststand. Ein Archivdiagramm ist kein zusätzlicher Portierungsauftrag. **Nachweis:** aktuelle Dokumentstruktur; weitere konkrete fachliche Abweichungen werden beim jeweiligen Modulreview bearbeitet (D16).
 
-- [x] **D19 – HW3-Pin-/SLEEP-Softwareübernahme erfolgt:** HW3-Konstanten vorhanden; `setup()` hält G32 zunächst LOW. `Muninn_initMotorMock()` initialisiert Motor/Timer, setzt SLEEP einmalig HIGH und wartet **1500 µs vor Taskstart**. GO/STOP ändern SLEEP nicht mehr. **Nachweis:** aktueller Code und dokumentierter HW3-Funktionslauf 23.10. Die alte Aussage „SLEEP-Ansteuerung/Aufwachzeit fehlen“ ist überholt. Sensor-Schutzpfad bleibt D03, optionale SPI-Ansteuerung D18, Bootpegel D01.
+- [x] **D19 – HW3-Pin-/SLEEP-Softwareübernahme erfolgt:** HW3-Konstanten vorhanden; `setup()` hält G32 zunächst LOW. `Muninn_initMotor()` initialisiert Motor/Timer, setzt SLEEP einmalig HIGH und wartet **1500 µs vor Taskstart**. GO/STOP ändern SLEEP nicht mehr. **Nachweis:** aktueller Code und dokumentierter HW3-Funktionslauf 23.10. Die alte Aussage „SLEEP-Ansteuerung/Aufwachzeit fehlen“ ist überholt. Sensor-Schutzpfad bleibt D03, optionale SPI-Ansteuerung D18, Bootpegel D01.
 
 ## Teilweise abgeschlossen – nur den benannten Rest weiterführen
 

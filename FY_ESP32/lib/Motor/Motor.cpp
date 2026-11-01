@@ -807,7 +807,7 @@ bool Motor::persistCalibration() {
     return true;
 }
 
-void Muninn_initMotorMock() {
+void Muninn_initMotor() {
     // G32 (!SLEEP und !RESET) bleibt waehrend des Starts LOW.
     // Mikroschritt-Eingaenge werden bei HIGH an ENABLE konfiguriert.
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
@@ -846,7 +846,7 @@ uint8_t readSensorLevels() {
 }
 } // anonymous namespace
 
-void Muninn_motorMockTask(void* arg) {
+void Muninn_motorTask(void* arg) {
     auto* context = static_cast<BringupContext*>(arg);
     CommandMessage cmd{};
     Motor motor{};
@@ -1140,7 +1140,7 @@ void Muninn_motorMockTask(void* arg) {
                     motor.referenceActive() ? NackReason::BUSY : NackReason::NOT_READY));
             } else {
                 if (!driverEnabled.load(std::memory_order_acquire)) {
-                    // HW3-Treiber wurde vor Task-Erstellung in Muninn_initMotorMock() geweckt;
+                    // HW3-Treiber wurde vor Task-Erstellung in Muninn_initMotor() geweckt;
                     // STOP-Verriegelung bestimmt die Freigabe.
                     digitalWrite(MOTOR_PWM_PIN, LOW);
                     digitalWrite(MOTOR_ENABLE_PIN, LOW); // active LOW
@@ -1398,9 +1398,9 @@ void Muninn_motorMockTask(void* arg) {
     }
 }
 
-BaseType_t Muninn_startMotorMock(BringupContext* context) {
+BaseType_t Muninn_startMotor(BringupContext* context) {
     return xTaskCreatePinnedToCore(
-        Muninn_motorMockTask, "Muninn_Motor", 4096,
+        Muninn_motorTask, "Muninn_Motor", 4096,
         context, 3, nullptr, CORE_MUNINN);
 }
 } // namespace fy

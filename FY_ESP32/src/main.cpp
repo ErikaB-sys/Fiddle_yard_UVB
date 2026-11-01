@@ -49,7 +49,7 @@ void setup() {
     pinMode(MOTOR_DIR_PIN, OUTPUT);
     pinMode(MOTOR_ENABLE_PIN, OUTPUT);
     // Muninn konfiguriert die Mikroschrittleitungen bei deaktiviertem Treiber.
-    fy::Muninn_initMotorMock();
+    fy::Muninn_initMotor();
     // Bei POR/Reset keine kuenstlichen STEP-/DIR-Pulse erzeugen.
     // STOP bleibt in Muninn bis zum ausdruecklichen STOP AA 55 verriegelt.
     digitalWrite(MOTOR_PWM_PIN, LOW);
@@ -73,7 +73,7 @@ void setup() {
     fy::Keyboard_begin(&bridge);
 
     // Erst anschliessend die Modul-Tasks auf ihren Kernen starten.
-    const BaseType_t muninn = fy::Muninn_startMotorMock(&bridge);
+    const BaseType_t muninn = fy::Muninn_startMotor(&bridge);
     const BaseType_t huginn = fy::Huginn_startUART(&bridge);
     if (muninn != pdPASS || huginn != pdPASS) {
         Serial.println("FY_TEST: failed to create tasks");

@@ -37,13 +37,13 @@ Die Darstellung bezeichnet **keinen separaten Keyboard-Task**: Das Keyboard wird
 ```mermaid
 flowchart TD
     A["POR / Reset"] --> B["Sichere A4988-GPIO-Pegel<br/>!SLEEP/!RESET zunaechst LOW"]
-    B --> C["Muninn_initMotorMock()<br/>Motor-Hardware initialisieren"]
+    B --> C["Muninn_initMotor()<br/>Motor-Hardware initialisieren"]
     C --> D["Fuenf FreeRTOS-Queues erstellen"]
     D --> E{"Alle Queues vorhanden?"}
     E -->|nein| F["Fehlermeldung; setup() verlaesst Startpfad<br/>keine Huginn-/Muninn-Tasks"]
     E -->|ja| G["I2C initialisieren und Adressen scannen"]
     G --> H["Keyboard_begin(&bridge)"]
-    H --> I["Muninn_startMotorMock(&bridge)"]
+    H --> I["Muninn_startMotor(&bridge)"]
     I --> J["Huginn_startUART(&bridge)"]
     J --> K["Arduino loop(): Keyboard_poll()"]
 ```
