@@ -4,9 +4,9 @@
 
 **[Gemeinsamer Konzept-Einstieg und Lesepfad](docs/README.md)**
 
-Dort gehen wir von den Bedienfällen über das System zum Motorverhalten und erst danach zu Befehlen und Implementierungsresten. Für die aktuelle Konzeptprüfung ist das die erste Seite.
+Dort stehen der aktuelle Iststand, der verbindliche Schnittstellenvertrag und die Abgrenzung zu historischen Entwicklungsunterlagen.
 
-**Aktiver Branch:** `main` · **Projekt:** `FY_ESP32/`.
+**Dokumentierter Iststand:** `feature/FY_ESP32_Cleanup` (01.11.2026) · **Projekt:** `FY_ESP32/`. `main` kann bis zum Merge abweichen.
 
 ## Zum Nachschlagen
 
