@@ -34,6 +34,8 @@ flowchart TD
 
 Lokale STOP-Verriegelung und Wiederfreigabe, echte SHORT-/LONG-Referenzierung mit BG3-Anfahrt, Wahl und Fahrt BG1–BG5, priorisierter STOP per Keyboard und seriell, UART-Statusabfragen, Parameter-/NVM-Grundfunktionen. **ACK bedeutet nicht Fahrtende** – Abschluss wird über Status-Snapshots geprüft.
 
+**Neu im Cleanup (noch nicht hardwaregetestet):** `GET_STATUS 10/50` ermittelt die PCF8574-Erreichbarkeit bei jeder Abfrage ueber I2C; der Wire-Timeout ist auf 20 ms gesetzt. Keine automatische Hot-Plug-Reaktion.
+
 **Bewusst nicht enthalten:** aktive LOCAL/REMOTE-Umschaltung und Host-Zugriffssperre, Web/JMRI, CAN, SPI-Beleuchtung, Keyboard-Hot-Plug, Teach-in, WRITE2KEYBOARD. `SET_MODE` antwortet derzeit mit `NACK/NOT_READY`. Es gibt keine pauschale Zusage vollständiger Fehlerfall-Abdeckung.
 
 ## Dokumentationsorganisation und Historie
