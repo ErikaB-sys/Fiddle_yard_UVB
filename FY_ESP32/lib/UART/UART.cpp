@@ -1,12 +1,18 @@
 #include "UART.h"
 #include "Firmware.h"
 #include "Motor.h"
+#include "Keyboard.h"
 #include <freertos/task.h>
 #include <cstring>
 
 namespace fy {
 namespace {
-// Same CRC-8 (polynomial 0x07, initial ID) as the Nano UART.
+/** @brief Berechnet die zum Nano kompatible CRC-8 (Polynom 0x07).
+ * @param id Befehls- oder Antwortkennung als CRC-Startwert.
+ * @param data Nutzdatenpuffer.
+ * @param length Anzahl der Nutzdatenbytes.
+ * @return Berechnete CRC-8.
+ */
 uint8_t crc8(uint8_t id, const uint8_t* data, size_t length) {
     uint8_t crc = id;
     for (size_t i = 0; i < length; ++i) {
@@ -24,26 +30,29 @@ constexpr uint8_t kErrorLength = FY_ERROR_LOCATION_UART | 0x04U;
 constexpr uint8_t kErrorInvalidData = FY_ERROR_LOCATION_UART | 0x05U;
 constexpr uint8_t kErrorTelegram = FY_ERROR_LOCATION_UART | 0x06U;
 constexpr uint8_t kErrorCrc = FY_ERROR_LOCATION_UART | 0x07U;
-constexpr uint32_t kPositionUnknown = 0x00007FFFU; // Nano POSITION_UNKNOWN.
-constexpr uint8_t kSystemInit = 0x00U; // FY_SystemState_t::INIT (motor not ready).
+constexpr uint32_t kPositionUnknown = 0x00007FFFU; // Unbekannte Position gemaess Nano-Protokoll.
 
-// Keep the proven Nano protocol table byte-for-byte unchanged. MOVE is an
-// explicit ESP32-only extension; legacy LEFT/RIGHT are not repurposed.
+// Nano-Befehlstabelle unveraendert lassen. MOVE ist eine eigene
+// ESP32-Erweiterung; LEFT und RIGHT erhalten keine neue Bedeutung.
 constexpr CommandDefinition kMoveDefinition{
     CMD_MOVE, CommandType::EXECUTE, 3U, false
 };
+/** @brief Sucht die Befehlsdefinition einschliesslich ESP32-MOVE.
+ * @param id Befehlskennung.
+ * @return Zeiger auf die Definition oder nullptr bei unbekannter Kennung.
+ */
 const CommandDefinition* lookup(uint8_t id) {
     if (id == CMD_MOVE) return &kMoveDefinition;
     for (size_t i = 0; i < COMMAND_COUNT; ++i)
         if (commandDefinitions[i].id == id) return &commandDefinitions[i];
     return nullptr;
 }
-} // anonymous namespace
+} // Anonymer Namensraum
 
 void UART::begin(BringupContext* context) {
     _context = context;
     _errors.begin();
-    _babelFish.begin(115200); // ASCII input and local echo retained.
+    _babelFish.begin(115200); // ASCII-Eingabe und lokales Echo bleiben erhalten.
     Serial.println(F("Hello my friend"));
     Serial.println(F("FY ESP32: Huginn UART ready; Muninn motor task configured"));
     Serial.println(F("HW3 REF: 01=LONG calibration; 00=SHORT with saved calibration"));
@@ -74,7 +83,7 @@ void UART::receive() {
         const CommandDefinition* definition = nullptr;
         if (validateCommand(definition)) decodeCommand(*definition);
         sendResponse();
-        // Avoid starving motor acknowledgments during a burst of ASCII input.
+        // Auch bei vielen Eingabezeichen Motorantworten zeitnah verarbeiten.
         collectMotorResponses();
     }
 }
@@ -141,7 +150,7 @@ void UART::decodeExecute() {
         }
         break;
     case CMD_GO:
-        // Nano GO: 55 AA disables, AA 55 enables the motor driver.
+        // Nano-GO: 55 AA deaktiviert, AA 55 aktiviert den Motortreiber.
         if (!((_command.data[0] == 0x55U && _command.data[1] == 0xAAU) ||
               (_command.data[0] == 0xAAU && _command.data[1] == 0x55U))) {
             nack(FY_ERROR_LOCATION_MOTOR, NackReason::INVALID_PARAMETER);
@@ -153,8 +162,8 @@ void UART::decodeExecute() {
         return;
     case CMD_MOVE: {
         MoveRequest request{};
-        // Length and CRC were already validated. Reject reserved flag bits,
-        // illegal microstep modes and 0 / >10000 steps before queueing.
+        // Laenge und CRC sind bereits geprueft. Reservierte Flags,
+        // ungueltige Mikroschritte und Schrittzahlen ausserhalb 1..10000 ablehnen.
         if (!decodeMovePayload(_command.data, request)) {
             _errors.setError(kErrorInvalidData);
             nack(FY_ERROR_LOCATION_MOTOR, NackReason::INVALID_PARAMETER);
@@ -164,7 +173,7 @@ void UART::decodeExecute() {
     }
     case CMD_LEFT:
     case CMD_RIGHT:
-        // ESP32 MOVE replaces these for commissioning. Nano files unchanged.
+        // Zur Inbetriebnahme dient ESP32-MOVE; Nano-Befehle bleiben unveraendert.
         nack(FY_ERROR_LOCATION_UART, NackReason::INVALID_COMMAND);
         return;
     case CMD_SET_PARAM:
@@ -182,7 +191,7 @@ void UART::decodePriority() {
         nack(FY_ERROR_LOCATION_UART, NackReason::INVALID_COMMAND);
         return;
     }
-    // Nano STOP: 55 AA asserts STOP; AA 55 releases STOP.
+    // Nano-STOP: 55 AA setzt STOP, AA 55 gibt STOP frei.
     if (!((_command.data[0] == 0x55U && _command.data[1] == 0xAAU) ||
           (_command.data[0] == 0xAAU && _command.data[1] == 0x55U))) {
         nack(FY_ERROR_LOCATION_MOTOR, NackReason::INVALID_PARAMETER);
@@ -204,7 +213,7 @@ bool UART::queueMotorCommand(bool priority) {
     message.sequence = ++_nextSequence;
     memcpy(message.data, _command.data, sizeof(message.data));
 
-    // Reserve an in-flight slot before handing the request to Muninn.
+    // Freien Zuordnungseintrag vor der Uebergabe an Muninn suchen.
     PendingCommand* slot = nullptr;
     for (auto& pending : _pending)
         if (!pending.active) { slot = &pending; break; }
@@ -212,7 +221,7 @@ bool UART::queueMotorCommand(bool priority) {
         nack(FY_ERROR_LOCATION_UART, NackReason::BUSY);
         return false;
     }
-    // STOP never waits behind the normal motor queue.
+    // STOP verwendet die separate Prioritaetsqueue.
     QueueHandle_t queue = priority ? _context->priorityCommands : _context->commands;
     if (xQueueSend(queue, &message, 0) != pdTRUE) {
         nack(FY_ERROR_LOCATION_UART, NackReason::BUSY);
@@ -221,7 +230,7 @@ bool UART::queueMotorCommand(bool priority) {
     slot->sequence = message.sequence;
     slot->id = message.id;
     slot->active = true;
-    // ACK/NACK is emitted only after Muninn reports the result.
+    // ACK/NACK erst nach Rueckmeldung von Muninn senden.
     return true;
 }
 
@@ -238,7 +247,7 @@ void UART::collectMotorResponses() {
     if (_context == nullptr || _context->events == nullptr) return;
     MotorEvent event{};
     while (xQueueReceive(_context->events, &event, 0) == pdTRUE) {
-        // Correlate back to the accepted request before sending any wire reply.
+        // Motorantwort vor der Ausgabe dem angenommenen Befehl zuordnen.
         PendingCommand* slot = nullptr;
         for (auto& pending : _pending) {
             if (pending.active && pending.sequence == event.sequence &&
@@ -247,9 +256,9 @@ void UART::collectMotorResponses() {
                 break;
             }
         }
-        if (slot == nullptr) continue; // Stale or unsolicited motor event.
+        if (slot == nullptr) continue; // Veraltetes oder nicht zuordenbares Motorereignis.
         if (event.responseId != STATUS_ACK && event.responseId != STATUS_NACK)
-            continue; // Invalid event: retain slot, do not fabricate a reply.
+            continue; // Ungueltiges Ereignis: Eintrag behalten, keine Antwort erfinden.
         if (event.responseId == STATUS_ACK && event.responseData != event.commandId)
             continue;
         slot->active = false;
@@ -261,34 +270,32 @@ void UART::collectMotorResponses() {
 void UART::handleGetStatus() {
     switch (_command.data[0]) {
     case STATUS_SELECTOR_SYSTEM: {
-        // Nano bit layout: display, expander, UART, motor, buttons, switches,
-        // systemError. Only UART has been initialized in this bring-up.
-        const uint8_t data[2]{0x04U, kSystemInit};
+        // Bit 0: Keyboard per I2C erreichbar; restliche Bits reserviert.
+        const uint8_t data[2]{Keyboard_isAvailable() ? 0x01U : 0x00U, 0x00U};
         setResponse(STATUS_System, data, sizeof(data));
         break;
     }
     case STATUS_SELECTOR_REFERENCE: {
-        // Explicitly distinguish real from simulated reference.
-        // Real hardware reference is NOT implemented in this branch.
+        // Referenzstatus von Muninn uebernehmen; echte Referenzierung
+        // und gegebenenfalls simulierten Zustand unterscheiden.
         const uint8_t status = Muninn_referenceStatusSnapshot();
         setResponse(STATUS_Reference, &status, 1U);
         break;
     }
     case STATUS_SELECTOR_MOTOR: {
-        // Nano STATUS_Motor DATA[0]: bit 0 = driver enabled,
-        // bit 1 = moving. Both snapshots are published by Muninn.
-        // No direct GPIO or motor state access from Huginn.
+        // Nano STATUS_Motor DATA[0]: Bit 0 = Treiber aktiv,
+        // Bit 1 = Bewegung. Huginn fragt nur Muninn-Zustaende ab.
         const uint8_t flags = static_cast<uint8_t>(
             (Muninn_isDriverEnabled() ? 0x01U : 0x00U) |
             (Muninn_isMoving() ? 0x02U : 0x00U));
-        // ESP32 port extension: DATA[1] carries MotorState_t for polling.
-        // No unsolicited DONE telegram is generated.
+        // ESP32-Erweiterung: DATA[1] enthaelt MotorState_t zur Abfrage.
+        // Es wird kein ungefragtes DONE-Telegramm gesendet.
         const uint8_t data[3]{flags, static_cast<uint8_t>(Muninn_motorState()), 0U};
         setResponse(STATUS_Motor, data, sizeof(data));
         break;
     }
     case STATUS_SELECTOR_SWITCHES: {
-        // Read only the Huginn-owned snapshot, never Muninn GPIOs.
+        // Nur den von Huginn uebernommenen Snapshot lesen, keine GPIO-Zugriffe.
         collectSensorSnapshot();
         if (!_sensorSnapshotValid) {
             nack(FY_ERROR_LOCATION_UART, NackReason::NOT_READY);
@@ -306,8 +313,8 @@ void UART::handleGetStatus() {
         break;
     }
     case STATUS_SELECTOR_KEYBOARD: {
-        // 0 = not connected (Nano definition).
-        const uint8_t data = 0U;
+        // Bit 0: PCF8574 antwortet auf die aktuelle I2C-Adressabfrage.
+        const uint8_t data = Keyboard_isAvailable() ? 0x01U : 0x00U;
         setResponse(STATUS_Keyboard, &data, 1U);
         break;
     }
@@ -342,9 +349,9 @@ void UART::handleGetError() {
 }
 
 void UART::handleGetPosition() {
-    // Nano 4-byte little-endian response. The ESP32-only *bench* flag is
-    // bit 16 = 1: lower 16 bits are a simulated position, not an LS reference.
-    // If bench tracking is invalid, the original UNKNOWN value is returned.
+    // Vier-Byte-Antwort im Little-Endian-Format. Das ESP32-Bench-Flag
+    // (Bit 16) kennzeichnet eine simulierte Position in den unteren 16 Bit.
+    // Ohne gueltige Bench-Position gilt der bisherige UNKNOWN-Wert.
     const uint32_t value = Muninn_positionSnapshot();
     const uint8_t data[4]{
         static_cast<uint8_t>(value & 0xFFU),
@@ -361,9 +368,9 @@ void UART::handleGetTrack() {
         nack(FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
         return;
     }
-    // Atomically published by Muninn, not inferred from Huginn/GPIO.
-    // DATA: requested target, last confirmed track, movement status.
-    // Track 00 + ERROR means not referenced/no known track.
+    // Von Muninn veroeffentlichter Snapshot, nicht aus GPIOs abgeleitet.
+    // DATA: Zielgleis, zuletzt bestaetigtes Gleis, Bewegungsstatus.
+    // Gleis 00 mit ERROR: nicht referenziert bzw. kein Gleis bekannt.
     const uint32_t value = Muninn_trackSnapshot();
     const uint8_t data[3]{
         static_cast<uint8_t>(value & 0xFFU),
@@ -384,8 +391,8 @@ void UART::handleSetMode() {
         nack(FY_ERROR_LOCATION_UART, NackReason::INVALID_PARAMETER);
         return;
     }
-    // Nano requires a keyboard/motor context to change the control mode.
-    // Do not claim success until both are implemented on ESP32.
+    // Betriebsartenwechsel benoetigt die abgestimmte Keyboard-/Motorlogik.
+    // Bis zur Implementierung keinen Erfolg bestaetigen.
     nack(FY_ERROR_LOCATION_UART, NackReason::NOT_READY);
 }
 
@@ -433,6 +440,9 @@ void UART::sendResponse() {
     _response.responsePending = false;
 }
 
+/** @brief Fuehrt die UART-Verarbeitung zyklisch auf Huginn aus.
+ * @param arg Zeiger auf BringupContext.
+ */
 void Huginn_uartTask(void* arg) {
     UART uart;
     uart.begin(static_cast<BringupContext*>(arg));

@@ -119,8 +119,8 @@ bool Motor::calcProfile(uint16_t distance)
     return _TimerValid;
 }
 
-// Motor state transitions run only in Muninn (core 1). ISR status is
-// consumed in the task, never used for unsolicited UART telegrams.
+// Motorzustandswechsel erfolgen nur in Muninn/Core 1. Die Task wertet
+// ISR-Zustaende aus; es werden keine ungefragten UART-Telegramme erzeugt.
 void Motor::onGoEnabled() {
     if (!_StopActive && _State == MotorState_t::STOPPED)
         _State = MotorState_t::IDLE;
@@ -129,7 +129,7 @@ void Motor::onStop(bool latched) {
     _StopActive = latched;
     _ReferenceValid = false;
     _State = MotorState_t::STOPPED;
-    // STOP / GO OFF must never invent a new reference position.
+    // STOP und GO AUS duerfen keine neue Referenzposition behaupten.
     invalidateBenchPosition();
 }
 void Motor::onMoveStarted() {
@@ -173,7 +173,7 @@ void Motor::referenceCancel() {
         _active = false;
         _stage = RefRunState::IDLE;
         _calibrationPending = false; // Abgebrochene BG3-Fahrt nicht nachtraeglich persistieren.
-        // Calibration (as distinct from current reference) survives STOP.
+        // Die Kalibrierung bleibt im Gegensatz zur aktuellen Referenz bei STOP erhalten.
     }
 
 void Motor::referenceUpdate() {
@@ -184,7 +184,7 @@ void Motor::referenceUpdate() {
         switch (_stage) {
         case RefRunState::SEEK_MOTOR:
             if (s.reason != ReferenceEnd::ENDSTOP) return referenceFail();
-            // Nano short reference establishes this position at LSL.
+            // Die Nano-Kurzreferenz setzt diese Position an LSL.
             _position = 1000U;
             stepTimerReferenceSetPosition(_position);
             if (!_full) return referenceFinish();
@@ -196,7 +196,7 @@ void Motor::referenceUpdate() {
                 return referenceFail();
             _oppositeEnd = s.position;
             _coarse = s.coarse;
-            // Nano's coarse+1200 approach with right-end clearance.
+            // Nano-Anfahrt mit Grobmesswert + 1200 und Abstand zur rechten Endlage.
             {
                 uint32_t target = _coarse + 1200U;
                 if (target >= _oppositeEnd)
@@ -260,7 +260,7 @@ bool Motor::referenceLaunch(bool away, uint16_t hz, bool stopAtExit, bool coarse
 void Motor::referenceFinish() { _active = false; _stage = RefRunState::DONE; }
 
 void Motor::referenceFail() {
-    // One diagnostic line only on failure (no tracing in STEP ISR).
+    // Eine Diagnosezeile nur im Fehlerfall; keine Ausgabe in der STEP-ISR.
     Serial.print(F("REF: ERROR phase="));
     Serial.print(static_cast<uint8_t>(_stage));
     Serial.print(F(" pos="));
@@ -291,8 +291,8 @@ MotorCommandResult_t Motor::prepareSetTrack(uint8_t track, MoveRequest& request)
     if (_StopActive || _State != MotorState_t::IDLE)
         return MotorCommandResult_t::STOP_ACTIVE;
     if (_ReferenceValid) {
-        // Real REF replaces synthetic benchReferenceValid() as source of truth.
-        // The ISR owns the current absolute coordinate during profiled moves.
+        // Die reale REF ist massgeblich, nicht die simulierte Testreferenz.
+        // Die ISR fuehrt die absolute Position waehrend der Profilfahrt.
         const uint32_t current = stepTimerReferenceSnapshot().position;
         if (current <= 1000U || current >= _oppositeEnd ||
             destination <= 1000U || destination >= _oppositeEnd)
@@ -309,7 +309,7 @@ MotorCommandResult_t Motor::prepareSetTrack(uint8_t track, MoveRequest& request)
             return MotorCommandResult_t::INVALID_DATA;
         return MotorCommandResult_t::ACCEPTED;
     }
-    // Fake reference must never enable SET_TRACK.
+    // Eine simulierte Referenz darf SET_TRACK nicht freigeben.
     return MotorCommandResult_t::STOP_ACTIVE;
 }
 
@@ -342,7 +342,7 @@ bool Motor::isProfileValid(uint16_t distance) const {
     return sum == distance;
 }
 
-// Pure payload validation. Command length and CRC are checked by Huginn.
+// Nur Nutzdatenpruefung; Laenge und CRC prueft Huginn.
 bool decodeMovePayload(const uint8_t* data, MoveRequest& result) {
     if (data == nullptr) return false;
     const uint8_t flags = data[0];
@@ -364,12 +364,12 @@ bool decodeMovePayload(const uint8_t* data, MoveRequest& result) {
 }
 
 
-// Parameter validation is kept in Motor (prepare path), not in the ISR.
+// Parameterpruefung im Motor-Vorbereitungspfad, nicht in der ISR.
 MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
                                         MoveRequest& request) {
     if (!decodeMovePayload(data, request))
         return MotorCommandResult_t::INVALID_DATA;
-    // Driver MS pins never change after initialization.
+    // Treiber-MS-Pins bleiben nach der Initialisierung unveraendert.
     if (request.mode != FY_MOTOR_MICROSTEP_MODE)
         return MotorCommandResult_t::INVALID_DATA;
     if (_ReferenceValid) {
@@ -382,20 +382,20 @@ MotorCommandResult_t Motor::prepareMove(const uint8_t* data,
         if (end <= 1000 || end >= static_cast<int32_t>(_oppositeEnd))
             return MotorCommandResult_t::INVALID_DATA;
     }
-    // Prepare all six Nano phases; the STEP ISR now executes those
-    // phases, but the new dynamic hardware timer still needs HW testing.
+    // Alle sechs Nano-Phasen vorbereiten; die STEP-ISR fuehrt sie aus.
+    // Dynamische Timerintervalle erfordern weiterhin einen Hardwaretest.
     if (!calcProfile(request.steps) || !isProfileValid(request.steps))
         return MotorCommandResult_t::INVALID_DATA;
     return MotorCommandResult_t::ACCEPTED;
 }
 
 namespace {
-// Only Muninn writes this; Huginn reads through a C++ atomic snapshot.
+// Nur Muninn schreibt; Huginn liest atomare C++-Snapshots.
 std::atomic<bool> driverEnabled{false};
 std::atomic<bool> motorMoving{false};
 std::atomic<uint8_t> motorStateSnapshot{static_cast<uint8_t>(MotorState_t::STOPPED)};
-// Wire marker bit 16 denotes BENCH-SIMULATED position; 0x7FFF alone
-// retains its original Nano meaning (POSITION_UNKNOWN).
+// Bit 16 kennzeichnet eine simulierte Testposition; 0x7FFF allein
+// behaelt die Nano-Bedeutung POSITION_UNKNOWN.
 constexpr uint32_t kPositionUnknown = 0x00007FFFU;
 constexpr uint32_t kPositionBenchFlag = 0x00010000U;
 std::atomic<uint32_t> positionSnapshot{kPositionUnknown};
@@ -431,11 +431,11 @@ void publishTrack(uint8_t target, uint8_t confirmed, uint8_t status) {
     trackSnapshot.store(packed, std::memory_order_release);
 }
 
-// The six-phase profile now sets the STEP frequency in the timer ISR.
+// Das sechsstufige Profil steuert die STEP-Frequenz in der Timer-ISR.
 
 void applyMicrostepMode(MoveMicrostep mode) {
-    // A4988 MS1/MS2/MS3 truth table. Apply only while STEP is stopped.
-    // Mode changes can invalidate a physical absolute position; bench only.
+    // A4988-Belegung MS1/MS2/MS3; nur bei stillstehendem STEP setzen.
+    // Moduswechsel koennen die absolute Position entwerten; nur Testbetrieb.
     constexpr uint8_t masks[] = {0x00U, 0x01U, 0x02U, 0x03U, 0x07U};
     const uint8_t value = masks[static_cast<uint8_t>(mode)];
     digitalWrite(MOTOR_MS0_PIN, (value & 0x01U) ? HIGH : LOW);
@@ -467,6 +467,12 @@ void emit(BringupContext* context, const CommandMessage& cmd,
     };
     const bool local = (cmd.sequence & 0x80000000UL) != 0UL;
     QueueHandle_t destination = local ? context->keyboardEvents : context->events;
+    // Integrationspruefung UART/Motor:
+    // portMAX_DELAY verhindert den stillen Verlust einer Antwort bei voller
+    // Event-Queue, kann aber die gesamte Muninn-Task blockieren.
+    // Solange emit() wartet, wird auch die STOP-Prioritaetsqueue nicht gelesen.
+    // UART gibt _pending-Eintraege nur nach passender ACK/NACK-Antwort frei;
+    // ein Timeout fehlt. Queue-Groessen allein loesen dieses Risiko nicht.
     if (destination != nullptr) (void)xQueueSend(destination, &event, portMAX_DELAY);
 }
 } // anonymous namespace
@@ -802,31 +808,35 @@ bool Motor::persistCalibration() {
 }
 
 void Muninn_initMotorMock() {
-    // G32 (!SLEEP + !RESET) is held LOW during the entire startup.
-    // The A4988 microstep inputs are configured while ENABLE is HIGH.
+    // G32 (!SLEEP und !RESET) bleibt waehrend des Starts LOW.
+    // Mikroschritt-Eingaenge werden bei HIGH an ENABLE konfiguriert.
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     digitalWrite(MOTOR_PWM_PIN, LOW);
     pinMode(MOTOR_MS0_PIN, OUTPUT);
     pinMode(MOTOR_MS1_PIN, OUTPUT);
     pinMode(MOTOR_MS2_PIN, OUTPUT);
     applyMicrostepMode(FY_MOTOR_MICROSTEP_MODE);
-    // Timer is armed ONLY when a bounded motion test is accepted.
+    // Timer nur nach Annahme eines begrenzten Fahrbefehls aktivieren.
     (void)stepTimerBegin();
 #if FY_STATUS_LED_PIN >= 0
     pinMode(FY_STATUS_LED_PIN, OUTPUT);
     setLed(false);
 #endif
-    // HW3: Sleep/Reset is solely a power-on/boot interlock.
-    // Wake the A4988 once, after all control lines have known states.
-    // No UART or Muninn task exists yet; delay here cannot block commands.
+    // HW3: Sleep/Reset dient ausschliesslich der Einschaltverriegelung.
+    // A4988 erst bei definierten Steuerleitungen einmalig aufwecken.
+    // UART- und Muninn-Tasks laufen hier noch nicht; die Wartezeit blockiert keine Befehle.
     digitalWrite(MOTOR_SLEEP_PIN, HIGH);
     delayMicroseconds(1500U); // A4988 tWAKE >= 1 ms, outside timer ISR.
 }
 
 namespace {
-// Liest die vier Sensor-Rohpegel für STATUS 40.
-// G35 überwacht ausschließlich informativ die Riemenspannung;
-// keine Auswertung in der STEP-ISR oder Motor-Fahrfreigabe.
+/**
+ * @brief Liest die vier Sensor-Rohpegel für die Statusmeldung 40.
+ * @return Gepackte Eingangspegel: Bit 0 G36, Bit 1 G39, Bit 2 G34, Bit 3 G35.
+ * @note Aufruf ausschließlich im Muninn-Task, nicht in der STEP-ISR.
+ *       G35 liefert nur Riemeninformation und beeinflusst die Fahrfreigabe nicht.
+ *       Die vier Abfragen sind keine zeitgleiche Messung.
+ */
 uint8_t readSensorLevels() {
     return static_cast<uint8_t>(
         ((digitalRead(LSL_PIN) == HIGH) ? 0x01U : 0U) |
@@ -843,36 +853,36 @@ void Muninn_motorMockTask(void* arg) {
     motor.initializeStorage(); // Kein Motorschritt, POR-STOP bleibt gesetzt.
     bool realTrackProfileActive = false; // Real profiled motion: REF->BG3 / SET_TRACK
     bool ledState = false;
-    // POR/Reset is always locked. Only an explicit STOP AA 55 releases it.
+    // Nach POR/Reset bleibt STOP verriegelt; nur STOP AA 55 entriegelt.
     bool stopActive = true; // Mirrors Motor state for the existing STOP path.
     uint32_t expectedTargetPosition = 0U;
     uint8_t targetTrack = 0U; // 0 = unknown, only Muninn changes these.
     uint8_t confirmedTrack = 0U;
 
-    // Sensor inputs belong exclusively to Muninn. External 10k pull-ups.
+    // Sensoreingänge gehören Muninn; externe Pull-ups mit 10 kOhm.
     pinMode(LSL_PIN, INPUT);
     pinMode(LSR_PIN, INPUT);
     pinMode(LSREF_PIN, INPUT);
-    pinMode(LS4_PIN, INPUT); // Riemenspannung: Statusinformation, kein Endschalter.
+    pinMode(LS4_PIN, INPUT); // Riemenspannung: reine Statusinformation, kein Endschalter.
     uint8_t lastSensorLevels = readSensorLevels();
     uint8_t sensorChangeCount = 0U; // high nibble 0..E; F reserved
     uint8_t sensorMessage = lastSensorLevels;
     (void)xQueueOverwrite(context->sensorSnapshots, &sensorMessage); // initial snapshot
 
-    // POR STOP stays latched; the driver is awake after init but disabled.
-    // !SLEEP/!RESET (G32) stays HIGH throughout normal GO/STOP operation.
+    // STOP bleibt nach POR verriegelt; Treiber ist wach, aber deaktiviert.
+    // !SLEEP/!RESET (G32) bleibt bei GO/STOP HIGH.
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
     driverEnabled.store(false, std::memory_order_release);
     motorMoving.store(false, std::memory_order_release);
-    // No fake reference at boot. REFERENCE 00 must be explicitly requested.
+    // Beim Start keine simulierte Referenz; REFERENCE 00 nur auf ausdruecklichen Auftrag.
     publishPosition(motor);
     publishReference(motor);
     publishTrack(0U, 0U, TRACK_STATUS_ERROR);
     motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
 
     for (;;) {
-        // Latest-value mailbox: never block STOP or motor event delivery.
+        // Nur den letzten Sensorzustand bereitstellen; STOP und Motorereignisse nicht blockieren.
         const uint8_t sensorLevels = readSensorLevels();
         if (sensorLevels != lastSensorLevels) {
             lastSensorLevels = sensorLevels;
@@ -882,7 +892,8 @@ void Muninn_motorMockTask(void* arg) {
                 (sensorChangeCount << 4U) | sensorLevels);
             (void)xQueueOverwrite(context->sensorSnapshots, &sensorMessage);
         }
-        // STOP has its own mailbox and is always checked before normal jobs.
+        // STOP hat eine eigene Prioritaetsqueue und wird vor normalen Auftraegen geprueft.
+        // Integrationsrisiko: Ein blockierendes emit() verhindert diese Pruefung.
         if (xQueueReceive(context->priorityCommands, &cmd, 0) == pdTRUE) {
             const bool activate = cmd.data[0] == 0x55U && cmd.data[1] == 0xAAU;
             const bool release = cmd.data[0] == 0xAAU && cmd.data[1] == 0x55U;
@@ -891,9 +902,9 @@ void Muninn_motorMockTask(void* arg) {
                      nackData(NackReason::INVALID_PARAMETER));
                 continue;
             }
-            // First disable the driver, then stop STEP.
-            // !SLEEP remains HIGH; STOP never resets the A4988 translator.
-            // STOP and release both remain non-resuming, Nano semantics.
+            // Zuerst Treiber deaktivieren, danach STEP anhalten.
+            // !SLEEP bleibt HIGH; STOP setzt den A4988-Translator nicht zurueck.
+            // STOP und Freigabe setzen eine abgebrochene Fahrt nicht fort.
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
             motor.referenceCancel();
@@ -910,8 +921,9 @@ void Muninn_motorMockTask(void* arg) {
             publishTrack(0U, 0U, TRACK_STATUS_ERROR);
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
 
-            // Cancel any old queued movement requests; every dropped request
-            // still receives an explicit negative result.
+            // Alte Fahrbefehle aus der normalen Queue entfernen und jeden
+            // verworfenen Auftrag explizit negativ beantworten.
+            // Integrationsrisiko: emit() kann bei voller Antwortqueue blockieren.
             CommandMessage pending{};
             while (xQueueReceive(context->commands, &pending, 0) == pdTRUE)
                 emit(context, pending, false, nackData(NackReason::NOT_READY));
@@ -922,7 +934,7 @@ void Muninn_motorMockTask(void* arg) {
             continue;
         }
 
-        // Physical Nano REF state machine: STOP above always wins.
+        // Physischer Nano-Referenzautomat; STOP wird vorher geprueft.
         if (motor.referenceActive()) {
             motor.referenceUpdate();
             if (!motor.referenceActive()) {
@@ -937,14 +949,13 @@ void Muninn_motorMockTask(void* arg) {
                 motorStateSnapshot.store(static_cast<uint8_t>(motor.state()),
                                          std::memory_order_release);
                 if (success) {
-                    // One-shot, non-ISR diagnostics of reference-to-BG3 transition.
+                    // Einmalige Diagnose beim Uebergang von Referenzierung zu BG3, ausserhalb der ISR.
                     Serial.print(F("REF: VALID pos="));
                     Serial.print(motor.referencePosition());
                     Serial.print(F(" end="));
                     Serial.println(motor.referenceOppositeEnd());
-                    // Nano HW_TEST always selected BG3 after short REF.
-                    // The same intended post-condition now applies after
-                    // successful long calibration as well.
+                    // Nano-Hardwaretest fuhr nach Kurzreferenz auf BG3.
+                    // Dieses Ziel gilt auch nach erfolgreicher Langkalibrierung.
                     uint32_t kTrack3 = 0U;
                     const bool bg3Valid = motor.trackPosition(3U, kTrack3);
                     const uint32_t start = motor.referencePosition();
@@ -1047,15 +1058,15 @@ void Muninn_motorMockTask(void* arg) {
             }
         }
 
-        // A completed pulse train is a motor event, not a new UART ACK.
-        // Completion retains coil holding torque until explicit GO off.
+        // Fahrtabschluss ist ein Motorereignis, kein neues UART-ACK.
+        // Haltemoment bleibt bis zum ausdruecklichen GO AUS erhalten.
         uint32_t pulsesDone = 0U;
         bool endstopHit = false;
         if (stepTimerTakeDone(pulsesDone, endstopHit)) {
             motorMoving.store(false, std::memory_order_release);
             if (endstopHit) {
-                // Normal move was interrupted by its destination switch.
-                // Never report a completed job or a valid absolute REF.
+                // Normale Fahrt wurde vom Endschalter unterbrochen.
+                // Weder Fahrtabschluss noch gueltige absolute REF melden.
                 motor.onProfileError();
                 realReferencePosition.store(kPositionUnknown,
                                             std::memory_order_release);
@@ -1075,7 +1086,7 @@ void Muninn_motorMockTask(void* arg) {
             motorStateSnapshot.store(static_cast<uint8_t>(motor.state()), std::memory_order_release);
         } else if (motorMoving.load(std::memory_order_acquire) &&
                    !realTrackProfileActive && !motor.referenceActive()) {
-            // Position is a core-1 snapshot, never read straight from UART/ISR.
+            // Position wird als Core-1-Snapshot veroeffentlicht, nicht direkt von UART/ISR gelesen.
             motor.onMotionProgress(stepTimerCompletedSteps());
             publishPosition(motor);
             publishReference(motor);
@@ -1099,12 +1110,12 @@ void Muninn_motorMockTask(void* arg) {
         if (xQueueReceive(context->commands, &cmd, pdMS_TO_TICKS(2)) != pdTRUE)
             continue;
 
-        // Nano GO/STOP enable semantics remain; only the explicit bench
-        // MOVE handler below may start a bounded STEP train.
+        // Nano-GO/STOP-Freigabeverhalten bleibt erhalten;
+        // der MOVE-Testpfad darf eine begrenzte STEP-Fahrt starten.
         if (cmd.id == CMD_GO &&
             cmd.data[0] == 0x55U && cmd.data[1] == 0xAAU) {
-            // GO 55 AA: de-energize; SLEEP remains HIGH.
-            // STOP latch is not affected.
+            // GO 55 AA: Treiber stromlos schalten; SLEEP bleibt HIGH.
+            // STOP-Verriegelung bleibt unveraendert.
             digitalWrite(MOTOR_ENABLE_PIN, HIGH);
             driverEnabled.store(false, std::memory_order_release);
             motor.referenceCancel();
@@ -1122,15 +1133,15 @@ void Muninn_motorMockTask(void* arg) {
             emit(context, cmd, true, cmd.id);
         } else if (cmd.id == CMD_GO &&
                    cmd.data[0] == 0xAAU && cmd.data[1] == 0x55U) {
-            // GO AA 55: idempotent enable, without generating any STEP.
-            // Never overwrite STEP while an already-accepted train is running.
+            // GO AA 55: wiederholbare Freigabe ohne STEP-Erzeugung.
+            // Laufende STEP-Fahrt nicht ueberschreiben.
             if (stopActive || motor.referenceActive()) {
                 emit(context, cmd, false, nackData(
                     motor.referenceActive() ? NackReason::BUSY : NackReason::NOT_READY));
             } else {
                 if (!driverEnabled.load(std::memory_order_acquire)) {
-                    // HW3 driver was awakened in Muninn_initMotorMock()
-                    // before task creation; STOP latch governs release.
+                    // HW3-Treiber wurde vor Task-Erstellung in Muninn_initMotorMock() geweckt;
+                    // STOP-Verriegelung bestimmt die Freigabe.
                     digitalWrite(MOTOR_PWM_PIN, LOW);
                     digitalWrite(MOTOR_ENABLE_PIN, LOW); // active LOW
                     driverEnabled.store(true, std::memory_order_release);
@@ -1140,7 +1151,7 @@ void Muninn_motorMockTask(void* arg) {
                 emit(context, cmd, true, cmd.id);
             }
         } else if (cmd.id == CMD_REFERENCE) {
-            // Real physical REF 00=short (requires calibration), 01=long.
+            // Reale physische REF: 00=kurz (Kalibrierung erforderlich), 01=lang.
             if (stopActive || !driverEnabled.load(std::memory_order_acquire) ||
                 // Mit kalibrierungsfehlerhaftem NVM nur echte lange REF
                 // zur Reparatur zulassen, sonst NACK.
@@ -1215,7 +1226,7 @@ void Muninn_motorMockTask(void* arg) {
                     publishReference(motor);
                     emit(context, cmd, true, cmd.id);
                 } else {
-                    // Common Nano profile preparation for real and bench moves.
+                    // Gemeinsame Nano-Profilvorbereitung fuer reale und Testfahrten.
                     StepProfileSegment stages[STEP_PROFILE_PHASES]{};
                     const auto& p = motor.profileParams();
                     const uint16_t rampEvery[STEP_PROFILE_PHASES]{
@@ -1231,8 +1242,8 @@ void Muninn_motorMockTask(void* arg) {
                             request.steps <= static_cast<uint32_t>(p.PosiMin) + p.KonstMin)
                             stages[i].rampEvery = 1U;
                     }
-                    // Real reference needs the position-tracking STEP backend.
-                    // BENCH MOVE/SET_POSITION retain their existing backend.
+                    // Reale Referenz benoetigt den STEP-Pfad mit Positionsverfolgung.
+                    // Test-MOVE/SET_POSITION behalten ihren bisherigen Ausfuehrungspfad.
                     const uint16_t startHz =
                         request.steps <= p.PosiMin ? p.VPos : p.VMin;
                     const bool configured =
@@ -1378,7 +1389,7 @@ void Muninn_motorMockTask(void* arg) {
                 emit(context, cmd, true, cmd.id);
             }
         } else {
-            // Other unimplemented real commands remain rejected.
+            // Andere noch nicht implementierte Realbefehle bleiben abgewiesen.
             emit(context, cmd, false, nackData(NackReason::NOT_READY));
         }
 

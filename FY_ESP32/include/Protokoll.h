@@ -170,6 +170,7 @@ constexpr uint8_t STATUS_Switches               = 0x41;
 constexpr uint8_t STATUS_Keyboard               = 0x51;
 /** Response containing automatically generated firmware identity information. */
 constexpr uint8_t STATUS_Firmware               = 0x28;
+/** SYSTEM: DATA[0] Bit 0 = PCF8574 erreichbar; sonst reserviert 0; DATA[1] = 0. */
 constexpr uint8_t STATUS_SELECTOR_SYSTEM        = 0x10;
 constexpr uint8_t STATUS_SELECTOR_MOTOR         = 0x20;
 // ESP32 extension: STATUS 30 queries reference truth (not a command).
@@ -178,6 +179,7 @@ constexpr uint8_t REFERENCE_UNKNOWN             = 0x00;
 constexpr uint8_t REFERENCE_REAL                = 0x01;
 constexpr uint8_t REFERENCE_BENCH_FAKE          = 0x02;
 constexpr uint8_t STATUS_SELECTOR_SWITCHES      = 0x40;
+/** KEYBOARD: DATA[0] Bit 0 = PCF8574 erreichbar; Bits 1..7 = 0. */
 constexpr uint8_t STATUS_SELECTOR_KEYBOARD      = 0x50;
 /**
  * Reserved development response for unexpected implementation states.

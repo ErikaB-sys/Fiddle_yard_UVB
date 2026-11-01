@@ -21,7 +21,7 @@ struct NvmDescriptor_t {
     uint16_t length;
 };
 
-// Append-only: IDs, keys, Feldreihenfolge und Version nicht ohne Migration aendern.
+// Nur erweitern: IDs, Schluessel, Feldreihenfolge und Version nicht ohne Migration aendern.
 constexpr NvmDescriptor_t kDescriptors[]{
     {NvmRecord::CALIBRATION,     "calib",  1U, 12U},
     {NvmRecord::TRACK_POSITIONS, "tracks", 1U, 20U},
@@ -29,7 +29,17 @@ constexpr NvmDescriptor_t kDescriptors[]{
 };
 static_assert(sizeof(kDescriptors) / sizeof(kDescriptors[0]) == 3U,
               "NVM Segmenttabelle pruefen");
+// C++11-kompatible Compile-Zeit-Pruefung der festen Segmenttabelle.
+// Bei Erweiterung der Tabelle die einzelnen Pruefungen entsprechend ergaenzen.
+static_assert(kDescriptors[0].length > 0U && kDescriptors[0].length <= kMaxPayload &&
+              kDescriptors[1].length > 0U && kDescriptors[1].length <= kMaxPayload &&
+              kDescriptors[2].length > 0U && kDescriptors[2].length <= kMaxPayload,
+              "NVM Segmentgroesse ueberschreitet Nutzdatenpuffer");
 
+/** @brief Sucht den Deskriptor einer festen Segment-ID.
+ * @param id Segment-ID.
+ * @return Zeiger auf den Deskriptor oder nullptr bei unbekannter ID.
+ */
 const NvmDescriptor_t* descriptor(NvmRecord id) {
     for (const auto& entry : kDescriptors) {
         if (entry.id == id) return &entry;
@@ -37,11 +47,19 @@ const NvmDescriptor_t* descriptor(NvmRecord id) {
     return nullptr;
 }
 
+/** @brief Liest einen 16-Bit-Wert aus dem kanonischen Little-Endian-Format.
+ * @param p Zeiger auf mindestens zwei Bytes.
+ * @return Dekodierter Wert.
+ */
 uint16_t read16(const uint8_t* p) {
     return static_cast<uint16_t>(static_cast<uint16_t>(p[0]) |
                                  (static_cast<uint16_t>(p[1]) << 8U));
 }
 
+/** @brief Liest einen 32-Bit-Wert aus dem kanonischen Little-Endian-Format.
+ * @param p Zeiger auf mindestens vier Bytes.
+ * @return Dekodierter Wert.
+ */
 uint32_t read32(const uint8_t* p) {
     return static_cast<uint32_t>(p[0]) |
            (static_cast<uint32_t>(p[1]) << 8U) |
@@ -49,11 +67,19 @@ uint32_t read32(const uint8_t* p) {
            (static_cast<uint32_t>(p[3]) << 24U);
 }
 
+/** @brief Schreibt einen 16-Bit-Wert im Little-Endian-Format.
+ * @param p Zielpuffer mit mindestens zwei Bytes.
+ * @param value Zu speichernder Wert.
+ */
 void write16(uint8_t* p, uint16_t value) {
     p[0] = static_cast<uint8_t>(value);
     p[1] = static_cast<uint8_t>(value >> 8U);
 }
 
+/** @brief Schreibt einen 32-Bit-Wert im Little-Endian-Format.
+ * @param p Zielpuffer mit mindestens vier Bytes.
+ * @param value Zu speichernder Wert.
+ */
 void write32(uint8_t* p, uint32_t value) {
     p[0] = static_cast<uint8_t>(value);
     p[1] = static_cast<uint8_t>(value >> 8U);
@@ -62,6 +88,11 @@ void write32(uint8_t* p, uint32_t value) {
 }
 
 // CRC-32/ISO-HDLC: reflektiert, Polynom 0xEDB88320, init/final XOR FFFFFFFF.
+/** @brief Berechnet CRC-32/ISO-HDLC ueber die angegebenen Bytes.
+ * @param bytes Eingabedaten.
+ * @param length Anzahl der Bytes.
+ * @return Berechnete CRC32.
+ */
 uint32_t crc32(const uint8_t* bytes, size_t length) {
     uint32_t crc = UINT32_MAX;
     for (size_t i = 0U; i < length; ++i) {
@@ -72,6 +103,11 @@ uint32_t crc32(const uint8_t* bytes, size_t length) {
     return ~crc;
 }
 
+/** @brief Prueft Kennung, Datensatzlaenge und grundlegenden Aufbau.
+ * @param record Vollstaendiger Datensatz.
+ * @param size Laenge des Datensatzes in Bytes.
+ * @return true bei gueltigem Aufbau.
+ */
 bool validLayout(const uint8_t* record, size_t size) {
     if (size < kHeaderSize + kCrcSize || size > kMaxRecordSize ||
         memcmp(record, kMagic, sizeof(kMagic)) != 0) return false;
@@ -80,6 +116,13 @@ bool validLayout(const uint8_t* record, size_t size) {
            size == kHeaderSize + payloadLength + kCrcSize;
 }
 
+/** @brief Kodiert Nutzdaten mit Header und CRC in einen Datensatz.
+ * @param record Zielpuffer mit ausreichender Kapazitaet.
+ * @param version Formatversion.
+ * @param payload Nutzdatenpuffer.
+ * @param length Nutzdatenlaenge in Bytes.
+ * @return Gesamte Datensatzlaenge in Bytes.
+ */
 size_t makeRecord(uint8_t* record, uint16_t version,
                   const void* payload, size_t length) {
     memcpy(record, kMagic, sizeof(kMagic));
@@ -91,14 +134,25 @@ size_t makeRecord(uint8_t* record, uint16_t version,
     return beforeCrc + kCrcSize;
 }
 
+/** @brief Prueft CRC und optional die bewusst invertierte CRC.
+ * @param record Vollstaendiger Datensatz.
+ * @param size Datensatzlaenge.
+ * @param allowInvalidated Erlaubt die invertierte CRC fuer invalidate().
+ * @return true bei zulaessiger CRC-Kodierung.
+ */
 bool acceptableCrc(const uint8_t* record, size_t size, bool allowInvalidated) {
     const uint32_t expected = crc32(record, size - kCrcSize);
     const uint32_t stored = read32(record + size - kCrcSize);
     return stored == expected || (allowInvalidated && stored == ~expected);
 }
 
-} // anonymous namespace
+} // Anonymer Namensraum
 
+/** @brief Laedt einen gueltigen Datensatz, ohne bei Fehler den Zielpuffer zu veraendern.
+ * @param id Segment-ID.
+ * @param data Zielpuffer mit der zum Segment gehoerenden Laenge.
+ * @return Ergebnis der NVS- und Formatpruefung.
+ */
 NvmResult NVM::load(NvmRecord id, void* data) const {
     const NvmDescriptor_t* desc = descriptor(id);
     if (desc == nullptr || data == nullptr) return NvmResult::INVALID_ARG;
@@ -131,6 +185,12 @@ NvmResult NVM::load(NvmRecord id, void* data) const {
     return NvmResult::OK;
 }
 
+/** @brief Speichert ein Segment nur bei geaenderten Datensatzbytes.
+ * @param id Segment-ID.
+ * @param data Nutzdaten mit der zum Segment gehoerenden Laenge.
+ * @return OK, UNCHANGED oder Fehlerstatus.
+ * @note Schreibfreigabe und sicherer Stillstand sind Aufgabe des Aufrufers.
+ */
 NvmResult NVM::save(NvmRecord id, const void* data) const {
     const NvmDescriptor_t* desc = descriptor(id);
     if (desc == nullptr || data == nullptr) return NvmResult::INVALID_ARG;
@@ -158,6 +218,11 @@ NvmResult NVM::save(NvmRecord id, const void* data) const {
     return written == recordSize ? NvmResult::OK : NvmResult::IO_ERROR;
 }
 
+/** @brief Markiert einen bestehenden gueltigen Datensatz durch invertierte CRC als ungueltig.
+ * @param id Segment-ID.
+ * @return OK, UNCHANGED oder Fehlerstatus.
+ * @note Schreibfreigabe und sicherer Stillstand sind Aufgabe des Aufrufers.
+ */
 NvmResult NVM::invalidate(NvmRecord id) const {
     const NvmDescriptor_t* desc = descriptor(id);
     if (desc == nullptr) return NvmResult::INVALID_ARG;

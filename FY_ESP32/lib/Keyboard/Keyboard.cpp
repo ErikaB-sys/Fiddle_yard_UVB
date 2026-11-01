@@ -1,8 +1,7 @@
 #include "Keyboard.h"
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <U8g2lib.h>
 #include "HW_Config.h"
 #include "Motor.h"
 
@@ -12,7 +11,8 @@ constexpr uint8_t KB_PCF_ADDRESS = 0x27U;
 constexpr uint8_t KB_OLED_ADDRESS = 0x3CU;
 constexpr uint8_t KB_BUTTON_BITS[4] = {7U, 6U, 5U, 4U};
 constexpr uint8_t KB_LED_BITS[4] = {3U, 2U, 1U, 0U};
-Adafruit_SSD1306 kbDisplay(128, 32, &Wire, -1);
+// 128x32, I2C, um 180 Grad gedreht wie in der HW3-Installation.
+U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C kbDisplay(U8G2_R2, U8X8_PIN_NONE);
 bool kbOledReady = false;
 bool kbPcfReady = false;
 uint8_t kbLastRaw = 0U;
@@ -22,6 +22,8 @@ uint32_t kbLastChangeMs = 0U;
 uint32_t kbLastPollMs = 0U;
 uint32_t kbSplashAt = 0U;
 bool kbSplashDone = false;
+bool kbStartReleased = false;
+bool kbStartWarningShown = false;
 BringupContext* kbContext = nullptr;
 enum class Menu { LOCKED, UNLOCK, ENABLE, REF_MENU, REF_RUN, TRACK_MENU, TRACK_RUN, ERROR };
 Menu kbMenu = Menu::LOCKED;
@@ -30,11 +32,17 @@ uint8_t kbTrack = 3U;
 uint32_t kbSeq = 0U;
 uint32_t kbAwaitSeq = 0U;
 bool kbWaiting = false;
-uint32_t kbRunAt = 0U;
 
-void keyboardShow(uint8_t activeButtons);
+void keyboardShow();
 
 // Lokale Telegramme erhalten das High-Bit als Quellenkennung.
+/** @brief Sendet einen lokalen Auftrag über die passende Muninn-Queue.
+ *  @param id Protokoll-ID des Auftrags.
+ *  @param a Erstes Datenbyte.
+ *  @param b Zweites Datenbyte.
+ *  @param priority Verwendet bei true die Prioritätsqueue.
+ *  @return true, wenn die Nachricht eingereiht wurde.
+ */
 bool sendLocal(uint8_t id, uint8_t a, uint8_t b, bool priority) {
     if (kbWaiting || kbContext == nullptr) return false;
     CommandMessage msg{};
@@ -47,11 +55,11 @@ bool sendLocal(uint8_t id, uint8_t a, uint8_t b, bool priority) {
     if (q == nullptr || xQueueSend(q, &msg, 0) != pdTRUE) return false;
     kbAwaitSeq = msg.sequence;
     kbWaiting = true;
-    kbRunAt = millis();
     return true;
 }
 
 // Antwort nur aus der dem Keyboard zugeteilten Queue lesen.
+/** @brief Verarbeitet korrelierte ACK/NACK-Antworten des lokalen Bedienauftrags. */
 void pollLocalReply() {
     if (kbContext == nullptr || kbContext->keyboardEvents == nullptr) return;
     MotorEvent reply{};
@@ -66,11 +74,13 @@ void pollLocalReply() {
         } else if (kbMenu == Menu::ENABLE) {
             kbMenu = Menu::REF_MENU;
         }
-        keyboardShow(0U);
+        keyboardShow();
     }
 }
 
-// @brief Schreibt LED-Zustände; alle vier Tasterleitungen bleiben HIGH.
+/** @brief Aktualisiert die PCF8574-LED-Ausgänge und belässt Tasteneingänge auf HIGH.
+ *  @param activeButtons LED-Bitmaske der vier Tastenplätze.
+ */
 void keyboardWriteLeds(uint8_t activeButtons) {
     uint8_t desired = 0xFFU;
     for (uint8_t i = 0U; i < 4U; ++i) {
@@ -84,8 +94,20 @@ void keyboardWriteLeds(uint8_t activeButtons) {
     if (Wire.endTransmission() == 0U) kbLedByte = desired;
 }
 
+/** @brief Fordert beim Systemstart die gleichzeitige Ruhelage aller Tasten an. */
+void keyboardShowReleaseHint() {
+    if (!kbOledReady) return;
+    kbDisplay.clearBuffer();
+    kbDisplay.drawStr(0, 0,  "FY UVB / LOCAL");
+    kbDisplay.drawStr(0, 8,  "Tasten gedrueckt!");
+    kbDisplay.drawStr(0, 16, "Bitte alle Tasten");
+    kbDisplay.drawStr(0, 24, "loslassen");
+    kbDisplay.sendBuffer();
+}
+
 // LEDs zeigen den echten Betriebszustand statt nur den Tastendruck.
 // Bei Bewegung hat die entsprechende blaue Richtungs-LED Vorrang.
+/** @brief Überträgt STOP-, Treiber- und Richtungssnapshots auf die LEDs. */
 void updateStatusLeds() {
     if (!kbPcfReady || !kbSplashDone) return;
     uint8_t leds = 0U;
@@ -97,42 +119,42 @@ void updateStatusLeds() {
     keyboardWriteLeds(leds);
 }
 
-// @brief Zeigt die lokale Menüführung auf dem SSD1306 an.
-void keyboardShow(uint8_t activeButtons) {
+/** @brief Stellt den aktuellen lokalen Menüzustand am OLED dar. */
+void keyboardShow() {
     if (!kbOledReady) return;
-    kbDisplay.clearDisplay();
-    kbDisplay.setCursor(0, 0);
-    kbDisplay.println(F("FY UVB / LOCAL"));
+    kbDisplay.clearBuffer();
+    kbDisplay.drawStr(0, 0, "FY UVB / LOCAL");
     if (kbMenu == Menu::LOCKED) {
-        kbDisplay.println(F("STOP verriegelt"));
-        kbDisplay.println(F("LINKS halten"));
-        kbDisplay.println(F("dann GO"));
+        kbDisplay.drawStr(0, 8,  "STOP verriegelt");
+        kbDisplay.drawStr(0, 16, "LINKS halten");
+        kbDisplay.drawStr(0, 24, "dann GO");
     } else if (kbMenu == Menu::REF_MENU) {
-        kbDisplay.print(F("REF: "));
-        kbDisplay.println(kbLongRef ? F("LONG") : F("SHORT"));
-        kbDisplay.println(F("LINKS/RECHTS Wahl"));
-        kbDisplay.println(F("GO: Start"));
+        kbDisplay.drawStr(0, 8,  kbLongRef ? "REF: LONG" : "REF: SHORT");
+        kbDisplay.drawStr(0, 16, "LINKS/RECHTS Wahl");
+        kbDisplay.drawStr(0, 24, "GO: Start");
     } else if (kbMenu == Menu::TRACK_MENU) {
-        kbDisplay.print(F("Ziel BG"));
-        kbDisplay.println(kbTrack);
-        kbDisplay.println(F("LINKS/RECHTS Wahl"));
-        kbDisplay.println(F("GO: Fahren"));
+        char trackLine[] = "Ziel BG0";
+        trackLine[7] = static_cast<char>('0' + kbTrack); // BG1..BG5
+        kbDisplay.drawStr(0, 8,  trackLine);
+        kbDisplay.drawStr(0, 16, "LINKS/RECHTS Wahl");
+        kbDisplay.drawStr(0, 24, "GO: Fahren");
     } else if (kbMenu == Menu::REF_RUN) {
-        kbDisplay.println(F("Referenzfahrt"));
-        kbDisplay.println(F("danach BG3"));
+        kbDisplay.drawStr(0, 8,  "Referenzfahrt");
+        kbDisplay.drawStr(0, 16, "danach BG3");
     } else if (kbMenu == Menu::TRACK_RUN) {
-        kbDisplay.println(F("Gleisfahrt aktiv"));
+        kbDisplay.drawStr(0, 8, "Gleisfahrt aktiv");
     } else if (kbMenu == Menu::ERROR) {
-        kbDisplay.println(F("FEHLER / STOP"));
+        kbDisplay.drawStr(0, 8, "FEHLER / STOP");
     } else {
-        kbDisplay.println(F("Motorfreigabe"));
+        kbDisplay.drawStr(0, 8, "Motorfreigabe");
     }
-    kbDisplay.display();
-
+    kbDisplay.sendBuffer();
 }
 
-// @brief Initialisiert I2C-Geräte und das fünfsekündige Startbild.
-void keyboardTestBegin() {
+/** @brief Prüft I2C-Geräte und zeigt das fünfsekündige Startbild an.
+ *  @note Erwartet einen bereits initialisierten Wire-Bus.
+ */
+void keyboardHardwareBegin() {
     Wire.beginTransmission(KB_PCF_ADDRESS);
     kbPcfReady = (Wire.endTransmission() == 0U);
     if (kbPcfReady) {
@@ -140,18 +162,24 @@ void keyboardTestBegin() {
         Wire.write(0xFFU);  // LEDs aus; P4..P7 als Eingänge frei
         kbPcfReady = (Wire.endTransmission() == 0U);
     }
-    kbOledReady = kbDisplay.begin(SSD1306_SWITCHCAPVCC, KB_OLED_ADDRESS);
+
+    // U8g2::begin() meldet auch ohne physisches Display Erfolg.
+    // Deshalb zuerst den tatsächlichen I2C-ACK des OLED prüfen.
+    Wire.beginTransmission(KB_OLED_ADDRESS);
+    kbOledReady = (Wire.endTransmission() == 0U);
     if (kbOledReady) {
-        kbDisplay.setRotation(2);  // HW_TEST-Orientierung
-        kbDisplay.setTextSize(1);
-        kbDisplay.setTextColor(SSD1306_WHITE);
-        kbDisplay.clearDisplay();
-        kbDisplay.setCursor(0, 0);
-        kbDisplay.println(F("Hello my friend"));
-        kbDisplay.println(F("FY ESP32 / HW3"));
-        kbDisplay.println(F("I2C OK"));
-        kbDisplay.println(F("Keyboard Test"));
-        kbDisplay.display();
+        kbDisplay.setI2CAddress(static_cast<uint8_t>(KB_OLED_ADDRESS << 1U));
+        kbOledReady = kbDisplay.begin();
+    }
+    if (kbOledReady) {
+        kbDisplay.setFont(u8g2_font_5x8_tr);
+        kbDisplay.setFontPosTop();
+        kbDisplay.clearBuffer();
+        kbDisplay.drawStr(0, 0,  "FY UVB / LOCAL");
+        kbDisplay.drawStr(0, 8,  "ESP32 / HW3");
+        kbDisplay.drawStr(0, 16, "Start in 5 Sek.");
+        kbDisplay.drawStr(0, 24, "Tasten loslassen");
+        kbDisplay.sendBuffer();
     }
     Serial.print(F("KEYBOARD: PCF8574="));
     Serial.print(kbPcfReady ? F("OK") : F("ERROR"));
@@ -161,12 +189,14 @@ void keyboardTestBegin() {
     kbSplashAt = millis();
 }
 
-// @brief Entprellt Tasten alle 25 ms und verwirft ungültige Bedienfolgen.
-void keyboardTestPoll() {
+/** @brief Liest und entprellt Tasten zyklisch und verarbeitet gültige Bedienflanken.
+ *  @note Beim Start wird zunächst die gleichzeitige Ruhelage aller Tasten verlangt.
+ */
+void keyboardScanButtons() {
     const uint32_t now = millis();
     if (!kbSplashDone && now - kbSplashAt >= 5000U) {
         kbSplashDone = true;
-        keyboardShow(0U);
+        keyboardShow();
     }
     if (!kbPcfReady || !kbSplashDone) return;
     if ((now - kbLastPollMs) < 25U) return;
@@ -176,6 +206,24 @@ void keyboardTestPoll() {
     uint8_t active = 0U;
     for (uint8_t i = 0U; i < 4U; ++i) {
         if ((raw & (1U << KB_BUTTON_BITS[i])) == 0U) active |= static_cast<uint8_t>(1U << i);
+    }
+    // Vor der ersten Bedienflanke muessen alle vier Tasten gleichzeitig frei sein.
+    // Absoluter Pegel statt einer Flankenerkennung: gehaltene Starttasten
+    // koennen damit weder STOP noch Freigabe- oder Menueaktionen ausloesen.
+    if (!kbStartReleased) {
+        if (active != 0U) {
+            if (!kbStartWarningShown) {
+                keyboardShowReleaseHint();
+                kbStartWarningShown = true;
+            }
+            return;
+        }
+        kbStartReleased = true;
+        kbLastRaw = 0U;
+        kbStable = 0U;
+        kbLastChangeMs = now;
+        keyboardShow();
+        return;
     }
     if (active != kbLastRaw) {
         kbLastRaw = active;
@@ -220,9 +268,10 @@ void keyboardTestPoll() {
             }
         }
     }
-    keyboardShow(active);
+    keyboardShow();
 }
 
+/** @brief Prüft den bestätigten Fahrtabschluss und schaltet das Menü weiter. */
 void progress() {
     if (kbWaiting) return;
     const auto state = Muninn_motorState();
@@ -232,25 +281,41 @@ void progress() {
             ((track >> 8U) & 0xFFU) == 3U &&
             ((track >> 16U) & 0xFFU) == TRACK_STATUS_REACHED &&
             !Muninn_isMoving() && state == MotorState_t::IDLE) {
-            kbTrack = 3U; kbMenu = Menu::TRACK_MENU; keyboardShow(0U);
+            kbTrack = 3U; kbMenu = Menu::TRACK_MENU; keyboardShow();
         } else if (state == MotorState_t::ERROR) {
-            kbMenu = Menu::ERROR; keyboardShow(0U);
+            kbMenu = Menu::ERROR; keyboardShow();
         }
     } else if (kbMenu == Menu::TRACK_RUN) {
         if (state == MotorState_t::ERROR) {
-            kbMenu = Menu::ERROR; keyboardShow(0U);
+            kbMenu = Menu::ERROR; keyboardShow();
         } else if (!Muninn_isMoving() && state == MotorState_t::IDLE &&
                    ((track >> 8U) & 0xFFU) == kbTrack &&
                    ((track >> 16U) & 0xFFU) == TRACK_STATUS_REACHED) {
-            kbMenu = Menu::TRACK_MENU; keyboardShow(0U);
+            kbMenu = Menu::TRACK_MENU; keyboardShow();
         }
     }
 }
 } // namespace
 
-/** @brief Initialisiert das I2C-Keyboard mit eigenem Kommando-Rückkanal. */
-void Keyboard_begin(BringupContext* context) { kbContext = context; keyboardTestBegin(); }
+/** @brief Initialisiert I2C-Keyboard und lokalen Befehlsrückkanal.
+ *  @param context Gemeinsamer Kontext mit Befehls- und Antwortqueues.
+ *  @note Der Kontext muss während der gesamten Betriebszeit gültig bleiben.
+ */
+void Keyboard_begin(BringupContext* context) {
+    kbContext = context;
+    // Begrenzung fuer alle Wire-Transfers, auch bei abgezogenem Keyboard.
+    Wire.setTimeOut(20U);
+    keyboardHardwareBegin();
+}
 
-/** @brief Verarbeitet lokale Bedienung und Muninn-Status. */
-void Keyboard_poll() { pollLocalReply(); keyboardTestPoll(); progress(); updateStatusLeds(); }
+/** @brief Fragt die aktuelle PCF8574-Erreichbarkeit ohne Cache ab. */
+bool Keyboard_isAvailable() {
+    Wire.beginTransmission(KB_PCF_ADDRESS);
+    return Wire.endTransmission() == 0U;
+}
+
+/** @brief Pollt lokale Antworten, Tasten, Fahrstatus und LEDs.
+ *  @note Regelmäßig aus dem Arduino-Hauptloop aufrufen; kein direkter Motor-GPIO-Zugriff.
+ */
+void Keyboard_poll() { pollLocalReply(); keyboardScanButtons(); progress(); updateStatusLeds(); }
 } // namespace fy

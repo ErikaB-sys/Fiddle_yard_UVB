@@ -15,7 +15,7 @@ Die verbindliche [Motor-Zustandsübersicht](../Motor/README.md#zustandsübersich
 | MOVING → IDLE am Ziel | Job fertig, Abschluss auf Anfrage. |
 | STOP → STOPPED | Job verwerfen, Antrieb aus, REF ungültig; vor normaler Fahrt erneut mindestens kurz referenzieren. |
 
-STOP-Verriegelung, Kalibrierzustand und Referenzgültigkeit sind zusätzlich zum Motor-State zu führen. Das Moduldiagramm beschreibt den vereinbarten Sollumfang; die dortige Ist-Liste nennt noch nicht implementierte REF-/CONF-/Fehlerpfade.
+STOP-Verriegelung, Kalibrierzustand und Referenzgültigkeit sind zusätzlich zum Motor-State zu führen. Die Referenzierung ist inzwischen implementiert und am HW3-Aufbau funktional geprueft. Einzelne Fehler- und Robustheitspfade sind weiterhin offen; verbindlich sind die aktuellen Codebedingungen in `Motor.cpp` und die Testnachweise, nicht fruehere Soll-Diagramme.
 
 ## Andere Maschinen
 

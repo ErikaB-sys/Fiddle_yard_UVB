@@ -3,9 +3,9 @@
 
 namespace fy {
 
-// The Nano's six ordered stages, but without AVR timer-register coupling.
-// accel: signed delta in *Nano timer ticks* (+ means slower).
-// rampEvery: apply one delta after this many completed STEP pulses.
+// Sechs Nano-Phasen ohne Abhaengigkeit von AVR-Timerregistern.
+// accel: vorzeichenbehaftete Aenderung in Nano-Ticks (+ bedeutet langsamer).
+// rampEvery: Aenderung nach jeweils so vielen abgeschlossenen STEP-Pulsen.
 struct StepProfileSegment {
     uint16_t steps;
     int16_t accel;
@@ -13,26 +13,26 @@ struct StepProfileSegment {
 };
 constexpr uint8_t STEP_PROFILE_PHASES = 6U;
 
-// Muninn alone starts/stops movements. The ISR counts completed pulses
-// on the falling edge and advances phases there (never in HIGH).
+// Nur Muninn startet und stoppt Fahrten. Die ISR zaehlt abgeschlossene
+// Pulse an der fallenden Flanke und schaltet dort die Phasen weiter.
 bool stepTimerBegin();
 
 // Geschwindigkeiten ausschliesslich im Stillstand konfigurieren.
 // ISR liest weiterhin nur ihre bisherigen Reload-Grenzen.
 bool stepTimerConfigureProfile(uint16_t vMin, uint16_t vMax, uint16_t vPos);
 
-// Existing fixed-frequency diagnostics. Retained for compatibility.
+// Diagnosefahrt mit fester Frequenz; aus Kompatibilitaetsgruenden beibehalten.
 bool stepTimerStart(uint16_t steps, bool directionRight, uint16_t stepHz);
 
-// Six-phase Nano motion executor. Returns false if backend unsupported,
-// total mismatch, timer busy, zero distance, or invalid ramp intervals.
-// On Arduino-ESP32 2.x the ISR writes the TIMG1/T0 next alarm interval
-// directly (IRAM-safe) without calling timerAlarmWrite inside the ISR.
+// Ausfuehrung des sechsstufigen Nano-Profils. false bei nicht unterstuetztem
+// Timerpfad, unpassender Schrittsumme, belegtem Timer, Nullweg oder Rampenfehler.
+// Unter Arduino-ESP32 2.x schreibt die ISR das naechste TIMG1/T0-Intervall
+// direkt und IRAM-sicher, ohne timerAlarmWrite() in der ISR.
 bool stepTimerStartProfile(uint16_t steps, bool directionRight,
                            const StepProfileSegment (&segments)[STEP_PROFILE_PHASES],
                            uint16_t startHz);
-// Sensor-aware, fixed-speed movement used ONLY by the reference state machine.
-// Old Nano direction: awayMotor=true means increasing position (G39 side).
+// Sensorueberwachte Referenzfahrt mit fester Geschwindigkeit.
+// Nano-Richtung: awayMotor=true erhoeht die Position (G39-Seite).
 enum class ReferenceEnd : uint8_t { NONE, ENDSTOP, REF_EXIT, STEP_LIMIT };
 struct ReferenceTimerSample {
     uint32_t position = 0U;
@@ -44,8 +44,8 @@ struct ReferenceTimerSample {
     bool entrySeen = false;
     bool exitSeen = false;
 };
-// Tracked final move to BG3 using the existing 6-stage profile, with
-// endstop check on each STEP. Completion is reported as STEP_LIMIT.
+// Positionsgefuehrte Abschlussfahrt nach BG3 mit sechsstufigem Profil.
+// Endschalterpruefung bei jedem STEP; Abschlussmeldung STEP_LIMIT.
 bool stepTimerStartReferenceProfile(uint16_t steps, bool awayMotor,
                            const StepProfileSegment (&segments)[STEP_PROFILE_PHASES],
                            uint16_t startHz);
@@ -59,7 +59,7 @@ ReferenceTimerSample stepTimerReferenceSnapshot();
 void stepTimerStop();
 bool stepTimerRunning();
 uint32_t stepTimerCompletedSteps();
-// endstopHit reports an unexpected destination endstop on a normal move.
+// endstopHit meldet einen unerwarteten Endschalter bei normaler Fahrt.
 bool stepTimerTakeDone(uint32_t& completedSteps, bool& endstopHit);
 
 } // namespace fy

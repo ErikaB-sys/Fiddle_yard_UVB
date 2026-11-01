@@ -10,8 +10,8 @@
 namespace {
 fy::BringupContext bridge{nullptr, nullptr, nullptr, nullptr, nullptr};
 
-// Einmaliger I2C-Integrationstest vor dem Start der Aufgaben.
-// Keine Ausgänge des Expanders verändern und keine Motorbefehle auslösen.
+// Einmaliger I2C-Hardwaretest vor dem Task-Start.
+// Veraendert keine Expander-Ausgaenge und loest keine Motorbefehle aus.
 void scanI2cDevices() {
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN, 100000U);
     Wire.setTimeOut(50U);
@@ -35,29 +35,28 @@ void scanI2cDevices() {
 
 void setup() {
     Serial.begin(115200);
-    // Keep the A4988 asleep during boot/configuration. !SLEEP and !RESET
-    // share G32; the external HW3 pulldown covers the high-impedance period.
-    // Boot/flash pin levels are NOT independently proven yet (Issue #153).
+    // A4988 waehrend des Starts und der Konfiguration im Schlafzustand halten.
+    // !SLEEP und !RESET teilen G32; der externe HW3-Pulldown sichert die
+    // hochohmige Startphase. Boot-/Flash-Pegel sind noch nicht separat
+    // nachgewiesen (Issue #153).
     digitalWrite(MOTOR_SLEEP_PIN, LOW);
     pinMode(MOTOR_SLEEP_PIN, OUTPUT);
-    // Safe output levels before configuring the other pins as outputs.
+    // Sichere Pegel setzen, bevor die weiteren Pins als Ausgaenge konfiguriert werden.
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_DIR_PIN, LOW);
-    digitalWrite(MOTOR_ENABLE_PIN, HIGH); // Driver disabled (active LOW).
+    digitalWrite(MOTOR_ENABLE_PIN, HIGH); // Treiber deaktiviert (LOW-aktiv).
     pinMode(MOTOR_PWM_PIN, OUTPUT);
     pinMode(MOTOR_DIR_PIN, OUTPUT);
     pinMode(MOTOR_ENABLE_PIN, OUTPUT);
-    // Muninn owns the microstep lines, configured while EN is OFF.
+    // Muninn konfiguriert die Mikroschrittleitungen bei deaktiviertem Treiber.
     fy::Muninn_initMotorMock();
-    // Never generate artificial STEP/DIR pulses on power-on/reset.
-    // STOP starts latched in Muninn until an explicit STOP AA 55.
+    // Bei POR/Reset keine kuenstlichen STEP-/DIR-Pulse erzeugen.
+    // STOP bleibt in Muninn bis zum ausdruecklichen STOP AA 55 verriegelt.
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_DIR_PIN, LOW);
     digitalWrite(MOTOR_ENABLE_PIN, HIGH);
 
-    scanI2cDevices();
-    fy::Keyboard_begin(&bridge);
-
+    // Zuerst alle Kommunikationsdatenstrukturen bereitstellen.
     bridge.commands = xQueueCreate(8, sizeof(fy::CommandMessage));
     bridge.events = xQueueCreate(12, sizeof(fy::MotorEvent));
     bridge.priorityCommands = xQueueCreate(4, sizeof(fy::CommandMessage));
@@ -68,7 +67,12 @@ void setup() {
         return;
     }
 
-    // Module owners create their own FreeRTOS tasks on assigned cores.
+    // Danach I2C-Hardware pruefen und das lokale Keyboard anbinden.
+    // Keyboard_begin() darf erst mit vollstaendigem Queue-Kontext laufen.
+    scanI2cDevices();
+    fy::Keyboard_begin(&bridge);
+
+    // Erst anschliessend die Modul-Tasks auf ihren Kernen starten.
     const BaseType_t muninn = fy::Muninn_startMotorMock(&bridge);
     const BaseType_t huginn = fy::Huginn_startUART(&bridge);
     if (muninn != pdPASS || huginn != pdPASS) {
@@ -77,7 +81,7 @@ void setup() {
 }
 
 void loop() {
-    // Vorübergehender I2C-Hardwaretest; ohne Verbindung zur Motorsteuerung.
+    // Keyboard zyklisch abfragen; Fahrbefehle gehen nur ueber die Muninn-Queues.
     fy::Keyboard_poll();
     vTaskDelay(pdMS_TO_TICKS(10));
 }
