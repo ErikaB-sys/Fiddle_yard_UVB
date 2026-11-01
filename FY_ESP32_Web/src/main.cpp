@@ -1,6 +1,6 @@
 /**
  * @file main.cpp
- * @brief Eigenstaendiger FY-Web-Pruefstand: WLAN, HTTP und mDNS.
+ * @brief Eigenstaendiger FY-Web-Pruefstand: WLAN, HTTP, mDNS und SVG-Demo.
  *
  * Keine Motorsteuerung. Lokale Zugangsdaten ausschliesslich in
  * include/WiFi_Secrets.h (nicht versioniert).
@@ -10,6 +10,7 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include "WiFi_Secrets.h"
+#include "FyWebPage.h"
 
 namespace {
 constexpr unsigned long WIFI_TIMEOUT_MS = 15000UL;
@@ -21,34 +22,6 @@ bool serverStarted = false;
 bool mdnsStarted = false;
 unsigned long lastRetry = 0UL;
 
-// Die Darstellung ist bewusst klein und benoetigt keine externe Bibliothek.
-const char PAGE[] PROGMEM = R"html(
-<!doctype html>
-<html lang="de">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FY UVB - Web-Pruefstand</title>
-  <style>
-    body{font:16px system-ui,sans-serif;background:#14202a;color:#eaf1f5;
-         max-width:680px;margin:48px auto;padding:0 20px}
-    main{background:#203341;border-radius:12px;padding:24px}
-    h1{margin-top:0} .ok{color:#8fe0ac}
-    code{color:#bce3ff} small{color:#bacbd5}
-  </style>
-</head>
-<body>
-  <main>
-    <h1>FY UVB - Web-Pruefstand</h1>
-    <p class="ok">HTTP-Server laeuft.</p>
-    <p>Die Motorsteuerung ist hier bewusst nicht angeschlossen.</p>
-    <p>Hostname: <code>fy-uvb.local</code></p>
-    <p><small>Status: <a href="/api/status" style="color:#bce3ff">/api/status</a><br>Speicherdiagnose: <a href="/api/system" style="color:#bce3ff">/api/system</a></small></p>
-  </main>
-</body>
-</html>
-)html";
-
 /** @brief HTTP-Routen registrieren und Server einmalig starten. */
 void startHttpServer()
 {
@@ -56,7 +29,7 @@ void startHttpServer()
         return;
     }
     server.on("/", HTTP_GET, []() {
-        server.send_P(200, "text/html; charset=utf-8", PAGE);
+        server.send_P(200, "text/html; charset=utf-8", FY_WEB_PAGE);
     });
     server.on("/api/status", HTTP_GET, []() {
         String json = "{\"device\":\"FY-UVB-Web\",\"wifi\":\"connected\",\"ip\":\"";
