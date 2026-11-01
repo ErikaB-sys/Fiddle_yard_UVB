@@ -301,7 +301,18 @@ void progress() {
  *  @param context Gemeinsamer Kontext mit Befehls- und Antwortqueues.
  *  @note Der Kontext muss während der gesamten Betriebszeit gültig bleiben.
  */
-void Keyboard_begin(BringupContext* context) { kbContext = context; keyboardHardwareBegin(); }
+void Keyboard_begin(BringupContext* context) {
+    kbContext = context;
+    // Begrenzung fuer alle Wire-Transfers, auch bei abgezogenem Keyboard.
+    Wire.setTimeOut(20U);
+    keyboardHardwareBegin();
+}
+
+/** @brief Fragt die aktuelle PCF8574-Erreichbarkeit ohne Cache ab. */
+bool Keyboard_isAvailable() {
+    Wire.beginTransmission(KB_PCF_ADDRESS);
+    return Wire.endTransmission() == 0U;
+}
 
 /** @brief Pollt lokale Antworten, Tasten, Fahrstatus und LEDs.
  *  @note Regelmäßig aus dem Arduino-Hauptloop aufrufen; kein direkter Motor-GPIO-Zugriff.
