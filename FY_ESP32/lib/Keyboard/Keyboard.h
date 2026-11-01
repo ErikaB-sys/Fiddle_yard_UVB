@@ -7,4 +7,9 @@ namespace fy {
 void Keyboard_begin(BringupContext* context);
 /** @brief Pollt Tasten und Status ohne direkten Motorzugriff. */
 void Keyboard_poll();
+/** @brief Prueft den PCF8574 per I2C-ACK mit begrenztem Wire-Timeout.
+ *  @return true, wenn der Expander auf die Adressabfrage antwortet.
+ *  @note Kein zyklischer Aufruf; fuer STATUS und spaetere LOCAL-Freigabe.
+ */
+bool Keyboard_isAvailable();
 }
