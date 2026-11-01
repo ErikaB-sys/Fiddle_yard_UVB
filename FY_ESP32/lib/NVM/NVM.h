@@ -32,8 +32,7 @@
  */
 namespace fy {
 
-/** @brief Stabile IDs der im NVM-Descriptor beschriebenen Segmente. */
-/** @brief Gleiche Bereichs-IDs wie im UART-Protokoll. */
+/** @brief Gemeinsame stabile Bereichs-IDs fuer NVM und UART-Protokoll. */
 using NvmRecord = NvmArea;
 // Der NVM-Descriptor bestimmt, welche Bereiche bereits implementiert sind.
 
@@ -64,6 +63,7 @@ public:
     NvmResult save(NvmRecord record, const void* data) const;
 
     /** @brief Gespeicherten Datensatz durch invertierte CRC invalidieren.
+     * @param record Statische Segment-ID.
      * @return OK beim Schreiben, UNCHANGED bei erneuter Invalidierung.
      */
     NvmResult invalidate(NvmRecord record) const;
