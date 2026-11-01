@@ -1,6 +1,6 @@
 # Keyboard und OLED – Lokale Bedienung
 
-**Modulstatus:** GESCANNT ✅ · GEÄNDERT ✅ · GEPRÜFT ✅. PlatformIO-Build und Funktionstest an HW3 bestätigt, einschließlich STOP während Gleis-zu-Gleis-Fahrten. Auch das abschließend bereinigte Startbild wurde auf HW3 erfolgreich geprüft.
+**Modulstatus:** Lokale Bedienung und Startbild wurden an HW3 geprüft. **Neu seit 01.11.2026:** die bedarfsgesteuerte I2C-Verfügbarkeitsabfrage ist implementiert, aber noch **nicht** gebaut oder am abgezogenen Keyboard getestet.
 
 
 Die lokale Bedienung besteht aus **vier LED-Tasten**, einem **PCF8574 (I²C `0x27`)** und einem **SSD1306-OLED (128×32, I²C `0x3C`)**. SDA = GPIO21, SCL = GPIO22, 100 kHz. Das Keyboard steuert **keine Motor-GPIOs direkt**: Es gibt decodierte Befehle über die vorhandenen Muninn-Queues ab. Die Motorsteuerung entscheidet über die Ausführung.
@@ -58,7 +58,9 @@ stateDiagram-v2
     GLEISFAHRT --> STOP_VERRIEGELT: STOP
 ```
 
-**Derzeit nicht umgesetzt:** Wechsel LOCAL/REMOTE, Bildschirm für REMOTE, 2-Hz-Blinkanzeige, Hot-Plug und WRITE2KEYBOARD. Ein abgezogenes Keyboard wird aktuell noch **nicht** automatisch als Betriebsartenwechsel behandelt. Für einen fehlenden/festhängenden I²C-Bus gibt es noch keinen geprüften Hot-Plug-Vertrag.
+**Verfügbarkeitsabfrage:** `Keyboard_isAvailable()` prüft auf Anforderung, ob der PCF8574 (`0x27`) auf I2C mit ACK antwortet. Die UART-Selektoren SYSTEM (`10`) und KEYBOARD (`50`) verwenden dieses Ergebnis (Bit 0). `Wire.setTimeOut(20)` begrenzt die I2C-Transferwartezeit; das Verhalten bei abgezogenem Keyboard und festhängendem Bus ist noch nicht auf HW3 verifiziert. Das OLED wird bei dieser Prüfung **nicht** abgefragt. Es gibt keine zusätzliche zyklische Anwesenheitsüberwachung; das normale Tastenpolling bleibt unverändert.
+
+**Derzeit nicht umgesetzt:** Wechsel LOCAL/REMOTE, Bildschirm für REMOTE, 2-Hz-Blinkanzeige, automatische Reaktion auf Abziehen im LOCAL-Betrieb und WRITE2KEYBOARD. Die spätere LOCAL-Freigabe soll dieselbe bedarfsgesteuerte Prüfung verwenden; `SET_MODE` antwortet noch `NOT_READY`.
 
 **Quellen:** [Keyboard.cpp](../../lib/Keyboard/Keyboard.cpp), [Motor.cpp](../../lib/Motor/Motor.cpp), [Pinout](../pinouts/01_PINOUT_ESP32.md), [UART-Vertrag](../../src/UART_Command_Spickzettel.md).
 
