@@ -3,6 +3,7 @@
 #include "Motor.h"
 #include "Keyboard.h"
 #include "HTTP.h"
+#include "CommandRouter.h"
 #include <freertos/task.h>
 #include <cstring>
 
@@ -230,8 +231,7 @@ bool UART::queueMotorCommand(bool priority) {
         return false;
     }
     // STOP verwendet die separate Prioritaetsqueue.
-    QueueHandle_t queue = priority ? _context->priorityCommands : _context->commands;
-    if (xQueueSend(queue, &message, 0) != pdTRUE) {
+    if (!CommandRouter_enqueue(_context, message, priority)) {
         nack(FY_ERROR_LOCATION_UART, NackReason::BUSY);
         return false;
     }
