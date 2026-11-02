@@ -117,7 +117,7 @@ a{color:var(--aqua)}
 </div>
 </div>
 </section>
-<section class="metrics" aria-label="Simulierter Zustand">
+<section class="metrics" aria-label="Echter FY-Zustand">
 <div class="metric"><div class="cap">Betriebsart</div><div class="val">LOCAL · LESEN</div></div>
 <div class="metric"><div class="cap">Einfahrt fluchtet mit</div><div id="entryLabel" class="val green">–</div></div>
 <div class="metric"><div class="cap">Vorwahl</div><div id="selectedMetric" class="val cyan">BG3</div></div>
@@ -293,7 +293,7 @@ function lampState(name){
   const labels={
     moving:'Fahrt läuft …',
     arrived:'Zielstellung erreicht',
-    stopped:'STOP / nicht referenziert',
+    stopped:'Keine bestätigte Gleisstellung / STOP',
     unknown:'Verbindung / Status unbekannt'
   };
   $('lampTravel').className=classes[name];
@@ -327,6 +327,9 @@ function show(){
   const aligned=fresh&&!fy.busy&&fy.referenced&&Number.isInteger(fy.track)
                 &&fy.track>=1&&fy.track<=5;
   const active=aligned?fy.track:0;
+  // Bei ungueltiger/fehlender Position keine scheinbar sichere
+  // physische Buehnenlage suggerieren.
+  bridge.setAttribute('opacity',fresh&&Number.isFinite(fy.position)?'1':'0.30');
   $('netLabel').textContent=fresh?'Muninn live · HTTP nur Status/Vorwahl · Motorbefehle gesperrt'
                                    :'Verbindung gestört · Status veraltet · keine HTTP-Motorbefehle';
   $('entryLabel').textContent=aligned?'BG'+active:'–';
