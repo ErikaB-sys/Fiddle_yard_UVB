@@ -28,13 +28,15 @@ h1{font-size:clamp(23px,3vw,33px);margin:0}h2{font-size:17px;margin:0 0 10px}
 .metric,.card{background:var(--panel);border:1px solid var(--edge);border-radius:10px}
 .metric{padding:11px 15px}.metric .cap{color:var(--muted);font-size:12px}
 .metric .val{font-weight:700;font-size:19px;margin-top:3px}
+.metric select{display:block;width:100%;margin-top:5px;padding:6px 9px;font:700 17px system-ui,sans-serif;color:var(--green);background:#0e2533;border:1px solid #5f8295;border-radius:7px;cursor:pointer}
 .green{color:var(--green)}.cyan{color:var(--aqua)}
 .card{padding:16px 14px}
 .schematic{display:block;width:100%;height:auto;max-height:510px;background:#102635;border-radius:8px;user-select:none}
 .tools{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:14px 0 2px}
 button{font:inherit;color:#eef7fb;background:#21445a;border:1px solid #52788d;border-radius:7px;padding:9px 13px;cursor:pointer}
 button:hover{background:#2a5972}button:focus-visible,input:focus-visible{outline:2px solid var(--aqua);outline-offset:2px}
-button.primary{background:#155f61;border-color:#39a9aa}
+#stop{background:#69272f;border-color:#b96870;font-weight:750;min-width:144px}
+#stop:hover{background:#81313b}
 .tools label{font-size:13px;color:var(--muted)}
 input[type=range]{width:min(260px,70vw);accent-color:var(--aqua)}
 .foot{margin-top:14px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:13px}
@@ -59,7 +61,10 @@ a{color:var(--aqua)}
 <section class="metrics" aria-label="Simulierter Zustand">
 <div class="metric"><div class="cap">Betriebsart</div><div class="val">DEMO</div></div>
 <div class="metric"><div class="cap">Einfahrt fluchtet mit</div><div id="entryLabel" class="val green">BG3</div></div>
-<div class="metric"><div class="cap">BG1 gegenüber</div><div id="storageLabel" class="val cyan">AB7</div></div>
+<div class="metric"><label for="trackSelect" class="cap">Zielgleis wählen</label><select id="trackSelect" aria-label="Brückengleis an der Einfahrt auswählen">
+<option value="" disabled>Gleis wählen …</option>
+<option value="1">BG1</option><option value="2">BG2</option><option value="3" selected>BG3</option><option value="4">BG4</option><option value="5">BG5</option>
+</select></div>
 <div class="metric"><div class="cap">Bühne</div><div id="motorLabel" class="val">Stillstand</div></div>
 </section>
 <section class="card">
@@ -85,12 +90,7 @@ a{color:var(--aqua)}
 </g>
 </svg>
 <div class="tools">
-<button id="up" type="button">▲ Hoch</button>
-<button id="down" type="button">▼ Runter</button>
-<button id="demo" class="primary" type="button">▶ Demo-Fahrt</button>
-<button id="stop" type="button">■ STOP</button>
-<label for="position">SET_TRACK: <strong id="positionValue">3</strong> von 5</label>
-<input id="position" type="range" min="1" max="5" value="3" step="1">
+<button id="stop" type="button" aria-label="Simulierte Bühnenfahrt stoppen">■ STOP</button>
 </div>
 <div class="foot">
 <span id="alignment">Einfahrt ↔ BG3 · BG1 ↔ AB7</span>
@@ -140,61 +140,54 @@ for(let n=1;n<=5;n++){
   boxes.push(el('rect',bridge,{x:458,y:y-10,width:64,height:20,rx:5,'class':'badge-bg'}));
   texts.push(el('text',bridge,{x:490,y:y,'class':'trackname'},'BG'+n));
 }
-let offset=0,frame=null,timer=null,demoRunning=false,queue=[];
+let offset=0,frame=null;
 function show(){
   const track=3-offset/25;
   const rounded=Math.round(track);
-  const aligned=Math.abs(track-rounded)<0.003&&rounded>=1&&rounded<=5;
+  const aligned=frame===null&&Math.abs(track-rounded)<0.003&&rounded>=1&&rounded<=5;
   bridge.setAttribute('transform','translate(0,'+offset.toFixed(3)+')');
   const active=aligned?rounded:0;
   $('entryLabel').textContent=aligned?'BG'+active:'–';
-  $('storageLabel').textContent=aligned?'AB'+(4+active):'–';
-  $('positionValue').textContent=aligned?String(active):'zwischen';
-  $('position').value=String(Math.max(1,Math.min(5,rounded)));
   $('alignment').textContent=aligned
     ? 'Einfahrt ↔ BG'+active+' · BG1 ↔ AB'+(4+active)
+    : frame!==null?'Bühne in Fahrt · Gleisfluchtung noch nicht bestätigt'
     : 'Zwischenposition · keine Gleisfluchtung';
   for(let i=0;i<5;i++){
     rails[i].setAttribute('class',i===active-1?'rail rail-active':'rail');
     boxes[i].setAttribute('class',i===active-1?'active-bg':'badge-bg');
     texts[i].setAttribute('fill',i===active-1?'#bcffcb':'#edf5fa');
   }
-  $('motorLabel').textContent=frame!==null?'in Fahrt':(demoRunning?'Demo aktiv':'Stillstand');
+  $('motorLabel').textContent=frame!==null?'in Fahrt':'Stillstand';
   $('motorLabel').className=frame!==null?'val cyan':'val';
 }
 function stop(){
   if(frame!==null){cancelAnimationFrame(frame);frame=null;}
-  if(timer!==null){clearTimeout(timer);timer=null;}
-  queue=[];demoRunning=false;show();
+  // Nach STOP in einer Zwischenposition keine scheinbar gueltige Zielwahl anzeigen.
+  const track=3-offset/25;
+  if(Math.abs(track-Math.round(track))>=0.003){
+    $('trackSelect').value='';
+  }
+  show();
 }
-function moveTo(target,done){
-  target=Math.max(1,Math.min(5,Math.round(target)));
+function moveTo(target){
+  if(!Number.isInteger(target)||target<1||target>5)return;
+  stop();
+  $('trackSelect').value=String(target);
   const from=offset,to=(3-target)*25,start=performance.now();
   const duration=Math.max(300,Math.abs(to-from)*13);
-  if(Math.abs(to-from)<0.1){offset=to;show();if(done)done();return;}
+  if(Math.abs(to-from)<0.1){offset=to;show();return;}
   function tick(t){
     const f=Math.min(1,(t-start)/duration);
     const ease=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2;
     offset=from+(to-from)*ease;
     if(f<1){frame=requestAnimationFrame(tick);show();}
-    else{frame=null;offset=to;show();if(done)done();}
+    else{frame=null;offset=to;show();}
   }
   frame=requestAnimationFrame(tick);
   show();
 }
-function manual(target){stop();moveTo(target);}
-$('up').addEventListener('click',()=>manual(Math.round(3-offset/25)+1));
-$('down').addEventListener('click',()=>manual(Math.round(3-offset/25)-1));
-$('position').addEventListener('input',()=>manual(Number($('position').value)));
+$('trackSelect').addEventListener('change',()=>moveTo(Number($('trackSelect').value)));
 $('stop').addEventListener('click',stop);
-function nextDemo(){
-  if(!demoRunning)return;
-  if(!queue.length){demoRunning=false;show();return;}
-  moveTo(queue.shift(),()=>{if(demoRunning)timer=setTimeout(nextDemo,650);});
-}
-$('demo').addEventListener('click',()=>{
-  stop();demoRunning=true;queue=[1,5,3];show();nextDemo();
-});
 show();
 </script>
 </body>
