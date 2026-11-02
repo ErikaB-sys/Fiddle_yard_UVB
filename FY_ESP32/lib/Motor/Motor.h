@@ -215,6 +215,8 @@ uint32_t Muninn_positionSnapshot();
 uint8_t Muninn_referenceStatusSnapshot();
 // Gepackter Gleisstatus: Ziel | (letztes bestaetigtes Gleis << 8) | (Status << 16).
 uint32_t Muninn_trackSnapshot();
+// Aktuelle vier Sensor-Rohpegel ohne Entnahme aus der UART-Snapshot-Queue.
+uint8_t Muninn_sensorLevelsSnapshot();
 // ID-spezifischer atomarer Parameterwert. False bei ungueltigem/fehlendem Wert.
 bool Muninn_getParamSnapshot(uint8_t id, uint32_t& value);
 // NVM-Fehlermaske / Gueltigkeitsmaske in einem atomaren uint16-Snapshot.
