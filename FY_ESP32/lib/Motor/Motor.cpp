@@ -401,7 +401,8 @@ constexpr uint32_t kPositionBenchFlag = 0x00010000U;
 std::atomic<uint32_t> positionSnapshot{kPositionUnknown};
 std::atomic<uint32_t> realReferencePosition{kPositionUnknown};
 std::atomic<uint8_t> referenceStatusSnapshot{0U}; // 0 none, 1 real, 2 fake
-std::atomic<uint16_t> nvmStatusSnapshot{0U}; // high byte valid mask, low byte fault mask
+std::atomic<uint16_t> nvmStatusSnapshot{0U};
+std::atomic<uint8_t> httpSensorLevelsSnapshot{0U}; // high byte valid mask, low byte fault mask
 std::atomic<uint32_t> nvmTrackValues[5]{};
 std::atomic<uint32_t> nvmRampValues[17]{};
 std::atomic<uint32_t> nvmCalibrationValues[3]{};
@@ -513,6 +514,10 @@ uint8_t Muninn_referenceStatusSnapshot() {
 
 uint32_t Muninn_trackSnapshot() {
     return trackSnapshot.load(std::memory_order_acquire);
+}
+
+uint8_t Muninn_sensorLevelsSnapshot() {
+    return httpSensorLevelsSnapshot.load(std::memory_order_acquire);
 }
 
 bool Muninn_getParamSnapshot(uint8_t id, uint32_t& value) {
@@ -894,6 +899,7 @@ void Muninn_motorTask(void* arg) {
     for (;;) {
         // Nur den letzten Sensorzustand bereitstellen; STOP und Motorereignisse nicht blockieren.
         const uint8_t sensorLevels = readSensorLevels();
+        httpSensorLevelsSnapshot.store(sensorLevels, std::memory_order_release);
         if (sensorLevels != lastSensorLevels) {
             lastSensorLevels = sensorLevels;
             sensorChangeCount = (sensorChangeCount == 0x0EU)
