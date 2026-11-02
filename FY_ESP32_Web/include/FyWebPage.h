@@ -86,7 +86,7 @@ a{color:var(--aqua)}
 </head>
 <body>
 <main>
-<header><h1>FY UVB · Web-Prüfstand</h1><span class="tag">SIMULATION</span><span class="sub">SVG-Gleisbild · keine Verbindung zur Motorsteuerung</span></header>
+<header><h1>FY UVB · Web-Prüfstand</h1><span class="tag">SIMULATION</span><span id="netLabel" class="sub" aria-live="polite">ESP32-Status wird geladen · keine Motorsteuerung</span></header>
 <section class="console" aria-label="FY-Bedienpult">
 <div class="console-part">
 <div class="console-heading">Gleiswahl · historischer Fahrgeber</div>
@@ -98,30 +98,30 @@ a{color:var(--aqua)}
 <circle cx="190" cy="190" r="6" fill="#2c3540"/>
 <text id="selectedLabel" class="dial-center" x="190" y="224">BG3 gewählt</text>
 </svg>
-<div class="console-info">Erst Gleis vorwählen, dann FAHRT drücken. Simulation ohne Motoranbindung.</div>
+<div class="console-info">Vorwahl lokal · FAHRT sendet HTTP an den ESP32 · keine Motoranbindung.</div>
 </div>
 <div class="console-side">
 <div class="console-part">
 <div class="console-heading">Kontrolllampen</div>
-<div class="lamp-row"><span id="lampLocal" class="lamp green" aria-hidden="true"></span><span>LOCAL · Simulation</span></div>
+<div class="lamp-row"><span id="lampLocal" class="lamp green" aria-hidden="true"></span><span>WEB · Testbetrieb</span></div>
 <div class="lamp-row"><span id="lampJmri" class="lamp" aria-hidden="true"></span><span>JMRI · nicht verbunden</span></div>
-<div class="lamp-row"><span id="lampTravel" class="lamp green" aria-hidden="true"></span><span id="lampTravelLabel" aria-live="polite">Zielstellung erreicht</span></div>
+<div class="lamp-row"><span id="lampTravel" class="lamp" aria-hidden="true"></span><span id="lampTravelLabel" aria-live="polite">Warte auf Status …</span></div>
 </div>
 <div class="console-part">
 <div class="console-heading">Fahrtauftrag</div>
 <div class="console-actions">
-<button id="go" type="button">FAHRT</button>
-<button id="reference" type="button">REFERENZ</button>
+<button id="go" type="button" disabled>FAHRT</button>
+<button id="reference" type="button" disabled>REFERENZ</button>
 </div>
-<div id="actionLabel" class="console-info" role="status">Bereit · BG3 an der Einfahrt</div>
+<div id="actionLabel" class="console-info" role="status">Lade gemeinsamen ESP32-Status …</div>
 </div>
 </div>
 </section>
 <section class="metrics" aria-label="Simulierter Zustand">
-<div class="metric"><div class="cap">Betriebsart</div><div class="val">LOCAL · SIM</div></div>
-<div class="metric"><div class="cap">Einfahrt fluchtet mit</div><div id="entryLabel" class="val green">BG3</div></div>
+<div class="metric"><div class="cap">Betriebsart</div><div class="val">DEMO · HTTP</div></div>
+<div class="metric"><div class="cap">Einfahrt fluchtet mit</div><div id="entryLabel" class="val green">–</div></div>
 <div class="metric"><div class="cap">Vorwahl</div><div id="selectedMetric" class="val cyan">BG3</div></div>
-<div class="metric"><div class="cap">Bühne</div><div id="motorLabel" class="val">Stillstand</div></div>
+<div class="metric"><div class="cap">Bühne</div><div id="motorLabel" class="val">Verbinde …</div></div>
 </section>
 <section class="card">
 <h2>Schiebebühne · Gleisbild</h2>
@@ -149,7 +149,7 @@ a{color:var(--aqua)}
 <button id="stop" type="button" aria-label="Simulierte Bühnenfahrt stoppen">■ STOP</button>
 </div>
 <div class="foot">
-<span id="alignment">Einfahrt ↔ BG3 · BG1 ↔ AB7</span>
+<span id="alignment">Warte auf ESP32-Snapshot …</span>
 <span class="mini"><a href="/api/system">Speicher</a> · <a href="/api/status">Netzstatus</a></span>
 </div>
 </section>
@@ -200,14 +200,16 @@ for(let n=1;n<=5;n++){
 const dialPositions=$('dialPositions');
 const angles=[Math.PI,Math.PI*3/4,Math.PI/2,Math.PI/4,0];
 const dialEntries=[];
-let selectedTrack=3,offset=0,frame=null,referenceRun=false,completed=true;
+let selectedTrack=3;
+let fy=null,connected=false,polling=false,sending=false,firstSnapshot=true;
+let lastSeen=0,previousRevision=-1,displayedPosition=3,positionFrame=null;
 let dialAngle=angles[2],dialTarget=3,dialFrame=null;
 for(let n=1;n<=5;n++){
   const angle=angles[n-1],x=190+125*Math.cos(angle),y=190-125*Math.sin(angle);
   const group=el('g',dialPositions,{'class':'dial-position',role:'button',tabindex:'0','aria-label':'BG'+n+' vorwählen'});
   el('circle',group,{cx:x.toFixed(2),cy:y.toFixed(2),r:23});
   el('text',group,{x:x.toFixed(2),y:y.toFixed(2)},'BG'+n);
-  function choose(){if(frame!==null)return;selectedTrack=n;updateDial();show();}
+  function choose(){if(!connected||sending||(fy&&fy.busy))return;selectedTrack=n;updateDial();show();}
   group.addEventListener('click',choose);
   group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose();}});
   dialEntries.push(group);
@@ -273,79 +275,148 @@ function updateDial(){
   dialEntries.forEach((e,i)=>{
     e.setAttribute('class',i+1===selectedTrack?'dial-position selected':'dial-position');
     e.setAttribute('aria-pressed',i+1===selectedTrack?'true':'false');
-    e.setAttribute('aria-disabled',frame!==null?'true':'false');
+    e.setAttribute('aria-disabled',(!connected||sending||(fy&&fy.busy))?'true':'false');
   });
 }
 function lampState(name){
-  $('lampTravel').className=name==='moving'?'lamp red blink':name==='arrived'?'lamp green':'lamp red';
-  $('lampTravelLabel').textContent=name==='moving'?'Fahrt läuft …':name==='arrived'?'Zielstellung erreicht':'Zwischenposition / STOP';
+  const classes={
+    moving:'lamp red blink',
+    arrived:'lamp green',
+    stopped:'lamp red',
+    unknown:'lamp'
+  };
+  const labels={
+    moving:'Fahrt läuft …',
+    arrived:'Zielstellung erreicht',
+    stopped:'STOP / nicht referenziert',
+    unknown:'Verbindung / Status unbekannt'
+  };
+  $('lampTravel').className=classes[name];
+  $('lampTravelLabel').textContent=labels[name];
+}
+function renderBridge(){
+  const offset=(3-displayedPosition)*25;
+  bridge.setAttribute('transform','translate(0,'+offset.toFixed(3)+')');
+}
+function animateReportedPosition(next,busy){
+  if(positionFrame!==null){cancelAnimationFrame(positionFrame);positionFrame=null;}
+  if(!Number.isFinite(next)||next<0.9||next>5.1)return;
+  if(!busy || firstSnapshot){
+    displayedPosition=next;
+    renderBridge();
+    return;
+  }
+  // Nur die Darstellung weich interpolieren; der ESP32 ist die Zustandsquelle.
+  const start=performance.now(),from=displayedPosition;
+  function tick(time){
+    const t=Math.min(1,(time-start)/230);
+    displayedPosition=from+(next-from)*t;
+    renderBridge();
+    if(t<1)positionFrame=requestAnimationFrame(tick);
+    else positionFrame=null;
+  }
+  positionFrame=requestAnimationFrame(tick);
 }
 function show(){
-  const track=3-offset/25;
-  const rounded=Math.round(track);
-  const aligned=frame===null&&Math.abs(track-rounded)<0.003&&rounded>=1&&rounded<=5;
-  bridge.setAttribute('transform','translate(0,'+offset.toFixed(3)+')');
-  const active=aligned?rounded:0;
+  const fresh=connected&&fy!==null&&(performance.now()-lastSeen<1300);
+  const aligned=fresh&&!fy.busy&&fy.referenced&&Number.isInteger(fy.track)
+                &&fy.track>=1&&fy.track<=5;
+  const active=aligned?fy.track:0;
+  $('netLabel').textContent=fresh?'ESP32 verbunden · gemeinsamer Status · keine Motorsteuerung'
+                                   :'Verbindung gestört · Status veraltet · keine Motorsteuerung';
   $('entryLabel').textContent=aligned?'BG'+active:'–';
-  $('alignment').textContent=aligned
-    ?'Einfahrt ↔ BG'+active+' · BG1 ↔ AB'+(4+active)
-    :frame!==null?'Bühne in Fahrt · Gleisfluchtung nicht bestätigt'
-    :'Zwischenposition · keine Gleisfluchtung';
+  $('alignment').textContent=!fresh?'Verbindung verloren · Bühnenlage nicht bestätigt'
+    :aligned?'Einfahrt ↔ BG'+active+' · BG1 ↔ AB'+(4+active)
+    :fy.busy?'Bühne in Fahrt · Gleisfluchtung nicht bestätigt'
+    :'Zwischenposition oder Referenz ungültig';
   for(let i=0;i<5;i++){
     rails[i].setAttribute('class',i===active-1?'rail rail-active':'rail');
     boxes[i].setAttribute('class',i===active-1?'active-bg':'badge-bg');
     texts[i].setAttribute('fill',i===active-1?'#bcffcb':'#edf5fa');
   }
-  $('motorLabel').textContent=frame!==null?'in Fahrt':(aligned?'Stillstand':'STOP / Zwischenposition');
-  $('motorLabel').className=frame!==null?'val cyan':'val';
-  $('go').disabled=frame!==null;
-  $('reference').disabled=frame!==null;
-  lampState(frame!==null?'moving':aligned&&completed?'arrived':'stopped');
+  $('motorLabel').textContent=!fresh?'Status veraltet'
+    :fy.busy?(fy.state==='REFERENCING'?'Referenz (SIM)':'in Fahrt')
+    :aligned?'Stillstand':fy.state==='STOPPED'?'STOP':'Nicht referenziert';
+  $('motorLabel').className=fresh&&fy.busy?'val cyan':'val';
+  $('go').disabled=!fresh||sending||fy.busy||!fy.referenced;
+  $('reference').disabled=!fresh||sending||fy.busy;
+  lampState(!fresh?'unknown':fy.busy?'moving':aligned?'arrived':'stopped');
   updateDial();
 }
-function stop(){
-  const wasMoving=frame!==null;
-  if(frame!==null){cancelAnimationFrame(frame);frame=null;}
-  if(wasMoving){completed=false;referenceRun=false;$('actionLabel').textContent='STOP · Position überprüfen';}
-  show();
-}
-function moveTo(target,isReference){
-  if(!Number.isInteger(target)||target<1||target>5||frame!==null)return;
-  referenceRun=!!isReference;
-  const from=offset,to=(3-target)*25,start=performance.now();
-  // Urspruenglich 13 ms je SVG-Einheit; jetzt um Faktor 3 langsamer.
-  const duration=Math.max(900,Math.abs(to-from)*39);
-  if(Math.abs(to-from)<0.1){
-    offset=to;completed=true;
-    $('actionLabel').textContent=referenceRun?'Referenz (SIM) abgeschlossen':'BG'+target+' bereits erreicht';
-    referenceRun=false;show();return;
-  }
-  completed=false;
-  $('actionLabel').textContent=referenceRun?'Referenzfahrt (SIM) läuft':'Fahrt nach BG'+target+' (SIM) läuft';
-  function tick(t){
-    const f=Math.min(1,(t-start)/duration);
-    const ease=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2;
-    offset=from+(to-from)*ease;
-    if(f<1){frame=requestAnimationFrame(tick);show();}
-    else{
-      frame=null;offset=to;completed=true;
-      $('actionLabel').textContent=referenceRun?'Referenz (SIM) abgeschlossen':'BG'+target+' erreicht (SIM)';
-      referenceRun=false;show();
+async function pollStatus(){
+  if(polling)return;
+  polling=true;
+  try{
+    const resp=await fetch('/api/v1/status',{cache:'no-store'});
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const snapshot=await resp.json();
+    if(!snapshot.simulation||!Number.isFinite(snapshot.position)){
+      throw new Error('Ungueltiger Teststatus');
     }
+    if(firstSnapshot && Number.isInteger(snapshot.track)){
+      selectedTrack=snapshot.track; // beim Oeffnen lokale Vorwahl passend initialisieren
+    }else if(previousRevision!==-1 && snapshot.revision!==previousRevision &&
+             Number.isInteger(snapshot.target_track) && snapshot.busy){
+      selectedTrack=snapshot.target_track; // bei fremdem FAHRT den Fahrgeber nachziehen
+    }
+    connected=true;
+    fy=snapshot;
+    lastSeen=performance.now();
+    animateReportedPosition(snapshot.position,snapshot.busy);
+    previousRevision=snapshot.revision;
+    firstSnapshot=false;
+    show();
+  }catch(err){
+    connected=false;
+    if(positionFrame!==null){cancelAnimationFrame(positionFrame);positionFrame=null;}
+    $('actionLabel').textContent='HTTP-Status nicht erreichbar';
+    show();
+  }finally{
+    polling=false;
   }
-  frame=requestAnimationFrame(tick);
-  show();
 }
-$('go').addEventListener('click',()=>moveTo(selectedTrack,false));
-// Nur Demonstration der UI: reale kurze Referenzfahrt wird hier NICHT nachgebildet.
-// Bis zur HTTP-Anbindung dient BG3 ausschliesslich als grafischer Demo-Zielpunkt.
-$('reference').addEventListener('click',()=>{
-  if(frame!==null)return;
-  selectedTrack=3;
-  moveTo(3,true);
-});
-$('stop').addEventListener('click',stop);
-show();
+async function sendCommand(command,track){
+  if(!connected||sending)return;
+  if(command!=='STOP'&&(!fy||fy.busy))return;
+  sending=true;
+  show();
+  const stop=command==='STOP';
+  const url=stop?'/api/v1/stop':'/api/v1/command';
+  const data=new URLSearchParams();
+  if(!stop){data.set('command',command);if(command==='SET_TRACK')data.set('value',String(track));}
+  $('actionLabel').textContent=stop?'STOP angefordert …':command+' angefordert …';
+  try{
+    const response=await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body:data.toString(),
+      cache:'no-store'
+    });
+    const reply=await response.json();
+    if(!response.ok||reply.result!=='ACK'){
+      $('actionLabel').textContent='NACK: '+(reply.reason||'HTTP '+response.status);
+    }else{
+      $('actionLabel').textContent=stop?'STOP angenommen (SIM)'
+        :command==='REFERENCE'?'Referenz angenommen (SIM)'
+        :'BG'+track+' angenommen (SIM) – Ziel noch nicht bestätigt';
+    }
+    await pollStatus();
+  }catch(err){
+    connected=false;
+    $('actionLabel').textContent='Keine HTTP-Bestätigung · Status prüfen';
+    show();
+  }finally{
+    sending=false;
+    show();
+  }
+}
+$('go').addEventListener('click',()=>sendCommand('SET_TRACK',selectedTrack));
+$('reference').addEventListener('click',()=>sendCommand('REFERENCE'));
+$('stop').addEventListener('click',()=>sendCommand('STOP'));
+// Gemeinsame Position aus ESP32-RAM: alle Clients fragen denselben Snapshot ab.
+setInterval(pollStatus,250);
+pollStatus();
+
 </script>
 </body>
 </html>)FYHTML";
