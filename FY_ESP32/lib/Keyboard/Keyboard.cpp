@@ -4,6 +4,7 @@
 #include <U8g2lib.h>
 #include "HW_Config.h"
 #include "Motor.h"
+#include "CommandRouter.h"
 
 namespace fy {
 namespace {
@@ -51,8 +52,7 @@ bool sendLocal(uint8_t id, uint8_t a, uint8_t b, bool priority) {
     msg.data[1] = b;
     msg.length = (id == CMD_REFERENCE || id == CMD_SET_TRACK) ? 2U : 3U;
     msg.sequence = 0x80000000UL | (++kbSeq & 0x7FFFFFFFUL);
-    QueueHandle_t q = priority ? kbContext->priorityCommands : kbContext->commands;
-    if (q == nullptr || xQueueSend(q, &msg, 0) != pdTRUE) return false;
+    if (!CommandRouter_enqueue(kbContext, msg, priority)) return false;
     kbAwaitSeq = msg.sequence;
     kbWaiting = true;
     return true;
