@@ -37,6 +37,7 @@ footer{margin-top:8px;color:var(--mute);font-size:13px}
 <div class="grid">
 <section class="card"><h2>Motor und Bühne</h2>
 <div class="metric"><span>Zustand</span><strong id="state">–</strong></div>
+<div class="metric"><span>STOP-Verriegelung</span><strong id="latch">–</strong></div>
 <div class="metric"><span>Treiber</span><strong id="driver">–</strong></div>
 <div class="metric"><span>Referenz</span><strong id="ref">–</strong></div>
 <div class="metric"><span>Position</span><strong id="pos">–</strong></div>
@@ -100,6 +101,7 @@ async function refresh(){
     if(!response.ok)throw Error('HTTP '+response.status);
     const d=await response.json(),m=d.motor,s=d.system,n=d.network,h=d.http,q=d.queues;
     show('state',m.state);
+    show('latch',m.stop_latched?'VERRIEGELT':'FREI');
     show('driver',m.driver_enabled?'EIN':'AUS');
     show('ref',m.referenced?'GÜLTIG':'UNGÜLTIG');
     show('pos',m.position_steps===null?'unbekannt':m.position_steps+' Steps');
