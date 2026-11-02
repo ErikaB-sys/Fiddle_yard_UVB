@@ -38,6 +38,23 @@ public:
         }
     }
 
+    /** @brief Gleis nur vorwaehlen; noch keine Fahrt starten. */
+    Result selectTrack(uint8_t track, uint32_t now)
+    {
+        update(now);
+        if (track < 1U || track > 5U) {
+            return Result::INVALID_PARAMETER;
+        }
+        if (busy_) {
+            return Result::BUSY;
+        }
+        if (selectedTrack_ != track) {
+            selectedTrack_ = track;
+            ++revision_;
+        }
+        return Result::ACK;
+    }
+
     /** @brief SET_TRACK 1..5 simulieren, BUSY und fehlende REF abweisen. */
     Result setTrack(uint8_t track, uint32_t now)
     {
@@ -51,6 +68,8 @@ public:
         if (!referenced_) {
             return Result::NOT_READY;
         }
+        // Bei akzeptierter Fahrt die Vorwahl aller Clients mitnehmen.
+        selectedTrack_ = track;
         start(track, now, false);
         return Result::ACK;
     }
@@ -90,7 +109,7 @@ public:
                            : stopped_ ? "STOPPED"
                            : referenced_ ? "READY" : "UNREFERENCED";
         String result;
-        result.reserve(270);
+        result.reserve(310);
         result += F("{\"device\":\"FY-UVB-Web\",\"simulation\":true,\"mode\":\"DEMO\"");
         result += F(",\"state\":\"");
         result += state;
@@ -102,6 +121,8 @@ public:
         } else {
             result += F("null");
         }
+        result += F(",\"selected_track\":");
+        result += String(selectedTrack_);
         result += F(",\"target_track\":");
         result += String(target_);
         result += F(",\"busy\":");
@@ -139,6 +160,7 @@ private:
     float position_ = 3.0f;
     float from_ = 3.0f;
     uint8_t target_ = 3U;
+    uint8_t selectedTrack_ = 3U;
     bool busy_ = false;
     bool referencing_ = false;
     bool referenced_ = true;  // Nur Testbedingung! Keine reale Referenz.
