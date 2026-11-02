@@ -216,7 +216,9 @@ bool UART::queueMotorCommand(bool priority) {
     CommandMessage message{};
     message.id = _command.cmd;
     message.length = _command.length;
-    message.sequence = ++_nextSequence;
+    // Die oberen zwei Bits sind fuer HTTP und lokales Keyboard reserviert.
+    _nextSequence = (_nextSequence % 0x3FFFFFFFUL) + 1UL;
+    message.sequence = _nextSequence;
     memcpy(message.data, _command.data, sizeof(message.data));
 
     // Freien Zuordnungseintrag vor der Uebergabe an Muninn suchen.
