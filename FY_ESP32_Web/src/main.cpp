@@ -72,13 +72,19 @@ void startHttpServer()
     });
     server.on("/api/v1/command", HTTP_POST, []() {
         const String command = server.arg("command");
-        if (command == "SET_TRACK") {
+        if (command == "SET_TRACK" || command == "SELECT_TRACK") {
             const String value = server.arg("value");
             if (value.length() != 1 || value[0] < '1' || value[0] > '5') {
                 replyMock(FyMockController::Result::INVALID_PARAMETER);
                 return;
             }
-            replyMock(mockFY.setTrack(static_cast<uint8_t>(value[0] - '0'), millis()));
+            const uint8_t track = static_cast<uint8_t>(value[0] - '0');
+            if (command == "SELECT_TRACK") {
+                // Vorwahl veraendert ausschliesslich den gemeinsamen Zeiger.
+                replyMock(mockFY.selectTrack(track, millis()));
+            } else {
+                replyMock(mockFY.setTrack(track, millis()));
+            }
         } else if (command == "REFERENCE") {
             replyMock(mockFY.reference(millis()));
         } else {
