@@ -275,6 +275,93 @@ String statusJson() {
     return json;
 }
 
+/** @brief Baut nur lesbare Diagnosedaten aus Snapshots und Queue-Zaehlern. */
+String diagnosticsJson() {
+    const uint32_t track = Muninn_trackSnapshot();
+    const uint16_t nvm = Muninn_nvmStatusSnapshot();
+    const uint8_t sensors = Muninn_sensorLevelsSnapshot();
+    const bool wifiOnline = WiFi.status() == WL_CONNECTED;
+
+    String motor = statusJson();
+    // Gleicher Status wie im Bedienpult, ergaenzt um Diagnosefelder.
+    motor.remove(motor.length() - 1U);
+    motor += F(",\"confirmed_track\":");
+    motor += String((track >> 8U) & 0xFFU);
+    motor += F(",\"direction\":");
+    motor += String(Muninn_motionDirectionSnapshot());
+    motor += F(",\"sensor_raw\":");
+    motor += String(sensors);
+    motor += F(",\"sensor_levels\":{\"LSL\":");
+    motor += String((sensors & 0x01U) ? 1 : 0);
+    motor += F(",\"LSR\":");
+    motor += String((sensors & 0x02U) ? 1 : 0);
+    motor += F(",\"REF\":");
+    motor += String((sensors & 0x04U) ? 1 : 0);
+    motor += F(",\"BELT\":");
+    motor += String((sensors & 0x08U) ? 1 : 0);
+    motor += F("}}");
+
+    String json;
+    json.reserve(1050);
+    json += F("{\"motor\":");
+    json += motor;
+    json += F(",\"system\":{\"firmware\":\"");
+    json += FY_FW_VERSION;
+    json += F("\",\"build\":\"");
+    json += __DATE__ " " __TIME__;
+    json += F("\",\"uptime_ms\":");
+    json += String(millis());
+    json += F(",\"flash_bytes\":");
+    json += String(ESP.getFlashChipSize());
+    json += F(",\"heap_free_bytes\":");
+    json += String(ESP.getFreeHeap());
+    json += F(",\"heap_min_free_bytes\":");
+    json += String(ESP.getMinFreeHeap());
+    json += F(",\"nvm_faults\":");
+    json += String(nvm & 0xFFU);
+    json += F(",\"nvm_valid\":");
+    json += String(nvm >> 8U);
+    json += F("},\"network\":{\"connected\":");
+    json += wifiOnline ? F("true") : F("false");
+    json += F(",\"ip\":\"");
+    json += wifiOnline ? WiFi.localIP().toString() : String("0.0.0.0");
+    json += F("\",\"rssi\":");
+    json += String(wifiOnline ? WiFi.RSSI() : 0);
+    json += F("},\"http\":{\"commands_enabled\":");
+    json += FY_HTTP_WEB_TEST_CONTROL ? F("true") : F("false");
+    json += F(",\"rx_count\":");
+    json += String(httpRxCount);
+    json += F(",\"tx_count\":");
+    json += String(httpTxCount);
+    json += F(",\"last_command\":\"");
+    json += lastCommand;
+    json += F("\",\"last_result\":\"");
+    json += lastResult;
+    json += F("\",\"last_reason\":\"");
+    json += lastReason;
+    json += F("\",\"last_rx_ms\":");
+    json += String(lastRxMs);
+    json += F(",\"last_tx_ms\":");
+    json += String(lastTxMs);
+    json += F("},\"queues\":{\"commands\":");
+    json += String(httpContext && httpContext->commands ?
+                   uxQueueMessagesWaiting(httpContext->commands) : 0U);
+    json += F(",\"priority\":");
+    json += String(httpContext && httpContext->priorityCommands ?
+                   uxQueueMessagesWaiting(httpContext->priorityCommands) : 0U);
+    json += F(",\"uart_events\":");
+    json += String(httpContext && httpContext->events ?
+                   uxQueueMessagesWaiting(httpContext->events) : 0U);
+    json += F(",\"keyboard_events\":");
+    json += String(httpContext && httpContext->keyboardEvents ?
+                   uxQueueMessagesWaiting(httpContext->keyboardEvents) : 0U);
+    json += F(",\"http_events\":");
+    json += String(httpContext && httpContext->httpEvents ?
+                   uxQueueMessagesWaiting(httpContext->httpEvents) : 0U);
+    json += F("}}");
+    return json;
+}
+
 /** @brief Registriert Status, Vorwahl und testweise Muninn-Befehle. */
 void configureRoutes() {
     webServer.on("/", HTTP_GET, []() {
@@ -284,6 +371,10 @@ void configureRoutes() {
     webServer.on("/api/v1/status", HTTP_GET, []() {
         webServer.sendHeader("Cache-Control", "no-store");
         webServer.send(200, "application/json", statusJson());
+    });
+    webServer.on("/api/v1/diagnostics", HTTP_GET, []() {
+        webServer.sendHeader("Cache-Control", "no-store");
+        webServer.send(200, "application/json", diagnosticsJson());
     });
     webServer.on("/diagnostics", HTTP_GET, []() {
         webServer.sendHeader("Cache-Control", "no-store");
