@@ -2,13 +2,13 @@
 
 /**
  * @file HTTP.h
- * @brief HTTP-Eingang auf Huginn; erster Integrationsstand ohne Motorbefehle.
+ * @brief HTTP-Eingang auf Huginn mit getrennter Motorantwort-Queue und Diagnose.
  */
 #include "FY_Bringup.h"
 
 namespace fy {
 
-/** @brief Legt die Diagnosequeue vor dem Start der Kommunikationstasks an.
+/** @brief Bereitet Kontext und nicht blockierende HTTP-Diagnosequeue vor.
  * @param context Gemeinsame FreeRTOS-Strukturen (nicht Eigentum des HTTP-Moduls).
  * @return true, wenn die HTTP-Diagnose vorbereitet ist.
  */
