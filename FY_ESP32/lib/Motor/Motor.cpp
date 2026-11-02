@@ -465,8 +465,18 @@ void emit(BringupContext* context, const CommandMessage& cmd,
         accepted ? STATUS_ACK : STATUS_NACK,
         data
     };
+    // Sequenzkennung: 00=UART, 01=HTTP, 10/11=lokales Keyboard.
+    // Eigene HTTP-Mailbox verhindert das Weglesen fremder Motorantworten.
     const bool local = (cmd.sequence & 0x80000000UL) != 0UL;
-    QueueHandle_t destination = local ? context->keyboardEvents : context->events;
+    const bool http = !local && (cmd.sequence & 0x40000000UL) != 0UL;
+    QueueHandle_t destination = local ? context->keyboardEvents :
+                                http ? context->httpEvents : context->events;
+    if (http) {
+        // HTTP hat genau einen ausstehenden Auftrag je Webserver-Task.
+        // Selbst eine volle/defekte Debugantwort darf STOP nicht blockieren.
+        if (destination != nullptr) (void)xQueueSend(destination, &event, 0);
+        return;
+    }
     // Integrationspruefung UART/Motor:
     // portMAX_DELAY verhindert den stillen Verlust einer Antwort bei voller
     // Event-Queue, kann aber die gesamte Muninn-Task blockieren.
