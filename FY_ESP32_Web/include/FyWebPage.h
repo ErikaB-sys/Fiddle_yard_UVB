@@ -98,7 +98,7 @@ a{color:var(--aqua)}
 <circle cx="190" cy="190" r="6" fill="#2c3540"/>
 <text id="selectedLabel" class="dial-center" x="190" y="224">BG3 gewählt</text>
 </svg>
-<div class="console-info">Vorwahl lokal · FAHRT sendet HTTP an den ESP32 · keine Motoranbindung.</div>
+<div class="console-info">Vorwahl gemeinsam auf allen Browsern · FAHRT startet die Simulation.</div>
 </div>
 <div class="console-side">
 <div class="console-part">
@@ -201,15 +201,20 @@ const dialPositions=$('dialPositions');
 const angles=[Math.PI,Math.PI*3/4,Math.PI/2,Math.PI/4,0];
 const dialEntries=[];
 let selectedTrack=3;
-let fy=null,connected=false,polling=false,sending=false,firstSnapshot=true;
-let lastSeen=0,previousRevision=-1,displayedPosition=3,positionFrame=null;
+let fy=null,connected=false,polling=false,sending=false,selecting=false,firstSnapshot=true;
+let lastSeen=0,displayedPosition=3,positionFrame=null;
 let dialAngle=angles[2],dialTarget=3,dialFrame=null;
 for(let n=1;n<=5;n++){
   const angle=angles[n-1],x=190+125*Math.cos(angle),y=190-125*Math.sin(angle);
   const group=el('g',dialPositions,{'class':'dial-position',role:'button',tabindex:'0','aria-label':'BG'+n+' vorwählen'});
   el('circle',group,{cx:x.toFixed(2),cy:y.toFixed(2),r:23});
   el('text',group,{x:x.toFixed(2),y:y.toFixed(2)},'BG'+n);
-  function choose(){if(!connected||sending||(fy&&fy.busy))return;selectedTrack=n;updateDial();show();}
+  function choose(){
+    if(!connected||sending||selecting||(fy&&fy.busy))return;
+    selectedTrack=n;
+    updateDial();show();
+    sendSelection(n);
+  }
   group.addEventListener('click',choose);
   group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose();}});
   dialEntries.push(group);
@@ -275,7 +280,7 @@ function updateDial(){
   dialEntries.forEach((e,i)=>{
     e.setAttribute('class',i+1===selectedTrack?'dial-position selected':'dial-position');
     e.setAttribute('aria-pressed',i+1===selectedTrack?'true':'false');
-    e.setAttribute('aria-disabled',(!connected||sending||(fy&&fy.busy))?'true':'false');
+    e.setAttribute('aria-disabled',(!connected||sending||selecting||(fy&&fy.busy))?'true':'false');
   });
 }
 function lampState(name){
@@ -338,8 +343,8 @@ function show(){
     :fy.busy?(fy.state==='REFERENCING'?'Referenz (SIM)':'in Fahrt')
     :aligned?'Stillstand':fy.state==='STOPPED'?'STOP':'Nicht referenziert';
   $('motorLabel').className=fresh&&fy.busy?'val cyan':'val';
-  $('go').disabled=!fresh||sending||fy.busy||!fy.referenced;
-  $('reference').disabled=!fresh||sending||fy.busy;
+  $('go').disabled=!fresh||sending||selecting||fy.busy||!fy.referenced;
+  $('reference').disabled=!fresh||sending||selecting||fy.busy;
   lampState(!fresh?'unknown':fy.busy?'moving':aligned?'arrived':'stopped');
   updateDial();
 }
@@ -353,17 +358,16 @@ async function pollStatus(){
     if(!snapshot.simulation||!Number.isFinite(snapshot.position)){
       throw new Error('Ungueltiger Teststatus');
     }
-    if(firstSnapshot && Number.isInteger(snapshot.track)){
-      selectedTrack=snapshot.track; // beim Oeffnen lokale Vorwahl passend initialisieren
-    }else if(previousRevision!==-1 && snapshot.revision!==previousRevision &&
-             Number.isInteger(snapshot.target_track) && snapshot.busy){
-      selectedTrack=snapshot.target_track; // bei fremdem FAHRT den Fahrgeber nachziehen
+    // Vorwahl ist ESP32-Zustand, nicht mehr pro Browser.
+    // Waehrend des laufenden SELECT_TRACK-POST optimistische Vorwahl nicht ueberschreiben.
+    if(!selecting && Number.isInteger(snapshot.selected_track) &&
+       snapshot.selected_track>=1 && snapshot.selected_track<=5){
+      selectedTrack=snapshot.selected_track;
     }
     connected=true;
     fy=snapshot;
     lastSeen=performance.now();
     animateReportedPosition(snapshot.position,snapshot.busy);
-    previousRevision=snapshot.revision;
     firstSnapshot=false;
     show();
   }catch(err){
@@ -373,6 +377,36 @@ async function pollStatus(){
     show();
   }finally{
     polling=false;
+  }
+}
+// Der Fahrgeber aendert nur die gemeinsame Vorwahl – die Buehne bleibt stehen.
+async function sendSelection(track){
+  if(!connected||sending||selecting||(fy&&fy.busy))return;
+  selecting=true;
+  show();
+  const data=new URLSearchParams();
+  data.set('command','SELECT_TRACK');
+  data.set('value',String(track));
+  try{
+    const response=await fetch('/api/v1/command',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body:data.toString(),
+      cache:'no-store'
+    });
+    const reply=await response.json();
+    if(!response.ok||reply.result!=='ACK'){
+      $('actionLabel').textContent='Vorwahl NACK: '+(reply.reason||'HTTP '+response.status);
+    }else{
+      $('actionLabel').textContent='BG'+track+' gemeinsam vorgewählt (SIM)';
+    }
+  }catch(err){
+    connected=false;
+    $('actionLabel').textContent='Vorwahl nicht bestätigt · Verbindung prüfen';
+  }finally{
+    selecting=false;
+    await pollStatus();
+    show();
   }
 }
 async function sendCommand(command,track){
