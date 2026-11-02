@@ -9,7 +9,7 @@
 #include "HW_Config.h"
 
 namespace {
-fy::BringupContext bridge{nullptr, nullptr, nullptr, nullptr, nullptr};
+fy::BringupContext bridge{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
 
 // Einmaliger I2C-Hardwaretest vor dem Task-Start.
 // Veraendert keine Expander-Ausgaenge und loest keine Motorbefehle aus.
@@ -63,7 +63,8 @@ void setup() {
     bridge.priorityCommands = xQueueCreate(4, sizeof(fy::CommandMessage));
     bridge.keyboardEvents = xQueueCreate(8, sizeof(fy::MotorEvent));
     bridge.sensorSnapshots = xQueueCreate(1, sizeof(uint8_t));
-    if (!bridge.commands || !bridge.events || !bridge.priorityCommands || !bridge.keyboardEvents || !bridge.sensorSnapshots) {
+    bridge.httpEvents = xQueueCreate(8, sizeof(fy::MotorEvent));
+    if (!bridge.commands || !bridge.events || !bridge.priorityCommands || !bridge.keyboardEvents || !bridge.sensorSnapshots || !bridge.httpEvents) {
         Serial.println("FY_TEST: failed to create queues");
         return;
     }
