@@ -92,11 +92,14 @@ bool graphicalPosition(uint32_t steps, float& out) {
                 static_cast<uint8_t>(ParamId::TRACK_BG1) + i,
                 trackSteps[i])) return false;
     }
-    // Trackpositionen muessen in einer Richtung streng monoton sein.
+    // Erst alle Gleispositionen auf streng monotone Reihenfolge pruefen,
+    // danach eine Lage zwischen benachbarten Gleisen interpolieren.
     const bool rising = trackSteps[4] > trackSteps[0];
     for (uint8_t i = 0U; i < 4U; ++i) {
         if (rising ? (trackSteps[i + 1U] <= trackSteps[i]) :
                      (trackSteps[i + 1U] >= trackSteps[i])) return false;
+    }
+    for (uint8_t i = 0U; i < 4U; ++i) {
         const uint32_t lo = trackSteps[i] < trackSteps[i + 1U]
             ? trackSteps[i] : trackSteps[i + 1U];
         const uint32_t hi = trackSteps[i] > trackSteps[i + 1U]
@@ -184,7 +187,9 @@ void configureRoutes() {
         if (command == "SELECT_TRACK") {
             if (value == 0U) {
                 reply(name, 400, "NACK", "INVALID_PARAMETER");
-            } else if (Muninn_isMoving()) {
+            } else if (Muninn_isMoving() ||
+                       Muninn_motorState() == MotorState_t::MOVING ||
+                       Muninn_motorState() == MotorState_t::REFRUN) {
                 reply(name, 409, "NACK", "BUSY");
             } else {
                 // Nur Darstellung/Vorwahl, kein CommandMessage an Muninn!
@@ -236,7 +241,6 @@ void httpTask(void*) {
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(kHostname);
     configureRoutes();
-    bool joined = false;
     bool listening = false;
     bool mdns = false;
     bool attempted = false;
@@ -253,7 +257,6 @@ void httpTask(void*) {
                 mdns = MDNS.begin(kHostname);
                 if (mdns) MDNS.addService("http", "tcp", 80);
             }
-            joined = true;
             webServer.handleClient();
         } else {
             if (mdns) {
@@ -270,9 +273,7 @@ void httpTask(void*) {
                 attempted = true;
                 lastAttempt = now;
             }
-            joined = false;
         }
-        (void)joined;
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 #else
