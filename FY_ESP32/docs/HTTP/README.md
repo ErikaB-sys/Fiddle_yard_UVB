@@ -1,6 +1,6 @@
 # HTTP-Babelfisch – erste Integration (feature/FY_ESP32_Web)
 
-**Stand: 02.11.2026. Testintegration, noch nicht als Produktivversion freigegeben.**
+**Stand: 02.11.2026. Web-Fahrtest + Diagnose implementiert; bis zum neuen Firmware-Build und HW3-Test noch nicht abgenommen.**
 Der funktionierende FY-Controller in `FY_ESP32/` bleibt die Grundlage.
 `FY_ESP32_Web/` bleibt als **unabhängiger Simulationsprüfstand** erhalten.
 
@@ -12,7 +12,7 @@ Der funktionierende FY-Controller in `FY_ESP32/` bleibt die Grundlage.
 4. Muninn (Core 1) und die bestehende UART-/BabelFish-Task (Huginn, Core 0) starten unverändert.
 5. Danach startet `Huginn_startHTTP(&bridge)` einen **eigenen, niedrig priorisierten Core-0-Task**. Er pflegt WLAN, mDNS und `WebServer`, während das lokale Keyboard weiter im Arduino-`loop()` abgefragt wird.
 
-Der HTTP-Task übernimmt **keine** Motorfunktion, greift **nicht** auf STEP/Timer/GPIO zu und entnimmt **keine** Motorantwort aus der UART-Queue. Die aktuelle HTTP-Anbindung gibt daher auch noch **keine Fahrbefehle** an Muninn weiter.
+Der HTTP-Task übernimmt **keine** Motorfunktion, greift **nicht** auf STEP/Timer/GPIO zu und entnimmt **keine** Motorantwort aus der UART-Queue. HTTP, UART und Keyboard benutzen denselben `CommandRouter_enqueue()` fuer Muninns vorhandene normale und priorisierte Queue. HTTP besitzt eine eigene ACK/NACK-Queue mit Sequenzkennung `0x40000000`; UART und Keyboard behalten ihre eigenen Antwortpfade. Die bestehende Betriebsart `LOCAL` wird **nicht** umgeschaltet.
 
 ## WLAN lokal einrichten
 
@@ -24,19 +24,62 @@ Beim ersten gemeinsamen Test den alten Web-Prüfstand-ESP32 abschalten, damit ni
 
 `pio run -d FY_ESP32` (bzw. PlatformIO-Projekt `FY_ESP32/` öffnen), danach erst auf HW3 flashen und testen.
 
-## HTTP-Vertrag – Zwischenstand
+## Zweiter Integrationsstand – Web-Fahrtest (noch NICHT an HW3 abgenommen)
+
+**Explizite Testfreigabe im Branch:** `FY_ESP32/platformio.ini` enthält vorübergehend `-D FY_HTTP_WEB_TEST_CONTROL=1`. In einem Nicht-Test-Build ohne dieses Flag (`0`) weist der Server sämtliche Motorbefehle mit `NACK / WEB_TEST_DISABLED` ab. **Dies ist keine LOCAL/FERN-Bedienhoheit und keine Netzwerkauthentifizierung**. Jeder Teilnehmer im gleichen erreichbaren WLAN könnte im Test-Build Fahrbefehle senden. Deshalb nur in einem kontrollierten, privaten Entwicklungsnetz und unter Aufsicht an der realen Bühne testen; vor einem Produktiv-Merge das Flag wieder deaktivieren und die Bedienhoheit/Auftragsautorisierung einbauen.
+
+### Befehlsweg
+
+`Browser → HTTP-Server (Core 0) → CommandRouter_enqueue() → Muninn (Core 1) → httpEvents (eigenes ACK/NACK) → HTTP-JSON → Browser`.
+
+| HTTP-Befehl | Muninn-Command | Daten | Wirkung |
+| --- | --- | --- | --- |
+| `UNLOCK` | `CMD_STOPP` | `AA 55`, priorisiert | STOP-Verriegelung **nur im verriegelten Stillstand** lösen |
+| `ENABLE` | `CMD_GO` | `AA 55` | Treiber einschalten; ohne automatische Fahrt |
+| `REFERENCE` | `CMD_REFERENCE` | `00` KURZ oder `01` LANG | Echte Referenzsequenz |
+| `SET_TRACK` | `CMD_SET_TRACK` | `01..05` | Echte Fahrt zum gespeicherten Gleis |
+| `DISABLE` | `CMD_GO` | `55 AA` | Treiber ausschalten (verwirft gemäß bestehender Muninn-Logik die Referenz) |
+| `STOP` | `CMD_STOPP` | `55 AA`, Prioritätsqueue | Verriegelt STOP, bricht Fahrt ab und verwirft REF |
+| `SELECT_TRACK` | – | `01..05` | **Nur** gemeinsame Vorwahl; keine Bewegung |
+
+**Antworten:** HTTP `202 / ACK` ausschließlich nach passendem Muninn-Motorereignis; `NACK` mit Motorfehlergrund bei Ablehnung; `504 / UNKNOWN` bei Wartezeitüberschreitung: Annahme unklar, **nicht blind wiederholen**, zunächst Status abfragen. ACK steht niemals für abgeschlossene Fahrt. Die HTTP-Task wartet für einen einzelnen Auftrag begrenzt (bis 350 ms), während LOCAL und Muninn weiterlaufen. Weil `WebServer` derzeit synchron ist, können andere HTTP-Anfragen während dieses kurzen ACK-Wartens verzögert werden; **örtlicher STOP bleibt der maßgebliche Rückfallweg**.
+
+**STOP-Latch:** `stop_latched` ist ein eigener atomarer Muninn-Snapshot. `STOPPED` allein kennzeichnet die Verriegelung nicht eindeutig. Nach `UNLOCK` bleibt der Motor zunächst `STOPPED`, bis `ENABLE` ihn freigibt.
+
+**Wichtig zur Bedienung:** Browser und Keyboard können im Testbetrieb nacheinander Aufträge an Muninn geben; es gibt noch **keine explizite Bedienhoheit zwischen beiden**. Für die erste Erprobung nur eine Bedienstelle zur Zeit einsetzen. Das lokale Keyboard-Menü kann nach einem Web-Fahrtauftrag weiterhin im Zustand `LOCKED` sein; vor lokaler Übernahme dessen STOP-/Freigabesequenz durchlaufen.
+
+### Diagnoseseite
+
+`http://fy-uvb.local/diagnostics` enthält eine **rein lesende**, im Sekundentakt aktualisierte Statusansicht: reale Bühnenposition, Gleisziel/Istgleis, STOP-Latch, Motor-Treiber, Referenz, Fahrtrichtung, vier Sensorrohpegel, NVM-Masken, Firmware, Flash/Heap, WLAN und HTTP-RX/TX-Zähler sowie Füllstände der fünf FreeRTOS-Kommunikationsqueues plus neue HTTP-Queue. Die Daten stammen von `GET /api/v1/diagnostics`; dieser GET erzeugt **keinen UART-Trace**.
+
+### Empfohlene HW3-Testfolge nach erfolgreichem Build
+
+1. Altes Web-ESP32-Gerät ausschalten; `git pull` und `FY_ESP32/` neu kompilieren (nicht `FY_ESP32_Web/`).
+2. Boot/Reset: `stop_latched=true`, Fahreranzeige `STOPPED`. Keine unerwartete Bewegung.
+3. **ENTRIEGELN**: Muninn-ACK; `stop_latched=false`, Zustand ggf. weiterhin `STOPPED`.
+4. **MOTOR EIN**: Muninn-ACK; Treiber an, `IDLE/UNREFERENCED`, keine Bewegung.
+5. **REFERENZ KURZ**: reale Sensor-/Profilfahrt, BG3; korrekter Abschluss und `referenced=true`.
+6. **BG5 vorwählen**, dann **FAHRT**: Motor fährt zur Position und beide Browser zeigen reale Bewegung.
+7. STOP während Testfahrt: bevorzugt erst lokal; Browser-STOP bei beaufsichtigter weiterer Erprobung; prüfen, dass Bühne stoppt, Referenz ungültig wird und Verriegelung gesetzt ist.
+8. **/diagnostics**: Sensorpegel, NVM, Queue-Zähler und HTTP-RX/TX prüfen. UART zeigt nur echte HTTP-RX-/TX-Ereignisse.
+9. Keyboard/Browser nacheinander, ohne parallele Fahrbefehle; WLAN-Ausfall darf keine automatisch neue Fahrt starten.
+
+**Noch offen:** Der reale HW3-Test dieser neuen Richtung, Build-/Warnungsprüfung, Verhalten bei überfüllten Queues und Timeout, vollständige LOCAL/FERN/AUTO-Arbitrierung, Authentifizierung, STOP-Latenz über HTTP unter Last. Für JMRI ist diese Testfreigabe ausdrücklich ungeeignet.
+
+## HTTP-Vertrag – aktueller Entwicklungsstand
 
 | Endpunkt | Verhalten |
 | --- | --- |
-| `GET /` | Kopie der Weboberfläche, LIVE/LOCAL-Anzeige |
-| `GET /api/v1/status` | Echtzeit-Snapshot von Muninn; ohne HTTP-Motorsteuerung |
-| `POST /api/v1/command`, `command=SELECT_TRACK&value=1..5` | Gemeinsame **Web-Vorwahl** auf allen Browsern, ausdrücklich **keine Fahrt** |
-| `POST /api/v1/command`, `SET_TRACK` / `REFERENCE` / andere | **423 NACK/HTTP_CONTROL_LOCKED** |
-| `POST /api/v1/stop` | **423 NACK/HTTP_CONTROL_LOCKED**; örtlicher STOP funktioniert unverändert |
+| `GET /` | Web-Bedienpult; Muninn-Live-Status und im Test-Build Motorsteuerung |
+| `GET /diagnostics` | Rein lesende Diagnoseseite |
+| `GET /api/v1/status` | Motor-/Vorwahl-Snapshots incl. `stop_latched`, `readonly` und `web_control` |
+| `GET /api/v1/diagnostics` | Erweiterte System-/Sensor-/Kommunikationsdiagnose |
+| `POST /api/v1/command` | `SELECT_TRACK`, `UNLOCK`, `ENABLE`, `DISABLE`, `REFERENCE`, `SET_TRACK` |
+| `POST /api/v1/stop` | Priorisierter STOP über bestehende Muninn-Queue |
 | `GET /api/status` | WLAN-/IP-Diagnose |
 | `GET /api/system` | Flash-/Heap-Diagnose |
 
-Die Weboberfläche sperrt FAHRT, REFERENZ und HTTP-STOP sichtbar. **Der Server sperrt diese Befehle zusätzlich selbst** – JavaScript-Sperren allein reichen nicht als Schutz.
+Im Web-Test-Build sind die Motorbefehle aktiv; ohne Test-Flag sind sie **serverseitig gesperrt**. Die Weboberfläche aktiviert ihre Bedientasten ausschließlich, wenn der Server `readonly=false` und `web_control=TEST` meldet.
 
 ### Statusfelder
 
@@ -44,7 +87,7 @@ Die Weboberfläche sperrt FAHRT, REFERENZ und HTTP-STOP sichtbar. **Der Server s
 
 `position` wird ausschließlich aus einer **gültigen realen Referenzposition** und den gespeicherten Gleispositionen abgeleitet. Wenn die Position nicht sicher darstellbar ist, lautet sie **null**; es wird **keine erfundene BG3-Lage** gemeldet. Der erste Browser-Snapshot kann ohne Referenz also noch keine Bühnenstellung bestätigen. Die Web-Vorwahl bleibt unabhängig davon benutzbar.
 
-`SELECT_TRACK` ist eine reine Web-Vorwahl im RAM. Sie ist **nicht** das bestehende Motorprotokollkommando `CMD_SET_TRACK` (`0x1C`). Der spätere zentrale Command Router muss die Bedienhoheit regeln, bevor Motorbefehle aus HTTP angenommen werden dürfen.
+`SELECT_TRACK` bleibt reine Web-Vorwahl im RAM; `CMD_SET_TRACK` (`0x1C`) ist der **separate echte Fahrtauftrag**. Der gemeinsame Queue-Router ist eingebaut; **Bedienhoheit und Authentifizierung fehlen weiterhin** und sind vor produktivem Einsatz zu ergänzen.
 
 ## UART-Diagnose: nur HTTP-Funkverkehr
 
@@ -85,4 +128,4 @@ Dies ist eine **Teilabnahme der lesenden HTTP-Statusintegration**, keine Freigab
 6. **USB-Monitor:** genau ein RX und ein TX für jeden POST; **keine** periodischen GET-Statusmeldungen.
 7. **LOCAL-Regression:** STOP, STOP-Freigabe, GO, kurze/lange Referenz, Gleisfahrten und UART-Telegramme nach bestehendem Vertrag prüfen.
 
-**Nächste Stufe, ausdrücklich noch offen:** gemeinsamer Command Router; korrelierte HTTP-ACK/NACK-Antworten von Muninn; LOCAL/FERN/AUTO-Bedienhoheit; priorisierte STOP-Einbindung ohne Queue-Risiken. Siehe [Bedienhoheit/JMRI](../../../FY_ESP32_Web/docs/BEDIENHOHEIT_JMRI.md) und [Systemarchitektur](../SYSTEM_ARCHITECTURE.md).
+**Nächste Stufe:** HW3-Regression dieser neuen Funktionen; LOCAL/FERN/AUTO-Bedienhoheit; sichere Freigabe/Authentifizierung; priorisierte STOP-Einbindung auch unter voller Queue-Last. Siehe [Bedienhoheit/JMRI](../../../FY_ESP32_Web/docs/BEDIENHOHEIT_JMRI.md) und [Systemarchitektur](../SYSTEM_ARCHITECTURE.md).
