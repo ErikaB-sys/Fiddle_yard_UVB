@@ -2,6 +2,7 @@
 #include "Firmware.h"
 #include "Motor.h"
 #include "Keyboard.h"
+#include "HTTP.h"
 #include <freertos/task.h>
 #include <cstring>
 
@@ -66,6 +67,9 @@ void UART::update() {
     collectMotorResponses();
     receive();
     collectMotorResponses();
+    // Debug-Ausgabe nur auf HTTP-POST-Ereignisse, niemals auf Statuspolling.
+    // Einziger Serial-Schreiber bleibt der bestehende UART-Task.
+    HTTP_flushTrace();
 }
 
 void UART::receive() {
