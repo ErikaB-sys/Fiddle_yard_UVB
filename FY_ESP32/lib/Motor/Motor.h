@@ -203,6 +203,8 @@ private:
 // Atomarer Treiberfreigabe-Snapshot von Muninn/Core 1.
 // GPIO25/A4988 ENABLE ist LOW-aktiv (HW3); kein Bewegungsstatus.
 bool Muninn_isDriverEnabled();
+// Eigenstaendiger STOP-Latch-Snapshot (STOPPED ist nicht gleich verriegelt).
+bool Muninn_isStopLatched();
 // Atomarer Bewegungs-Snapshot: true waehrend einer STEP-Fahrt.
 bool Muninn_isMoving();
 // 0=Stillstand, 1=physisch LINKS/G39, 2=physisch RECHTS/G36.
