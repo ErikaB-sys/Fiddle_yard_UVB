@@ -402,7 +402,8 @@ std::atomic<uint32_t> positionSnapshot{kPositionUnknown};
 std::atomic<uint32_t> realReferencePosition{kPositionUnknown};
 std::atomic<uint8_t> referenceStatusSnapshot{0U}; // 0 none, 1 real, 2 fake
 std::atomic<uint16_t> nvmStatusSnapshot{0U};
-std::atomic<uint8_t> httpSensorLevelsSnapshot{0U}; // high byte valid mask, low byte fault mask
+std::atomic<uint8_t> httpSensorLevelsSnapshot{0U};
+std::atomic<bool> stopLatchedSnapshot{true}; // high byte valid mask, low byte fault mask
 std::atomic<uint32_t> nvmTrackValues[5]{};
 std::atomic<uint32_t> nvmRampValues[17]{};
 std::atomic<uint32_t> nvmCalibrationValues[3]{};
@@ -487,6 +488,10 @@ void emit(BringupContext* context, const CommandMessage& cmd,
     if (destination != nullptr) (void)xQueueSend(destination, &event, portMAX_DELAY);
 }
 } // anonymous namespace
+
+bool Muninn_isStopLatched() {
+    return stopLatchedSnapshot.load(std::memory_order_acquire);
+}
 
 bool Muninn_isDriverEnabled() {
     return driverEnabled.load(std::memory_order_acquire);
@@ -941,6 +946,7 @@ void Muninn_motorTask(void* arg) {
             motorMoving.store(false, std::memory_order_release);
             realReferencePosition.store(kPositionUnknown, std::memory_order_release);
             stopActive = activate;
+            stopLatchedSnapshot.store(activate, std::memory_order_release);
             motor.onStop(activate);
             targetTrack = 0U;
             confirmedTrack = 0U;
