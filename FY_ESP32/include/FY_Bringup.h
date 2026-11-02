@@ -26,5 +26,6 @@ struct BringupContext {
     QueueHandle_t priorityCommands; // independent PRIORITY mailbox (STOP)
     QueueHandle_t keyboardEvents;
     QueueHandle_t sensorSnapshots; // independent 1-byte, length-1 mailbox: Muninn -> Huginn
+    QueueHandle_t httpEvents; // HTTP-only ACK/NACK mailbox; UART and keyboard remain separate
 };
 }
