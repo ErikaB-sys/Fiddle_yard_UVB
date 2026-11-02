@@ -360,9 +360,10 @@ function show(){
   // Motorbefehle werden auch im ESP32 selbst geprueft.
   $('go').disabled=!writable||sending||selecting||fy.busy||!fy.referenced||!fy.driver_enabled;
   $('reference').disabled=!writable||sending||selecting||fy.busy||!fy.driver_enabled;
-  $('unlock').disabled=!writable||sending||selecting||fy.busy||fy.state!=='STOPPED';
+  $('unlock').disabled=!writable||sending||selecting||fy.busy||
+                         !fy.stop_latched;
   $('enable').disabled=!writable||sending||selecting||fy.busy||
-                         fy.driver_enabled||fy.state==='STOPPED';
+                         fy.stop_latched||fy.driver_enabled;
   $('disable').disabled=!writable||sending||selecting||fy.busy||!fy.driver_enabled;
   $('stop').disabled=!writable; // STOP darf auch bei BUSY oder laufendem POST gesendet werden.
   $('modeLabel').textContent=writable?'LOCAL · WEBTEST':'LOCAL · ANZEIGE';
@@ -459,7 +460,10 @@ async function sendCommand(command,track){
       cache:'no-store'
     });
     const reply=await response.json();
-    if(!response.ok||reply.result!=='ACK'){
+    if(reply.result==='UNKNOWN'){
+      $('actionLabel').textContent='Annahme unklar: '+(reply.reason||'Timeout')+
+        ' · aktuellen Status prüfen, nicht blind wiederholen';
+    }else if(!response.ok||reply.result!=='ACK'){
       $('actionLabel').textContent='NACK: '+(reply.reason||'HTTP '+response.status);
     }else{
       $('actionLabel').textContent=stop?'STOP von Muninn angenommen · Referenz ungueltig'
