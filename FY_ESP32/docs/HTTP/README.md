@@ -64,7 +64,21 @@ Beim ersten gemeinsamen Test den alten Web-Prüfstand-ESP32 abschalten, damit ni
 8. **/diagnostics**: Sensorpegel, NVM, Queue-Zähler und HTTP-RX/TX prüfen. UART zeigt nur echte HTTP-RX-/TX-Ereignisse.
 9. Keyboard/Browser nacheinander, ohne parallele Fahrbefehle; WLAN-Ausfall darf keine automatisch neue Fahrt starten.
 
-**Noch offen:** Der reale HW3-Test dieser neuen Richtung, Build-/Warnungsprüfung, Verhalten bei überfüllten Queues und Timeout, vollständige LOCAL/FERN/AUTO-Arbitrierung, Authentifizierung, STOP-Latenz über HTTP unter Last. Für JMRI ist diese Testfreigabe ausdrücklich ungeeignet.
+### LOCAL-Keyboard-Synchronisation nach Browserbefehlen (noch Hardwaretest offen)
+
+Beobachtung beim ersten Web-Fahrtest: Webfahrt und STOP funktionieren, aber die Nutzerin konnte anschließend keine normalen LOCAL-Kommandos am Keyboard auslösen. Ursache im Code: Das lokale OLED-Menü blieb beim eigenen `LOCKED`-/`REF_MENU`-/`TRACK_MENU`-Ablauf, obwohl Muninn Befehle aus HTTP bereits ausgeführt hatte.
+
+**Korrektur im Branch:** `Keyboard_poll()` ruft nach dem Einsammeln lokaler Motorantworten `syncMenuWithMotor()` auf. Die Routine liest nur Muninns STOP-Latch-, Treiber-, Motor-, Referenz- und Gleis-Snapshots. Sie synchronisiert bei fremden Befehlen `LOCKED`, `ENABLE`, `REF_MENU`, `REF_RUN`, `TRACK_MENU` und `TRACK_RUN`. Sie verschickt **keinen** Motorbefehl. Wenn STOP über das Web **entriegelt**, aber der Motor noch **ausgeschaltet** ist, kann die Nutzerin über die grüne GO-Taste die Motorfreigabe lokal auslösen; eine automatische Freigabe ist ausgeschlossen. Die rote Keyboard-LED folgt dem echten STOP-Latch statt allein dem Motorstatus `STOPPED`. Eine von der Nutzerin lokal vorgewählte Gleisnummer bleibt bis zur nächsten bestätigten Fahrt erhalten.
+
+**Gezielte Regression vor Freigabe:**
+1. Nach POR mit verriegeltem STOP funktionieren die gewohnten lokalen Entriegelungsgriffe unverändert.
+2. **WEB ENTRIEGELN → LOCAL GO**: Motorfreigabe nur nach örtlichem Tastendruck; OLED zeigt anschließend das Referenzmenü.
+3. **WEB MOTOR EIN / WEB REFERENZ / WEB BG5**: Local-OLED erkennt REF- und Fahrzustände; anschließend kann über lokale Tasten ein anderes BG gewählt und gefahren werden.
+4. **WEB STOP während Fahrt** und **LOCAL STOP während Webfahrt**: Bühnenstopp, STOP-Latch, REF-Verlust und LOCAL-Menü `LOCKED` stimmen überein.
+5. Bei eigener lokaler Gleisvorwahl ohne neue Fahrt darf die Hintergrundsynchronisation die Vorwahl nicht ungefragt überschreiben.
+6. Browser und LOCAL nicht gleichzeitig bedienen; **Bedienhoheit ist weiterhin nicht implementiert**.
+
+**Noch offen:** Der reale HW3-Test dieser neuen Richtung und der Keyboard-Korrektur, Build-/Warnungsprüfung, Verhalten bei überfüllten Queues und Timeout, vollständige LOCAL/FERN/AUTO-Arbitrierung, Authentifizierung, STOP-Latenz über HTTP unter Last. Für JMRI ist diese Testfreigabe ausdrücklich ungeeignet.
 
 ## HTTP-Vertrag – aktueller Entwicklungsstand
 
