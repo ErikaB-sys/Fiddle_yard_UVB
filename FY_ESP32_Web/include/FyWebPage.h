@@ -212,22 +212,53 @@ for(let n=1;n<=5;n++){
   group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose();}});
   dialEntries.push(group);
 }
-// Drehhebel rückt mit kurzem Überfedern exakt in die fünf Raststellungen.
+// Der Fahrgeber muss jede durchfahrene Raste kurz erreichen und halten.
+// Eine neue Vorwahl waehrend der Bewegung beginnt von der aktuellen Zeigerlage.
 function renderLever(angle){
   $('dialLever').setAttribute('x2',(190+110*Math.cos(angle)).toFixed(2));
   $('dialLever').setAttribute('y2',(190-110*Math.sin(angle)).toFixed(2));
 }
 function snapLever(target){
   if(dialFrame!==null){cancelAnimationFrame(dialFrame);dialFrame=null;}
-  const from=dialAngle,delta=target-from,start=performance.now();
+  const from=dialAngle,delta=target-from;
   if(Math.abs(delta)<0.0001){dialAngle=target;renderLever(target);return;}
+  const direction=Math.sign(delta);
+  // Rastpunkte zwischen Start und Ziel in Drehrichtung durchlaufen.
+  const waypoints=angles.filter(a=>direction>0
+    ? a>from+0.0001&&a<target-0.0001
+    : a<from-0.0001&&a>target+0.0001
+  ).sort((a,b)=>direction*(a-b));
+  waypoints.push(target);
+  const segments=[];
+  let at=0,last=from;
+  for(let i=0;i<waypoints.length;i++){
+    const end=waypoints[i];
+    const duration=Math.max(70,180*Math.abs(end-last)/(Math.PI/4));
+    segments.push({from:last,to:end,start:at,end:at+duration});
+    at+=duration;
+    if(i<waypoints.length-1)at+=105; // 105 ms Rastpause in jeder Zwischenstellung
+    last=end;
+  }
+  const total=at,start=performance.now();
   function tick(time){
-    const t=Math.min(1,(time-start)/220);
-    // Sanft anfahren, minimal über den Anschlag hinaus, einrasten.
-    const eased=1+2.2*Math.pow(t-1,3)+1.2*Math.pow(t-1,2);
-    dialAngle=t===1?target:from+delta*eased;
+    const elapsed=Math.max(0,time-start);
+    let angle=target;
+    for(let i=0;i<segments.length;i++){
+      const seg=segments[i];
+      if(elapsed<seg.end){
+        const t=Math.max(0,(elapsed-seg.start)/(seg.end-seg.start));
+        // Kurzes Ueberfedern an jeder Raste, dann exakt einruecken.
+        const u=t-1;
+        const eased=1+2.2*u*u*u+1.2*u*u;
+        angle=seg.from+(seg.to-seg.from)*eased;
+        break;
+      }
+      const holdEnd=i+1<segments.length?segments[i+1].start:seg.end;
+      if(elapsed<holdEnd){angle=seg.to;break;}
+    }
+    dialAngle=elapsed>=total?target:angle;
     renderLever(dialAngle);
-    if(t<1)dialFrame=requestAnimationFrame(tick);
+    if(elapsed<total)dialFrame=requestAnimationFrame(tick);
     else dialFrame=null;
   }
   dialFrame=requestAnimationFrame(tick);
