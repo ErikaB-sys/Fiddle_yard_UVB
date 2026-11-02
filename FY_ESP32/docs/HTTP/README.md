@@ -64,6 +64,14 @@ Beim ersten gemeinsamen Test den alten Web-Prüfstand-ESP32 abschalten, damit ni
 8. **/diagnostics**: Sensorpegel, NVM, Queue-Zähler und HTTP-RX/TX prüfen. UART zeigt nur echte HTTP-RX-/TX-Ereignisse.
 9. Keyboard/Browser nacheinander, ohne parallele Fahrbefehle; WLAN-Ausfall darf keine automatisch neue Fahrt starten.
 
+### Multi-Client-HW3-Befund vom 02.11.2026 (spaeter Abend)
+
+- **Bestaetigt:** Gleiswahl auf dem Handy, danach Start des Fahrbefehls am Laptop. Die gemeinsame Web-Vorwahl wird zwischen beiden Geraeten uebernommen; die reale Buehne reagiert auf den Auftrag.
+- **Beobachtet:** Bei gleichzeitigen Abfragen durch Handy und Laptop stockt die grafische Buehnenanimation gelegentlich. Nach Nutzerbeobachtung funktioniert die Steuerung dennoch. Eine Ursache ist noch **nicht messtechnisch nachgewiesen**; der synchrone `WebServer` und zwei Poller mit je 250 ms sind moegliche Einflussfaktoren.
+- **Nicht behaupten:** Keine gemessene HTTP-Latenz, kein Nachweis einer motorischen Unregelmaessigkeit.
+- **Entscheidung:** Am heutigen, funktionierenden Stand keine kurzfristige Optimierung der Pollfrequenz. Zunaechst die gerade eingecheckte LOCAL-Keyboard-Menuesynchronisation nach Build/Flash pruefen.
+- **Spaeter:** Parallel-Clients unter Last messen (Antwortzeiten/Poll-Luecken), bei Bedarf HTTP-Status und Animation entkoppeln bzw. Pollverhalten anpassen.
+
 ### LOCAL-Keyboard-Synchronisation nach Browserbefehlen (noch Hardwaretest offen)
 
 Beobachtung beim ersten Web-Fahrtest: Webfahrt und STOP funktionieren, aber die Nutzerin konnte anschließend keine normalen LOCAL-Kommandos am Keyboard auslösen. Ursache im Code: Das lokale OLED-Menü blieb beim eigenen `LOCKED`-/`REF_MENU`-/`TRACK_MENU`-Ablauf, obwohl Muninn Befehle aus HTTP bereits ausgeführt hatte.
