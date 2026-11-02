@@ -4,7 +4,7 @@
  * @file FyWebPage.h
  * @brief Integrierte FY-Weboberflaeche mit echten Muninn-Snapshots.
  *
- * Die Seite liest echte Statuswerte. HTTP-Motorbefehle bleiben gesperrt!
+ * Teststeuerung ueber denselben Muninn-Auftragsweg; Betriebsart bleibt LOCAL.
  * HTML/CSS/SVG/JS liegen als ein PROGMEM-String im Flash.
  */
 #include <Arduino.h>
@@ -14,7 +14,7 @@ static const char FY_WEB_PAGE[] PROGMEM = R"FYHTML(<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FY UVB – Web-Prüfstand</title>
+<title>FY UVB – Bedienpult (Webtest)</title>
 <style>
 :root{color-scheme:dark;--bg:#0c1b27;--panel:#152b3a;--line:#d1dce4;--muted:#9db1c0;--green:#83ed83;--aqua:#40d4e8;--edge:#426174}
 *{box-sizing:border-box}
@@ -54,6 +54,8 @@ h1{font-size:clamp(23px,3vw,33px);margin:0}h2{font-size:17px;margin:0 0 10px}
 @media(prefers-reduced-motion:reduce){.lamp.blink{animation:none}}
 .console-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:9px}
 .console-actions button{min-height:46px;font-weight:700}
+.console-actions button:disabled,.console-part button:disabled{opacity:.42;cursor:not-allowed}
+.console-part select{background:#173a4c;color:#edf5fa;border:1px solid #658497;border-radius:6px;padding:7px;font:inherit;width:100%;margin-top:7px}
 #go{background:#1c5e45;border-color:#5fb98d}#go:disabled{opacity:.45;cursor:not-allowed}
 #reference{background:#544e35;border-color:#a6a073}
 .console-info{font-size:12px;color:var(--muted);margin-top:7px}
@@ -86,7 +88,7 @@ a{color:var(--aqua)}
 </head>
 <body>
 <main>
-<header><h1>FY UVB · Web-Prüfstand</h1><span class="tag">LOCAL · ANZEIGE</span><span id="netLabel" class="sub" aria-live="polite">Echter Muninn-Status wird geladen · HTTP-Fahrbefehle gesperrt</span></header>
+<header><h1>FY UVB · Bedienpult</h1><span class="tag">LOCAL · WEBTEST</span><span id="netLabel" class="sub" aria-live="polite">Muninn-Status wird geladen …</span></header>
 <section class="console" aria-label="FY-Bedienpult">
 <div class="console-part">
 <div class="console-heading">Gleiswahl · historischer Fahrgeber</div>
@@ -98,27 +100,32 @@ a{color:var(--aqua)}
 <circle cx="190" cy="190" r="6" fill="#2c3540"/>
 <text id="selectedLabel" class="dial-center" x="190" y="224">BG3 gewählt</text>
 </svg>
-<div class="console-info">Vorwahl auf allen Browsern gemeinsam. FAHRT, REFERENZ und STOP per HTTP noch gesperrt.</div>
+<div class="console-info">Gemeinsame Vorwahl · FAHRT sendet erst nach Tastendruck einen Auftrag. Testbetrieb im privaten WLAN.</div>
 </div>
 <div class="console-side">
 <div class="console-part">
 <div class="console-heading">Kontrolllampen</div>
-<div class="lamp-row"><span id="lampLocal" class="lamp green" aria-hidden="true"></span><span>LOCAL · Webanzeige</span></div>
+<div class="lamp-row"><span id="lampLocal" class="lamp green" aria-hidden="true"></span><span>LOCAL · Webtest</span></div>
 <div class="lamp-row"><span id="lampJmri" class="lamp" aria-hidden="true"></span><span>JMRI · nicht verbunden</span></div>
 <div class="lamp-row"><span id="lampTravel" class="lamp" aria-hidden="true"></span><span id="lampTravelLabel" aria-live="polite">Warte auf Status …</span></div>
 </div>
 <div class="console-part">
 <div class="console-heading">Fahrtauftrag</div>
 <div class="console-actions">
+<button id="unlock" type="button" disabled>ENTRIEGELN</button>
+<button id="enable" type="button" disabled>MOTOR EIN</button>
 <button id="go" type="button" disabled>FAHRT</button>
 <button id="reference" type="button" disabled>REFERENZ</button>
 </div>
+<label class="console-info" for="refMode">Referenzmodus</label>
+<select id="refMode"><option value="0">KURZ (gespeicherte Kalibrierung)</option><option value="1">LANG (neu kalibrieren)</option></select>
+<div class="console-actions"><button id="disable" type="button" disabled>MOTOR AUS</button></div>
 <div id="actionLabel" class="console-info" role="status">Lade gemeinsamen ESP32-Status …</div>
 </div>
 </div>
 </section>
 <section class="metrics" aria-label="Echter FY-Zustand">
-<div class="metric"><div class="cap">Betriebsart</div><div class="val">LOCAL · LESEN</div></div>
+<div class="metric"><div class="cap">Betriebsart</div><div id="modeLabel" class="val">LOCAL · WEBTEST</div></div>
 <div class="metric"><div class="cap">Einfahrt fluchtet mit</div><div id="entryLabel" class="val green">–</div></div>
 <div class="metric"><div class="cap">Vorwahl</div><div id="selectedMetric" class="val cyan">BG3</div></div>
 <div class="metric"><div class="cap">Bühne</div><div id="motorLabel" class="val">Verbinde …</div></div>
@@ -146,11 +153,11 @@ a{color:var(--aqua)}
 </g>
 </svg>
 <div class="tools">
-<button id="stop" type="button" disabled title="HTTP-STOP noch nicht freigegeben" aria-label="HTTP-STOP noch nicht freigegeben">■ STOP</button>
+<button id="stop" type="button" disabled title="STOP über Muninn-Prioritätsqueue; örtlicher STOP bleibt vorrangig" aria-label="Fahrt über HTTP stoppen">■ STOP</button>
 </div>
 <div class="foot">
 <span id="alignment">Warte auf ESP32-Snapshot …</span>
-<span class="mini"><a href="/api/system">Speicher</a> · <a href="/api/status">Netzstatus</a></span>
+<span class="mini"><a href="/diagnostics">Diagnose</a> · <a href="/api/system">Speicher</a> · <a href="/api/status">Netzstatus</a></span>
 </div>
 </section>
 </main>
@@ -330,8 +337,10 @@ function show(){
   // Bei ungueltiger/fehlender Position keine scheinbar sichere
   // physische Buehnenlage suggerieren.
   bridge.setAttribute('opacity',fresh&&Number.isFinite(fy.position)?'1':'0.30');
-  $('netLabel').textContent=fresh?'Muninn live · HTTP nur Status/Vorwahl · Motorbefehle gesperrt'
-                                   :'Verbindung gestört · Status veraltet · keine HTTP-Motorbefehle';
+  const writable=fresh&&fy.readonly===false&&fy.web_control==='TEST';
+  $('netLabel').textContent=fresh?(writable?'Muninn live · WEBTEST · gemeinsam mit LOCAL (nacheinander)'
+                                                  :'Muninn live · HTTP nur Status/Vorwahl'):
+                                   'Verbindung gestört · Status veraltet';
   $('entryLabel').textContent=aligned?'BG'+active:'–';
   $('alignment').textContent=!fresh?'Verbindung verloren · Bühnenlage nicht bestätigt'
     :aligned?'Einfahrt ↔ BG'+active+' · BG1 ↔ AB'+(4+active)
@@ -347,10 +356,16 @@ function show(){
     :aligned?'Stillstand':fy.state==='STOPPED'?'STOP'
     :fy.state==='ERROR'?'FEHLER':'Nicht referenziert';
   $('motorLabel').className=fresh&&fy.busy?'val cyan':'val';
-  // Erst nach gemeinsamer Command-Router-/Bedienhoheitsintegration freigeben.
-  $('go').disabled=true;
-  $('reference').disabled=true;
-  $('stop').disabled=true;
+  // Vorlaeufiger Webtest ohne Bedienhoheits-Umschaltung.
+  // Motorbefehle werden auch im ESP32 selbst geprueft.
+  $('go').disabled=!writable||sending||selecting||fy.busy||!fy.referenced||!fy.driver_enabled;
+  $('reference').disabled=!writable||sending||selecting||fy.busy||!fy.driver_enabled;
+  $('unlock').disabled=!writable||sending||selecting||fy.busy||fy.state!=='STOPPED';
+  $('enable').disabled=!writable||sending||selecting||fy.busy||
+                         fy.driver_enabled||fy.state==='STOPPED';
+  $('disable').disabled=!writable||sending||selecting||fy.busy||!fy.driver_enabled;
+  $('stop').disabled=!writable; // STOP darf auch bei BUSY oder laufendem POST gesendet werden.
+  $('modeLabel').textContent=writable?'LOCAL · WEBTEST':'LOCAL · ANZEIGE';
   lampState(!fresh?'unknown':fy.busy?'moving':aligned?'arrived':'stopped');
   updateDial();
 }
@@ -362,7 +377,7 @@ async function pollStatus(){
     if(!resp.ok)throw new Error('HTTP '+resp.status);
     const snapshot=await resp.json();
     if(snapshot.device!=='FY-UVB'||snapshot.simulation!==false||
-       snapshot.readonly!==true||
+       typeof snapshot.readonly!=='boolean'||
        !(snapshot.position===null||Number.isFinite(snapshot.position))){
       throw new Error('Ungueltiger FY-Status');
     }
@@ -373,7 +388,8 @@ async function pollStatus(){
       selectedTrack=snapshot.selected_track;
     }
     if(firstSnapshot){
-      $('actionLabel').textContent='LOCAL aktiv · gemeinsame Vorwahl bereit · HTTP-Fahrt gesperrt';
+      $('actionLabel').textContent=snapshot.readonly?
+       'LOCAL aktiv · nur Anzeige' : 'LOCAL aktiv · HTTP-Fahrtest freigeschaltet';
     }
     connected=true;
     fy=snapshot;
@@ -409,7 +425,7 @@ async function sendSelection(track){
     if(!response.ok||reply.result!=='ACK'){
       $('actionLabel').textContent='Vorwahl NACK: '+(reply.reason||'HTTP '+response.status);
     }else{
-      $('actionLabel').textContent='BG'+track+' gemeinsam vorgewählt · keine Fahrt';
+      $('actionLabel').textContent='BG'+track+' gemeinsam vorgewählt';
     }
   }catch(err){
     connected=false;
@@ -421,14 +437,19 @@ async function sendSelection(track){
   }
 }
 async function sendCommand(command,track){
-  if(!connected||sending)return;
-  if(command!=='STOP'&&(!fy||fy.busy))return;
-  sending=true;
+  if(!connected||!fy||fy.readonly||fy.web_control!=='TEST')return;
+  // STOP unabhaengig von normalem Senden zulaessig.
+  if(command!=='STOP'&&(sending||selecting||fy.busy))return;
+  if(command!=='STOP')sending=true;
   show();
   const stop=command==='STOP';
   const url=stop?'/api/v1/stop':'/api/v1/command';
   const data=new URLSearchParams();
-  if(!stop){data.set('command',command);if(command==='SET_TRACK')data.set('value',String(track));}
+  if(!stop){
+    data.set('command',command);
+    if(command==='SET_TRACK')data.set('value',String(track));
+    if(command==='REFERENCE')data.set('value',$('refMode').value);
+  }
   $('actionLabel').textContent=stop?'STOP angefordert …':command+' angefordert …';
   try{
     const response=await fetch(url,{
@@ -441,9 +462,10 @@ async function sendCommand(command,track){
     if(!response.ok||reply.result!=='ACK'){
       $('actionLabel').textContent='NACK: '+(reply.reason||'HTTP '+response.status);
     }else{
-      $('actionLabel').textContent=stop?'STOP angenommen (SIM)'
-        :command==='REFERENCE'?'Referenz angenommen'
-        :'BG'+track+' angenommen – Ziel noch nicht bestätigt';
+      $('actionLabel').textContent=stop?'STOP von Muninn angenommen · Referenz ungueltig'
+        :command==='REFERENCE'?'Referenzauftrag von Muninn angenommen · Ziel noch offen'
+        :command==='SET_TRACK'?'BG'+track+' von Muninn angenommen · Ziel noch offen'
+        :command+' von Muninn angenommen';
     }
     await pollStatus();
   }catch(err){
@@ -455,6 +477,9 @@ async function sendCommand(command,track){
     show();
   }
 }
+$('unlock').addEventListener('click',()=>sendCommand('UNLOCK'));
+$('enable').addEventListener('click',()=>sendCommand('ENABLE'));
+$('disable').addEventListener('click',()=>sendCommand('DISABLE'));
 $('go').addEventListener('click',()=>sendCommand('SET_TRACK',selectedTrack));
 $('reference').addEventListener('click',()=>sendCommand('REFERENCE'));
 $('stop').addEventListener('click',()=>sendCommand('STOP'));
