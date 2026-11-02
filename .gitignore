@@ -70,8 +70,10 @@ Testing/
 *.FCBak
 Documents/Datasheets/.~lock.Motor_MD_EL.odg#
 
-# FY Web-Pruefstand: lokale Zugangsdaten niemals versionieren
+# FY: lokale WLAN-Zugangsdaten niemals versionieren
+# Web-Pruefstand und integrierte Produktiv-Firmware
 /FY_ESP32_Web/include/WiFi_Secrets.h
+/FY_ESP32/include/WiFi_Secrets.h
 
 # PlatformIO Build-Artefakte des eigenstaendigen Web-Projekts
 /FY_ESP32_Web/.pio/
