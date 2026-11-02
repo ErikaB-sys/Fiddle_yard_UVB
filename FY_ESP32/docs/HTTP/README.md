@@ -57,6 +57,24 @@ Die Weboberfläche sperrt FAHRT, REFERENZ und HTTP-STOP sichtbar. **Der Server s
 
 Das alte UART-Drahtprotokoll und dessen binäre Antworten bleiben im Code bestehen. Die JSON-Zeilen dienen ausschließlich der **Entwicklungsdiagnose**; ein späterer serieller Protokollclient müsste diese Zusatz-Ausgaben deaktivieren oder korrekt trennen. Bei voller Trace-Queue wird eine Debugzeile verworfen, **niemals** der HTTP-Auftrag aufgehalten.
 
+## Hardware-Befund HW3 vom 02.11.2026 (Nutzerbericht)
+
+**Beobachtet und bestätigt:**
+- Der integrierte FY-Webserver läuft auf dem realen FY-ESP32; Laptop und Mobiltelefon zeigen die reale Bühnenstellung korrekt an.
+- Während lokaler Bühnenfahrten stimmen die Darstellung und die Kontrollleuchte nach Beobachtung mit der realen Mechanik überein.
+- Reset und STOP wurden auf der Weboberfläche als Zustandsänderungen erkannt.
+- Serielle Meldung nach realer Referenz: `REF: VALID pos=1000 end=8334`.
+- Zwei Vorwahlaufträge `SELECT_TRACK 5` und `SELECT_TRACK 1` wurden mit jeweils einem HTTP-RX und einem TX/ACK im UART-Monitor protokolliert.
+- Gemeldeter PlatformIO-Build: RAM `48472 / 327680` Bytes (14,8 %), Flash `887921 / 1310720` Bytes (67,7 %); die angezeigte Build-Ausgabe reichte bis zur Erstellung der `firmware.bin`.
+
+**Noch nicht nachgewiesen:**
+- STOP/Abbruch **während einer laufenden Fahrt** einschließlich Web-Rückmeldung, Referenzverlust und sicherem Stillstand.
+- Direkte HTTP-POST-Sperrtests für `SET_TRACK`, `REFERENCE` und `STOP` (Server-NACK/423).
+- Vollständiger Clean-Build-Test *ohne* WLAN-Datei, WLAN-Verbindungsverlust und gesamte UART-/NVM-/LOCAL-Regression.
+- Kein vollständiger Nachweis, dass UART-Debug-Ausgaben unter Last niemals relevante Tasks verzögern.
+
+Dies ist eine **Teilabnahme der lesenden HTTP-Statusintegration**, keine Freigabe von HTTP-Motorbefehlen oder einer vollständigen Systemabnahme.
+
 ## Abnahmeschritte für diesen Stand
 
 1. **Clean Build** von `FY_ESP32` mit und ohne lokaler `WiFi_Secrets.h`; Flash/RAM notieren.
