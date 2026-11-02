@@ -93,7 +93,7 @@ a{color:var(--aqua)}
 <svg id="selector" class="dial" viewBox="0 0 380 230" role="group" aria-label="Brückengleis BG1 bis BG5 vorwählen">
 <path class="dial-arc" d="M65 190 A125 125 0 0 1 315 190"/>
 <g id="dialPositions"></g>
-<line id="dialLever" class="dial-lever" x1="190" y1="190" x2="190" y2="105"/>
+<line id="dialLever" class="dial-lever" x1="190" y1="190" x2="190" y2="80"/>
 <circle class="dial-hub" cx="190" cy="190" r="18"/>
 <circle cx="190" cy="190" r="6" fill="#2c3540"/>
 <text id="selectedLabel" class="dial-center" x="190" y="224">BG3 gewählt</text>
@@ -201,6 +201,7 @@ const dialPositions=$('dialPositions');
 const angles=[Math.PI,Math.PI*3/4,Math.PI/2,Math.PI/4,0];
 const dialEntries=[];
 let selectedTrack=3,offset=0,frame=null,referenceRun=false,completed=true;
+let dialAngle=angles[2],dialTarget=3,dialFrame=null;
 for(let n=1;n<=5;n++){
   const angle=angles[n-1],x=190+125*Math.cos(angle),y=190-125*Math.sin(angle);
   const group=el('g',dialPositions,{'class':'dial-position',role:'button',tabindex:'0','aria-label':'BG'+n+' vorwählen'});
@@ -211,10 +212,31 @@ for(let n=1;n<=5;n++){
   group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose();}});
   dialEntries.push(group);
 }
+// Drehhebel rückt mit kurzem Überfedern exakt in die fünf Raststellungen.
+function renderLever(angle){
+  $('dialLever').setAttribute('x2',(190+110*Math.cos(angle)).toFixed(2));
+  $('dialLever').setAttribute('y2',(190-110*Math.sin(angle)).toFixed(2));
+}
+function snapLever(target){
+  if(dialFrame!==null){cancelAnimationFrame(dialFrame);dialFrame=null;}
+  const from=dialAngle,delta=target-from,start=performance.now();
+  if(Math.abs(delta)<0.0001){dialAngle=target;renderLever(target);return;}
+  function tick(time){
+    const t=Math.min(1,(time-start)/220);
+    // Sanft anfahren, minimal über den Anschlag hinaus, einrasten.
+    const eased=1+2.2*Math.pow(t-1,3)+1.2*Math.pow(t-1,2);
+    dialAngle=t===1?target:from+delta*eased;
+    renderLever(dialAngle);
+    if(t<1)dialFrame=requestAnimationFrame(tick);
+    else dialFrame=null;
+  }
+  dialFrame=requestAnimationFrame(tick);
+}
 function updateDial(){
-  const angle=angles[selectedTrack-1];
-  $('dialLever').setAttribute('x2',(190+87*Math.cos(angle)).toFixed(2));
-  $('dialLever').setAttribute('y2',(190-87*Math.sin(angle)).toFixed(2));
+  if(dialTarget!==selectedTrack){
+    dialTarget=selectedTrack;
+    snapLever(angles[selectedTrack-1]);
+  }
   $('selectedLabel').textContent='BG'+selectedTrack+' gewählt';
   $('selectedMetric').textContent='BG'+selectedTrack;
   dialEntries.forEach((e,i)=>{
