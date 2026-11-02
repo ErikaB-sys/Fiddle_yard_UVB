@@ -3,6 +3,7 @@
 #include <freertos/task.h>
 #include "FY_Bringup.h"
 #include "UART.h"
+#include "HTTP.h"
 #include "Motor.h"
 #include "Keyboard.h"
 #include "HW_Config.h"
@@ -72,11 +73,21 @@ void setup() {
     scanI2cDevices();
     fy::Keyboard_begin(&bridge);
 
+    // HTTP nur vorbereiten: kein WLAN-Aufbau vor Muninn/Huginn.
+    // Eine fehlende Diagnosequeue darf die LOCAL-Firmware nicht verhindern.
+    const bool httpPrepared = fy::HTTP_prepare(&bridge);
+
     // Erst anschliessend die Modul-Tasks auf ihren Kernen starten.
     const BaseType_t muninn = fy::Muninn_startMotor(&bridge);
     const BaseType_t huginn = fy::Huginn_startUART(&bridge);
     if (muninn != pdPASS || huginn != pdPASS) {
         Serial.println("FY_TEST: failed to create tasks");
+        return;
+    }
+    // HTTP bleibt separat; sein Task blockiert weder das Keyboard
+    // noch die Kommunikation von Huginn mit Muninn.
+    if (httpPrepared && fy::Huginn_startHTTP(&bridge) != pdPASS) {
+        Serial.println("FY_HTTP: failed to start HTTP task");
     }
 }
 
