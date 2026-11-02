@@ -175,7 +175,9 @@ bool sendMotorCommand(const char* name, uint8_t id,
             return false;
         }
     }
-    reply(name, 504, "NACK", "MOTOR_ACK_TIMEOUT");
+    // Das Ergebnis kann bei einem Timeout unbekannt sein: kein falsches NACK
+    // behaupten und erst nach Statusabfrage erneut senden.
+    reply(name, 504, "UNKNOWN", "MOTOR_ACK_TIMEOUT");
     return false;
 #else
     (void)id; (void)a; (void)b; (void)priority;
@@ -415,11 +417,21 @@ void configureRoutes() {
                 (void)sendMotorCommand(name, CMD_REFERENCE,
                                        rawValue == "1" ? 1U : 0U, 0U, false);
         } else if (command == "UNLOCK") {
-            (void)sendMotorCommand(name, CMD_STOPP, 0xAAU, 0x55U, true);
+            // Nicht als Fahrtabbruch missbrauchen: nur verriegelter Stillstand.
+            if (Muninn_isMoving() || Muninn_motorState() != MotorState_t::STOPPED)
+                reply(name, 409, "NACK", "NOT_STOPPED");
+            else
+                (void)sendMotorCommand(name, CMD_STOPP, 0xAAU, 0x55U, true);
         } else if (command == "ENABLE") {
-            (void)sendMotorCommand(name, CMD_GO, 0xAAU, 0x55U, false);
+            if (Muninn_isMoving() || Muninn_motorState() == MotorState_t::STOPPED)
+                reply(name, 409, "NACK", "NOT_READY");
+            else
+                (void)sendMotorCommand(name, CMD_GO, 0xAAU, 0x55U, false);
         } else if (command == "DISABLE") {
-            (void)sendMotorCommand(name, CMD_GO, 0x55U, 0xAAU, false);
+            if (Muninn_isMoving())
+                reply(name, 409, "NACK", "BUSY");
+            else
+                (void)sendMotorCommand(name, CMD_GO, 0x55U, 0xAAU, false);
         } else {
             reply(name, 400, "NACK", "INVALID_COMMAND");
         }
