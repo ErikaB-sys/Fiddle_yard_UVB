@@ -248,7 +248,9 @@ String statusJson() {
     json += FY_HTTP_WEB_TEST_CONTROL ? F("false") : F("true");
     json += F(",\"web_control\":\"");
     json += FY_HTTP_WEB_TEST_CONTROL ? F("TEST") : F("LOCKED");
-    json += F("\",\"driver_enabled\":");
+    json += F("\",\"stop_latched\":");
+    json += Muninn_isStopLatched() ? F("true") : F("false");
+    json += F(",\"driver_enabled\":");
     json += Muninn_isDriverEnabled() ? F("true") : F("false");
     json += F(",\"state\":\"");
     json += status;
@@ -417,13 +419,15 @@ void configureRoutes() {
                 (void)sendMotorCommand(name, CMD_REFERENCE,
                                        rawValue == "1" ? 1U : 0U, 0U, false);
         } else if (command == "UNLOCK") {
-            // Nicht als Fahrtabbruch missbrauchen: nur verriegelter Stillstand.
-            if (Muninn_isMoving() || Muninn_motorState() != MotorState_t::STOPPED)
+            // Nur verriegelten Stillstand entriegeln; keine laufende Fahrt abbrechen.
+            if (!Muninn_isStopLatched())
+                reply(name, 409, "NACK", "ALREADY_UNLOCKED");
+            else if (Muninn_isMoving() || Muninn_motorState() != MotorState_t::STOPPED)
                 reply(name, 409, "NACK", "NOT_STOPPED");
             else
                 (void)sendMotorCommand(name, CMD_STOPP, 0xAAU, 0x55U, true);
         } else if (command == "ENABLE") {
-            if (Muninn_isMoving() || Muninn_motorState() == MotorState_t::STOPPED)
+            if (Muninn_isStopLatched() || Muninn_isMoving())
                 reply(name, 409, "NACK", "NOT_READY");
             else
                 (void)sendMotorCommand(name, CMD_GO, 0xAAU, 0x55U, false);
