@@ -1,5 +1,6 @@
 #include "HTTP.h"
 #include "Motor.h"
+#include "Error.h"
 #include "CommandRouter.h"
 #include "Firmware.h"
 #include "Web/FyDiagPage.h"
