@@ -4,7 +4,7 @@
  * @file FyWebPage.h
  * @brief Integrierte FY-Weboberflaeche mit echten Muninn-Snapshots.
  *
- * Teststeuerung ueber denselben Muninn-Auftragsweg; Betriebsart bleibt LOCAL.
+ * Webbedienung nur fuer einen aktiven Browser; LOCAL ohne Sitzung.
  * HTML/CSS/SVG/JS liegen als ein PROGMEM-String im Flash.
  */
 #include <Arduino.h>
@@ -14,7 +14,7 @@ static const char FY_WEB_PAGE[] PROGMEM = R"FYHTML(<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FY UVB – Bedienpult (Webtest)</title>
+<title>FY UVB – Bedienpult</title>
 <style>
 :root{color-scheme:dark;--bg:#0c1b27;--panel:#152b3a;--line:#d1dce4;--muted:#9db1c0;--green:#83ed83;--aqua:#40d4e8;--edge:#426174}
 *{box-sizing:border-box}
@@ -125,7 +125,7 @@ a{color:var(--aqua)}
 </div>
 </section>
 <section class="metrics" aria-label="Echter FY-Zustand">
-<div class="metric"><div class="cap">Betriebsart</div><div id="modeLabel" class="val">LOCAL · WEBTEST</div></div>
+<div class="metric"><div class="cap">Betriebsart</div><div id="modeLabel" class="val">LOCAL</div><button id="modeButton" type="button" disabled style="margin-top:8px;font-size:13px">LOCAL – auf REMOTE umschalten</button></div>
 <div class="metric"><div class="cap">Einfahrt fluchtet mit</div><div id="entryLabel" class="val green">–</div></div>
 <div class="metric"><div class="cap">Vorwahl</div><div id="selectedMetric" class="val cyan">BG3</div></div>
 <div class="metric"><div class="cap">Bühne</div><div id="motorLabel" class="val">Verbinde …</div></div>
@@ -209,6 +209,7 @@ const angles=[Math.PI,Math.PI*3/4,Math.PI/2,Math.PI/4,0];
 const dialEntries=[];
 let selectedTrack=3;
 let fy=null,connected=false,polling=false,sending=false,selecting=false,firstSnapshot=true;
+let ownerToken="",modePending=false,heartbeatPending=false,lastHeartbeat=0;
 let lastSeen=0,displayedPosition=3,positionFrame=null;
 let dialAngle=angles[2],dialTarget=3,dialFrame=null;
 for(let n=1;n<=5;n++){
@@ -217,7 +218,7 @@ for(let n=1;n<=5;n++){
   el('circle',group,{cx:x.toFixed(2),cy:y.toFixed(2),r:23});
   el('text',group,{x:x.toFixed(2),y:y.toFixed(2)},'BG'+n);
   function choose(){
-    if(!connected||sending||selecting||(fy&&fy.busy))return;
+    if(!connected||!fy||!fy.web_owner||sending||selecting||fy.busy)return;
     selectedTrack=n;
     updateDial();show();
     sendSelection(n);
@@ -337,10 +338,10 @@ function show(){
   // Bei ungueltiger/fehlender Position keine scheinbar sichere
   // physische Buehnenlage suggerieren.
   bridge.setAttribute('opacity',fresh&&Number.isFinite(fy.position)?'1':'0.30');
-  const writable=fresh&&fy.readonly===false&&fy.web_control==='TEST';
-  $('netLabel').textContent=fresh?(writable?'Muninn live · WEBTEST · gemeinsam mit LOCAL (nacheinander)'
-                                                  :'Muninn live · HTTP nur Status/Vorwahl'):
-                                   'Verbindung gestört · Status veraltet';
+  const writable=fresh&&fy.readonly===false&&fy.web_owner===true&&fy.mode==='REMOTE';
+  $('netLabel').textContent=fresh?(writable?'Muninn live · REMOTE · Browser steuert':
+                                                   'Muninn live · nur Beobachtung'):
+                                    'Verbindung gestört · Status veraltet';
   $('entryLabel').textContent=aligned?'BG'+active:'–';
   $('alignment').textContent=!fresh?'Verbindung verloren · Bühnenlage nicht bestätigt'
     :aligned?'Einfahrt ↔ BG'+active+' · BG1 ↔ AB'+(4+active)
@@ -356,8 +357,7 @@ function show(){
     :aligned?'Stillstand':fy.state==='STOPPED'?'STOP'
     :fy.state==='ERROR'?'FEHLER':'Nicht referenziert';
   $('motorLabel').className=fresh&&fy.busy?'val cyan':'val';
-  // Vorlaeufiger Webtest ohne Bedienhoheits-Umschaltung.
-  // Motorbefehle werden auch im ESP32 selbst geprueft.
+  // Motorbefehle werden zusaetzlich im ESP32 anhand des Tokens geprueft.
   $('go').disabled=!writable||sending||selecting||fy.busy||!fy.referenced||!fy.driver_enabled;
   $('reference').disabled=!writable||sending||selecting||fy.busy||!fy.driver_enabled;
   $('unlock').disabled=!writable||sending||selecting||fy.busy||
@@ -365,8 +365,14 @@ function show(){
   $('enable').disabled=!writable||sending||selecting||fy.busy||
                          fy.stop_latched||fy.driver_enabled;
   $('disable').disabled=!writable||sending||selecting||fy.busy||!fy.driver_enabled;
-  $('stop').disabled=!writable; // STOP darf auch bei BUSY oder laufendem POST gesendet werden.
-  $('modeLabel').textContent=writable?'LOCAL · WEBTEST':'LOCAL · ANZEIGE';
+  $('stop').disabled=!fresh; // STOP bleibt auch ohne Web-Bedienhoheit verfuegbar.
+  $('modeLabel').textContent=fresh?fy.mode:'UNBEKANNT';
+  $('modeButton').textContent=!fresh?'Betriebsart nicht erreichbar':
+    fy.mode==='LOCAL'?'LOCAL – auf REMOTE umschalten':
+    writable?'REMOTE – auf LOCAL umschalten':
+    fy.mode==='AUTO'?'AUTO – Automatik aktiv':'REMOTE – anderer Browser steuert';
+  $('modeButton').disabled=!fresh||modePending||sending||selecting||fy.busy||
+    (fy.mode==='REMOTE'&&!writable)||(fy.mode==='AUTO');
   lampState(!fresh?'unknown':fy.busy?'moving':aligned?'arrived':'stopped');
   updateDial();
 }
@@ -374,7 +380,7 @@ async function pollStatus(){
   if(polling)return;
   polling=true;
   try{
-    const resp=await fetch('/api/v1/status',{cache:'no-store'});
+    const resp=await fetch('/api/v1/status?token='+encodeURIComponent(ownerToken),{cache:'no-store'});
     if(!resp.ok)throw new Error('HTTP '+resp.status);
     const snapshot=await resp.json();
     if(snapshot.device!=='FY-UVB'||snapshot.simulation!==false||
@@ -389,8 +395,8 @@ async function pollStatus(){
       selectedTrack=snapshot.selected_track;
     }
     if(firstSnapshot){
-      $('actionLabel').textContent=snapshot.readonly?
-       'LOCAL aktiv · nur Anzeige' : 'LOCAL aktiv · HTTP-Fahrtest freigeschaltet';
+      $('actionLabel').textContent=snapshot.web_owner?
+        'REMOTE aktiv · dieser Browser steuert' : 'Beobachtung · LOCAL/REMOTE frei waehlbar';
     }
     connected=true;
     fy=snapshot;
@@ -409,12 +415,13 @@ async function pollStatus(){
 }
 // Der Fahrgeber aendert nur die gemeinsame Vorwahl – die Buehne bleibt stehen.
 async function sendSelection(track){
-  if(!connected||sending||selecting||(fy&&fy.busy))return;
+  if(!connected||!fy||!fy.web_owner||sending||selecting||fy.busy)return;
   selecting=true;
   show();
   const data=new URLSearchParams();
   data.set('command','SELECT_TRACK');
   data.set('value',String(track));
+  data.set('token',ownerToken);
   try{
     const response=await fetch('/api/v1/command',{
       method:'POST',
@@ -438,7 +445,7 @@ async function sendSelection(track){
   }
 }
 async function sendCommand(command,track){
-  if(!connected||!fy||fy.readonly||fy.web_control!=='TEST')return;
+  if(!connected||!fy||(command!=='STOP'&&!fy.web_owner))return;
   // STOP unabhaengig von normalem Senden zulaessig.
   if(command!=='STOP'&&(sending||selecting||fy.busy))return;
   if(command!=='STOP')sending=true;
@@ -447,6 +454,7 @@ async function sendCommand(command,track){
   const url=stop?'/api/v1/stop':'/api/v1/command';
   const data=new URLSearchParams();
   if(!stop){
+    data.set('token',ownerToken);
     data.set('command',command);
     if(command==='SET_TRACK')data.set('value',String(track));
     if(command==='REFERENCE')data.set('value',$('refMode').value);
@@ -481,6 +489,50 @@ async function sendCommand(command,track){
     show();
   }
 }
+/** Wechselt nur im Stillstand; das Token verbleibt in dieser Registerkarte. */
+async function toggleMode(){
+  if(!connected||!fy||fy.busy||modePending)return;
+  modePending=true;show();
+  const data=new URLSearchParams();
+  data.set('token',ownerToken);
+  try{
+    const response=await fetch('/api/v1/mode',{
+      method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body:data.toString(),cache:'no-store'
+    });
+    const result=await response.json();
+    if(!response.ok||result.result!=='ACK'){
+      $('actionLabel').textContent='Umschalten NACK: '+(result.reason||response.status);
+    }else if(result.reason==='REMOTE'&&typeof result.token==='string'){
+      ownerToken=result.token;
+      lastHeartbeat=performance.now();
+      $('actionLabel').textContent='REMOTE aktiv · dieser Browser steuert';
+    }else if(result.reason==='LOCAL'){
+      ownerToken='';
+      $('actionLabel').textContent='LOCAL aktiv · Keyboard steuert';
+    }
+  }catch(e){$('actionLabel').textContent='Umschaltung nicht bestaetigt · Status pruefen';}
+  finally{modePending=false;await pollStatus();show();}
+}
+/** Nur Besitzer erneuert die Berechtigung; kein impliziter Fahrtbefehl. */
+async function heartbeat(){
+  if(!ownerToken||heartbeatPending)return;
+  heartbeatPending=true;
+  const data=new URLSearchParams();
+  data.set('token',ownerToken);
+  try{
+    const response=await fetch('/api/v1/heartbeat',{
+      method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body:data.toString(),cache:'no-store'
+    });
+    if(!response.ok){ownerToken='';await pollStatus();}
+  }catch(e){/* Lease laeuft serverseitig ab. */}
+  finally{heartbeatPending=false;}
+}
+$('modeButton').addEventListener('click',toggleMode);
+setInterval(()=>{if(ownerToken&&performance.now()-lastHeartbeat>=2000){
+  lastHeartbeat=performance.now();heartbeat();
+}},500);
 $('unlock').addEventListener('click',()=>sendCommand('UNLOCK'));
 $('enable').addEventListener('click',()=>sendCommand('ENABLE'));
 $('disable').addEventListener('click',()=>sendCommand('DISABLE'));
