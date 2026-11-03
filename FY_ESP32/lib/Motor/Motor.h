@@ -18,7 +18,9 @@ enum class MoveMicrostep : uint8_t {
 };
 
 // Feste Hardware-Aufloesung: MS-Pins werden beim Motorstart gesetzt.
-constexpr MoveMicrostep FY_MOTOR_MICROSTEP_MODE = MoveMicrostep::EIGHTH;
+constexpr MoveMicrostep FY_MOTOR_MICROSTEP_MODE = MoveMicrostep::SIXTEENTH;
+// NVM/UART/Profile bleiben in 1/8-Schritten; der StepTimer erzeugt 2 STEP-Pulse.
+constexpr uint32_t FY_MOTOR_PULSES_PER_LOGICAL_STEP = 2U;
 
 struct MoveRequest {
     bool directionRight = false; // 0=LINKS, 1=RECHTS
