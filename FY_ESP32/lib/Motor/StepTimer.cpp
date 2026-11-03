@@ -1,5 +1,6 @@
 #include "StepTimer.h"
 #include "HW_Config.h"
+#include "Motor.h" // Aufloesung; API und NVM bleiben in 1/8-Schritten.
 
 #include <Arduino.h>
 #include <esp_arduino_version.h>
@@ -20,6 +21,9 @@ constexpr uint16_t kMaxStepHz = 800U;
 // Ein Interrupt je STEP-Halbperiode; ein Nano-Reload-Tick entspricht 16 us.
 // Nano-OCR1A-Werte nie direkt an den ESP32-Timer mit 1 MHz uebergeben.
 constexpr uint32_t kNanoTickUs = 16U;
+constexpr uint32_t kPhysicalTickUs = kNanoTickUs / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
+static_assert(FY_MOTOR_PULSES_PER_LOGICAL_STEP == 2U, "Nur 1/16-Test gegen 1/8-Logikkoordinaten");
+static_assert(FY_MOTOR_MICROSTEP_MODE == MoveMicrostep::SIXTEENTH, "StepTimer-Skalierung passt nicht zum A4988");
 constexpr uint16_t kDefaultVMin = 120U;
 constexpr uint16_t kDefaultVMax = 800U;
 // Einfache constexpr-Ausdruecke sind auch mit Arduino GNU++11 uebersetzbar.
@@ -83,8 +87,8 @@ void IRAM_ATTR finishReference(ReferenceEnd end) {
 StepProfileSegment stages[STEP_PROFILE_PHASES]{};
 volatile bool profileActive = false;
 volatile uint8_t phaseIndex = 0U;
-volatile uint16_t phaseRemaining = 0U;
-volatile uint16_t rampCounter = 0U;
+volatile uint32_t phaseRemaining = 0U;
+volatile uint32_t rampCounter = 0U;
 volatile uint16_t currentNanoReload = kSlowReload;
 
 void IRAM_ATTR stepTimerIsr() {
@@ -155,7 +159,7 @@ void IRAM_ATTR stepTimerIsr() {
             const int16_t accel = stages[phaseIndex].accel;
             if (accel != 0) {
                 ++rampCounter;
-                if (rampCounter >= stages[phaseIndex].rampEvery) {
+                if (rampCounter >= static_cast<uint32_t>(stages[phaseIndex].rampEvery) * FY_MOTOR_PULSES_PER_LOGICAL_STEP) {
                     rampCounter = 0U;
                     int32_t next = static_cast<int32_t>(currentNanoReload)
                                  + static_cast<int32_t>(accel);
@@ -171,7 +175,7 @@ void IRAM_ATTR stepTimerIsr() {
                 } while (phaseIndex < STEP_PROFILE_PHASES &&
                          stages[phaseIndex].steps == 0U);
                 if (phaseIndex < STEP_PROFILE_PHASES) {
-                    phaseRemaining = stages[phaseIndex].steps;
+                    phaseRemaining = static_cast<uint32_t>(stages[phaseIndex].steps) * FY_MOTOR_PULSES_PER_LOGICAL_STEP;
                     rampCounter = 0U;
                 }
             }
@@ -189,7 +193,7 @@ void IRAM_ATTR stepTimerIsr() {
             // Intervall direkt; keine nicht-IRAM-sicheren Timer-APIs aufrufen.
             TIMERG1.hw_timer[0].alarm_low =
                 (static_cast<uint32_t>(currentNanoReload) + 1UL) *
-                kNanoTickUs;
+                kPhysicalTickUs;
         }
 #endif
     }
@@ -239,7 +243,7 @@ bool startPulseTrain(uint16_t steps, bool directionRight,
     // DIR-Vorlauf vor der ersten steigenden STEP-Flanke: >= 625 us im Profilmodus.
     portENTER_CRITICAL(&stepMux);
     completed = 0U;
-    target = steps;
+    target = static_cast<uint32_t>(steps) * FY_MOTOR_PULSES_PER_LOGICAL_STEP;
     stepIsHigh = false;
     isFinished = false;
     endstopTriggered = false;
@@ -271,7 +275,7 @@ bool startPulseTrain(uint16_t steps, bool directionRight,
     isRunning = true;
     portEXIT_CRITICAL(&stepMux);
 
-    armAlarm(halfPeriodUs);
+    armAlarm(halfPeriodUs / FY_MOTOR_PULSES_PER_LOGICAL_STEP);
     return true;
 }
 
@@ -377,7 +381,7 @@ bool stepTimerStartReferenceProfile(uint16_t steps, bool awayMotor,
 
 void stepTimerReferenceSetPosition(uint32_t position) {
     portENTER_CRITICAL(&stepMux);
-    if (!isRunning) referencePosition = position;
+    if (!isRunning) referencePosition = position * FY_MOTOR_PULSES_PER_LOGICAL_STEP;
     portEXIT_CRITICAL(&stepMux);
 }
 
@@ -395,10 +399,10 @@ bool stepTimerStartReference(bool awayMotor, uint16_t stepHz,
 ReferenceTimerSample stepTimerReferenceSnapshot() {
     ReferenceTimerSample s{};
     portENTER_CRITICAL(&stepMux);
-    s.position = referencePosition;
-    s.coarse = referenceCoarse;
-    s.entry = referenceEntry;
-    s.exit = referenceExit;
+    s.position = referencePosition / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
+    s.coarse = referenceCoarse / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
+    s.entry = referenceEntry / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
+    s.exit = referenceExit / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
     s.reason = referenceEnd;
     s.coarseSeen = referenceCoarseSeen;
     s.entrySeen = referenceEntrySeen;
@@ -411,10 +415,10 @@ bool stepTimerTakeReferenceDone(ReferenceTimerSample& sample) {
     portENTER_CRITICAL(&stepMux);
     const bool done = isFinished && referenceMode;
     if (done) {
-        sample.position = referencePosition;
-        sample.coarse = referenceCoarse;
-        sample.entry = referenceEntry;
-        sample.exit = referenceExit;
+        sample.position = referencePosition / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
+        sample.coarse = referenceCoarse / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
+        sample.entry = referenceEntry / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
+        sample.exit = referenceExit / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
         sample.reason = referenceEnd;
         sample.coarseSeen = referenceCoarseSeen;
         sample.entrySeen = referenceEntrySeen;
@@ -449,7 +453,7 @@ bool stepTimerRunning() {
 
 uint32_t stepTimerCompletedSteps() {
     portENTER_CRITICAL(&stepMux);
-    const uint32_t result = completed;
+    const uint32_t result = completed / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
     portEXIT_CRITICAL(&stepMux);
     return result;
 }
@@ -458,7 +462,7 @@ bool stepTimerTakeDone(uint32_t& completedSteps, bool& endstopHit) {
     portENTER_CRITICAL(&stepMux);
     const bool done = isFinished;
     if (done) {
-        completedSteps = completed;
+        completedSteps = completed / FY_MOTOR_PULSES_PER_LOGICAL_STEP;
         endstopHit = endstopTriggered;
         isFinished = false;
         endstopTriggered = false;
