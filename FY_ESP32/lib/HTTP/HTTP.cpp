@@ -12,6 +12,8 @@
 
 #include <cstdio>
 #include <cstring>
+#include <atomic>
+#include <esp_system.h>
 
 // Test-Fahrbefehle sind NUR im expliziten Entwicklungs-Build erlaubt.
 // Keine Bedienhoheits-Umschaltung und keine JMRI-Freigabe in diesem Stand.
@@ -55,6 +57,33 @@ const char* lastCommand = "NONE";
 const char* lastResult = "NONE";
 const char* lastReason = "NONE";
 WebServer webServer(80);
+constexpr uint32_t kWebLeaseMs = 10000UL;
+std::atomic<uint8_t> controlMode{static_cast<uint8_t>(ControlMode::LOCAL)};
+String ownerToken;
+uint32_t ownerLastSeenMs = 0U;
+
+/** @brief Entzieht eine abgelaufene Web-Bedienberechtigung. */
+void expireWebLease() {
+    if (controlMode.load() == static_cast<uint8_t>(ControlMode::REMOTE) &&
+        static_cast<uint32_t>(millis() - ownerLastSeenMs) >= kWebLeaseMs) {
+        ownerToken = "";
+        controlMode.store(static_cast<uint8_t>(ControlMode::LOCAL));
+    }
+}
+
+/** @brief Vergleicht Token serverseitig, nicht IP oder Browserkennung. */
+bool isWebOwner() {
+    return controlMode.load() == static_cast<uint8_t>(ControlMode::REMOTE) &&
+           ownerToken.length() != 0U && webServer.arg("token") == ownerToken;
+}
+
+/** @brief Bedienhoheit darf nur nach bestaetigtem Stillstand wechseln. */
+bool controlStandstill() {
+    const MotorState_t state = Muninn_motorState();
+    return !Muninn_isMoving() && state != MotorState_t::MOVING &&
+           state != MotorState_t::REFRUN;
+}
+
 
 /** @brief Schreibt genau eine HTTP-Kommunikationsmeldung in die Debugqueue.
  * @note Nicht blockierend; eine volle Debugqueue darf den Webserver nie aufhalten.
@@ -92,6 +121,7 @@ const char* traceCommand(const String& cmd) {
     if (cmd == "UNLOCK") return "UNLOCK";
     if (cmd == "ENABLE") return "ENABLE";
     if (cmd == "DISABLE") return "DISABLE";
+    if (cmd == "MODE") return "MODE";
     return "UNKNOWN";
 }
 
@@ -243,11 +273,16 @@ String statusJson() {
                          referenced ? "READY" : "UNREFERENCED";
     String json;
     json.reserve(340);
-    json += F("{\"device\":\"FY-UVB\",\"simulation\":false,\"mode\":\"LOCAL\",");
+    json += F("{\"device\":\"FY-UVB\",\"simulation\":false,\"mode\":\"");
+    json += controlMode.load() == static_cast<uint8_t>(ControlMode::REMOTE) ? "REMOTE" :
+            controlMode.load() == static_cast<uint8_t>(ControlMode::AUTO) ? "AUTO" : "LOCAL";
+    json += F("\",\"web_owner\":");
+    json += isWebOwner() ? F("true") : F("false");
+    json += F(",");
     json += F("\"readonly\":");
-    json += FY_HTTP_WEB_TEST_CONTROL ? F("false") : F("true");
+    json += (FY_HTTP_WEB_TEST_CONTROL && isWebOwner()) ? F("false") : F("true");
     json += F(",\"web_control\":\"");
-    json += FY_HTTP_WEB_TEST_CONTROL ? F("TEST") : F("LOCKED");
+    json += isWebOwner() ? F("ACTIVE") : F("LOCKED");
     json += F("\",\"stop_latched\":");
     json += Muninn_isStopLatched() ? F("true") : F("false");
     json += F(",\"driver_enabled\":");
@@ -384,6 +419,58 @@ void configureRoutes() {
         webServer.sendHeader("Cache-Control", "no-store");
         webServer.send_P(200, "text/html; charset=utf-8", FY_DIAG_PAGE);
     });
+    webServer.on("/api/v1/mode", HTTP_POST, []() {
+        trace("RX", "MODE", nullptr, nullptr, 0U);
+        expireWebLease();
+        if (!controlStandstill()) {
+            reply("MODE", 409, "NACK", "BUSY");
+            return;
+        }
+        const uint8_t mode = controlMode.load();
+        if (mode == static_cast<uint8_t>(ControlMode::AUTO)) {
+            reply("MODE", 423, "NACK", "AUTO_ACTIVE");
+            return;
+        }
+        if (mode == static_cast<uint8_t>(ControlMode::REMOTE)) {
+            if (!isWebOwner()) {
+                reply("MODE", 423, "NACK", "NOT_OWNER");
+                return;
+            }
+            ownerToken = "";
+            controlMode.store(static_cast<uint8_t>(ControlMode::LOCAL));
+            reply("MODE", 200, "ACK", "LOCAL");
+            return;
+        }
+#if FY_HTTP_WEB_TEST_CONTROL
+        // Zwei ESP32-Zufallswerte als browserbezogenes Sitzungstoken.
+        char token[17]{};
+        std::snprintf(token, sizeof(token), "%08lx%08lx",
+                      static_cast<unsigned long>(esp_random()),
+                      static_cast<unsigned long>(esp_random()));
+        ownerToken = token;
+        ownerLastSeenMs = millis();
+        controlMode.store(static_cast<uint8_t>(ControlMode::REMOTE));
+        trace("TX", "MODE", "ACK", "REMOTE", 0U);
+        String json = F("{\"result\":\"ACK\",\"reason\":\"REMOTE\",\"token\":\"");
+        json += ownerToken;
+        json += F("\"}");
+        webServer.sendHeader("Cache-Control", "no-store");
+        webServer.send(200, "application/json", json);
+#else
+        reply("MODE", 423, "NACK", "WEB_TEST_DISABLED");
+#endif
+    });
+    webServer.on("/api/v1/heartbeat", HTTP_POST, []() {
+        expireWebLease();
+        if (!isWebOwner()) {
+            webServer.send(423, "application/json",
+                           "{\"result\":\"NACK\",\"reason\":\"NOT_OWNER\"}");
+            return;
+        }
+        ownerLastSeenMs = millis();
+        webServer.sendHeader("Cache-Control", "no-store");
+        webServer.send(200, "application/json", "{\"result\":\"ACK\"}");
+    });
     webServer.on("/api/v1/command", HTTP_POST, []() {
         const String command = webServer.arg("command");
         const char* name = traceCommand(command);
@@ -392,6 +479,11 @@ void configureRoutes() {
             rawValue[0] >= '1' && rawValue[0] <= '5'
             ? static_cast<uint8_t>(rawValue[0] - '0') : 0U;
         trace("RX", name, nullptr, nullptr, value);
+        expireWebLease();
+        if (!isWebOwner()) {
+            reply(name, 423, "NACK", "NOT_OWNER");
+            return;
+        }
         if (command == "SELECT_TRACK") {
             if (value == 0U) {
                 reply(name, 400, "NACK", "INVALID_PARAMETER");
@@ -482,6 +574,7 @@ void httpTask(void*) {
     uint32_t lastAttempt = 0U;
     for (;;) {
         const uint32_t now = millis();
+        expireWebLease();
         const bool online = WiFi.status() == WL_CONNECTED;
         if (online) {
             if (!listening) {
@@ -516,6 +609,10 @@ void httpTask(void*) {
 #endif
 }
 } // namespace
+
+ControlMode HTTP_controlMode() {
+    return static_cast<ControlMode>(controlMode.load());
+}
 
 bool HTTP_prepare(BringupContext* context) {
     if (context == nullptr || context->commands == nullptr ||
