@@ -1,4 +1,26 @@
-# HTTP-Babelfisch – erste Integration (feature/FY_ESP32_Web)
+# HTTP-Babelfisch – HW3-Stand 03.11.2026
+
+**Abgenommen im realen HW3-Test:** gemeinsamer Motorstatus, Web-Fahrbefehle, Diagnose, LOCAL/REMOTE-Bedienhoheit, Ein-Browser-Verriegelung, automatische Rueckgabe an LOCAL beim WLAN-/Verbindungsverlust sowie STOP ueber die erprobten Bedienwege. **AUTO/JMRI und OTA sind noch nicht implementiert.**
+
+## Aktuelle Bedienhoheit (gilt vor historischen Testnotizen unten)
+
+- **Bootzustand LOCAL:** fest angeschlossenes Keyboard darf steuern, Webbrowser duerfen lesen und STOP ausloesen.
+- **REMOTE:** ausdruecklich per wechselndem Betriebsarten-Button am Web-Bedienpult uebernehmen, nur im Stillstand. Der ESP32 vergibt ein browsergebundenes zufaelliges Token. Nur der Besitzer darf `SELECT_TRACK`, `UNLOCK`, `ENABLE`, `DISABLE`, `REFERENCE` und `SET_TRACK` ausloesen. Weitere Browser bleiben Beobachter.
+- **OLED im REMOTE-Betrieb:** `FERNSTEUERUNG / WEB AKTIV`; das lokale Keyboard sperrt alle Befehle ausser STOP. Rueckwechsel auf LOCAL erfolgt per Button oder Lease-Ablauf.
+- **Lease:** Browser-Heartbeat ca. alle 2 s; ohne gueltige Lebenszeichen Rueckfall auf LOCAL nach ca. 10 s. Bereits angenommene Fahrt wird nicht durch den Berechtigungsverlust unterbrochen. Kein automatischer Wiederanlauf.
+- **STOP:** `POST /api/v1/stop` bleibt ohne Token und unabhaengig von LOCAL/REMOTE zulaessig; auch lokaler STOP bleibt erlaubt. Bei HTTP-Statusabfragen/Diagnose besteht keine Steuerberechtigungspflicht.
+- **AUTO:** nur als reservierte Betriebsart / Anzeige, noch keine JMRI-Uebergabe.
+- **Parameter/NVM:** Aenderungen bleiben ueber UART; Browserdiagnose ist nur lesend.
+- **Build-Option:** `FY_HTTP_WEB_TEST_CONTROL=1` aktiviert derzeit die Web-Fahrbefehle **unter der tatsaechlich implementierten Besitzerpruefung**; `0` schaltet sie ab. Der Name ist historisch. Das private Modellbahn-WLAN ist eine Betriebsannahme, kein Schutz gegen boeswillige Teilnehmer.
+- **Statusfelder:** `mode` (LOCAL/REMOTE/AUTO), `web_owner` (nur true bei richtigem Token), `readonly`, `web_control`, `stop_latched`, `busy` und die uebrigen Muninn-Snapshots.
+- **HTTP-Endpunkte zusaetzlich:** `POST /api/v1/mode` (mit Token bei Rueckgabe an LOCAL), `POST /api/v1/heartbeat` (mit Token), `GET /api/v1/status?token=...` zur besitzerspezifischen Anzeige. Regulaere `POST /api/v1/command` erhalten das Token als Formularfeld.
+
+**Gezielt noch nicht einzeln als bestanden dokumentiert:** Hoheitswechsel waehrend einer Fahrt sowie Lease-Ablauf exakt waehrend der Bewegung. Die Nutzerin bestaetigte am 03.11.2026 den realen HW3-Test der normalen LOCAL/REMOTE-Umschaltung, der Mehrbrowser-Sperre, der Anzeigen, des Netzverlust-Rueckfalls und der STOP-Kombinationen. Testnachweis: [Issue #166](https://github.com/ErikaB-sys/Fiddle_yard_UVB/issues/166).
+
+---
+
+## Historischer Entwicklungs- und Testverlauf (02.11.2026)
+
 
 **Stand: 02.11.2026. Web-Fahrtest + Diagnose implementiert; bis zum neuen Firmware-Build und HW3-Test noch nicht abgenommen.**
 Der funktionierende FY-Controller in `FY_ESP32/` bleibt die Grundlage.
