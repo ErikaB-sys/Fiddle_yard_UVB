@@ -240,7 +240,7 @@ bool startPulseTrain(uint16_t steps, bool directionRight,
     haltAlarm();
     digitalWrite(MOTOR_PWM_PIN, LOW);
     digitalWrite(MOTOR_DIR_PIN, directionRight ? HIGH : LOW);
-    // DIR-Vorlauf vor der ersten steigenden STEP-Flanke: >= 625 us im Profilmodus.
+    // DIR-Vorlauf vor der ersten STEP-Flanke: mindestens eine physische Halbperiode.
     portENTER_CRITICAL(&stepMux);
     completed = 0U;
     target = static_cast<uint32_t>(steps) * FY_MOTOR_PULSES_PER_LOGICAL_STEP;
