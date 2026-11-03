@@ -23,7 +23,6 @@
 *.dll
 *.so.*
 
-
 # Fortran module files
 *.mod
 *.smod
@@ -70,3 +69,13 @@ Testing/
 /Documents/Pictures/Bilderorg
 *.FCBak
 Documents/Datasheets/.~lock.Motor_MD_EL.odg#
+
+# FY: lokale WLAN-Zugangsdaten niemals versionieren
+# Web-Pruefstand und integrierte Produktiv-Firmware
+/FY_ESP32_Web/include/WiFi_Secrets.h
+/FY_ESP32/include/WiFi_Secrets.h
+
+# PlatformIO Build-Artefakte des eigenstaendigen Web-Projekts
+/FY_ESP32_Web/.pio/
+/FY_ESP32_Web/.pioenvs/
+/FY_ESP32_Web/.piolibdeps/

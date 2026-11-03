@@ -2,6 +2,8 @@
 #include "Firmware.h"
 #include "Motor.h"
 #include "Keyboard.h"
+#include "HTTP.h"
+#include "CommandRouter.h"
 #include <freertos/task.h>
 #include <cstring>
 
@@ -66,6 +68,9 @@ void UART::update() {
     collectMotorResponses();
     receive();
     collectMotorResponses();
+    // Debug-Ausgabe nur auf HTTP-POST-Ereignisse, niemals auf Statuspolling.
+    // Einziger Serial-Schreiber bleibt der bestehende UART-Task.
+    HTTP_flushTrace();
 }
 
 void UART::receive() {
@@ -212,7 +217,9 @@ bool UART::queueMotorCommand(bool priority) {
     CommandMessage message{};
     message.id = _command.cmd;
     message.length = _command.length;
-    message.sequence = ++_nextSequence;
+    // Die oberen zwei Bits sind fuer HTTP und lokales Keyboard reserviert.
+    _nextSequence = (_nextSequence % 0x3FFFFFFFUL) + 1UL;
+    message.sequence = _nextSequence;
     memcpy(message.data, _command.data, sizeof(message.data));
 
     // Freien Zuordnungseintrag vor der Uebergabe an Muninn suchen.
@@ -224,8 +231,7 @@ bool UART::queueMotorCommand(bool priority) {
         return false;
     }
     // STOP verwendet die separate Prioritaetsqueue.
-    QueueHandle_t queue = priority ? _context->priorityCommands : _context->commands;
-    if (xQueueSend(queue, &message, 0) != pdTRUE) {
+    if (!CommandRouter_enqueue(_context, message, priority)) {
         nack(FY_ERROR_LOCATION_UART, NackReason::BUSY);
         return false;
     }

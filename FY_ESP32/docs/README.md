@@ -2,6 +2,10 @@
 
 **Dokumentierter Code:** `main`, Stand 01.11.2026; Versionskennung **2.1.0**. Die Firmware ist als LOCAL-Controller an der realen Bühne funktionsgeprüft. Diese Seite ist der Einstieg; Modul-READMEs beschreiben ausschließlich ihre **aktuellen** Schnittstellen und Funktionen.
 
+## Experimenteller HTTP-Integrationsstand in `feature/FY_ESP32_Web`
+
+**Nicht Bestandteil des freigegebenen LOCAL-Standes 2.1.0:** Dieser Branch enthält inzwischen eine erste HTTP-Integration im **gleichen** `FY_ESP32/`-Projekt. `src/main.cpp` startet HTTP **nach** den bestehenden Motor-/UART-Tasks, ohne den lokalen Betrieb auf WLAN warten zu lassen. Die Weboberfläche zeigt Muninn-Snapshots und synchronisiert nur die Web-Vorwahl; **HTTP-Fahrt, HTTP-Referenz und HTTP-STOP sind im Server gesperrt**, solange Command Router und Bedienhoheit fehlen. UART protokolliert ausschließlich HTTP-POST-RX/TX zusätzlich zum bisherigen Protokoll. Details, WLAN-Einrichtung und Testliste: [HTTP-Babelfisch – erste Integration](HTTP/README.md).
+
 ## Leseweg für Inbetriebnahme und Gegenstelle
 
 1. [Systemüberblick](System/README.md) – was Huginn, Muninn, Keyboard und NVM übernehmen, Daten- und Steuerfluss.

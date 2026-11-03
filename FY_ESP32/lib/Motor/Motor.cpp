@@ -401,7 +401,9 @@ constexpr uint32_t kPositionBenchFlag = 0x00010000U;
 std::atomic<uint32_t> positionSnapshot{kPositionUnknown};
 std::atomic<uint32_t> realReferencePosition{kPositionUnknown};
 std::atomic<uint8_t> referenceStatusSnapshot{0U}; // 0 none, 1 real, 2 fake
-std::atomic<uint16_t> nvmStatusSnapshot{0U}; // high byte valid mask, low byte fault mask
+std::atomic<uint16_t> nvmStatusSnapshot{0U};
+std::atomic<uint8_t> httpSensorLevelsSnapshot{0U};
+std::atomic<bool> stopLatchedSnapshot{true}; // high byte valid mask, low byte fault mask
 std::atomic<uint32_t> nvmTrackValues[5]{};
 std::atomic<uint32_t> nvmRampValues[17]{};
 std::atomic<uint32_t> nvmCalibrationValues[3]{};
@@ -465,8 +467,18 @@ void emit(BringupContext* context, const CommandMessage& cmd,
         accepted ? STATUS_ACK : STATUS_NACK,
         data
     };
+    // Sequenzkennung: 00=UART, 01=HTTP, 10/11=lokales Keyboard.
+    // Eigene HTTP-Mailbox verhindert das Weglesen fremder Motorantworten.
     const bool local = (cmd.sequence & 0x80000000UL) != 0UL;
-    QueueHandle_t destination = local ? context->keyboardEvents : context->events;
+    const bool http = !local && (cmd.sequence & 0x40000000UL) != 0UL;
+    QueueHandle_t destination = local ? context->keyboardEvents :
+                                http ? context->httpEvents : context->events;
+    if (http) {
+        // HTTP hat genau einen ausstehenden Auftrag je Webserver-Task.
+        // Selbst eine volle/defekte Debugantwort darf STOP nicht blockieren.
+        if (destination != nullptr) (void)xQueueSend(destination, &event, 0);
+        return;
+    }
     // Integrationspruefung UART/Motor:
     // portMAX_DELAY verhindert den stillen Verlust einer Antwort bei voller
     // Event-Queue, kann aber die gesamte Muninn-Task blockieren.
@@ -476,6 +488,10 @@ void emit(BringupContext* context, const CommandMessage& cmd,
     if (destination != nullptr) (void)xQueueSend(destination, &event, portMAX_DELAY);
 }
 } // anonymous namespace
+
+bool Muninn_isStopLatched() {
+    return stopLatchedSnapshot.load(std::memory_order_acquire);
+}
 
 bool Muninn_isDriverEnabled() {
     return driverEnabled.load(std::memory_order_acquire);
@@ -503,6 +519,10 @@ uint8_t Muninn_referenceStatusSnapshot() {
 
 uint32_t Muninn_trackSnapshot() {
     return trackSnapshot.load(std::memory_order_acquire);
+}
+
+uint8_t Muninn_sensorLevelsSnapshot() {
+    return httpSensorLevelsSnapshot.load(std::memory_order_acquire);
 }
 
 bool Muninn_getParamSnapshot(uint8_t id, uint32_t& value) {
@@ -884,6 +904,7 @@ void Muninn_motorTask(void* arg) {
     for (;;) {
         // Nur den letzten Sensorzustand bereitstellen; STOP und Motorereignisse nicht blockieren.
         const uint8_t sensorLevels = readSensorLevels();
+        httpSensorLevelsSnapshot.store(sensorLevels, std::memory_order_release);
         if (sensorLevels != lastSensorLevels) {
             lastSensorLevels = sensorLevels;
             sensorChangeCount = (sensorChangeCount == 0x0EU)
@@ -902,6 +923,18 @@ void Muninn_motorTask(void* arg) {
                      nackData(NackReason::INVALID_PARAMETER));
                 continue;
             }
+            // STOP 55 AA bleibt immer priorisiert. Die Freigabe AA 55 ist
+            // dagegen nur aus der tatsaechlich verriegelten Ruhelage zulaessig.
+            // Sonst koennte eine spaete Web-Entriegelung eine aktive Fahrt
+            // abbrechen und die Referenz unbeabsichtigt verwerfen.
+            if (release && (!stopActive || motorMoving.load(std::memory_order_acquire) ||
+                            stepTimerRunning() || motor.referenceActive() ||
+                            realTrackProfileActive ||
+                            motor.state() != MotorState_t::STOPPED)) {
+                emit(context, cmd, false,
+                     nackData(NackReason::NOT_READY));
+                continue;
+            }
             // Zuerst Treiber deaktivieren, danach STEP anhalten.
             // !SLEEP bleibt HIGH; STOP setzt den A4988-Translator nicht zurueck.
             // STOP und Freigabe setzen eine abgebrochene Fahrt nicht fort.
@@ -913,6 +946,7 @@ void Muninn_motorTask(void* arg) {
             motorMoving.store(false, std::memory_order_release);
             realReferencePosition.store(kPositionUnknown, std::memory_order_release);
             stopActive = activate;
+            stopLatchedSnapshot.store(activate, std::memory_order_release);
             motor.onStop(activate);
             targetTrack = 0U;
             confirmedTrack = 0U;

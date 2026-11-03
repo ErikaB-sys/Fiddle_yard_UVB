@@ -203,6 +203,8 @@ private:
 // Atomarer Treiberfreigabe-Snapshot von Muninn/Core 1.
 // GPIO25/A4988 ENABLE ist LOW-aktiv (HW3); kein Bewegungsstatus.
 bool Muninn_isDriverEnabled();
+// Eigenstaendiger STOP-Latch-Snapshot (STOPPED ist nicht gleich verriegelt).
+bool Muninn_isStopLatched();
 // Atomarer Bewegungs-Snapshot: true waehrend einer STEP-Fahrt.
 bool Muninn_isMoving();
 // 0=Stillstand, 1=physisch LINKS/G39, 2=physisch RECHTS/G36.
@@ -215,6 +217,8 @@ uint32_t Muninn_positionSnapshot();
 uint8_t Muninn_referenceStatusSnapshot();
 // Gepackter Gleisstatus: Ziel | (letztes bestaetigtes Gleis << 8) | (Status << 16).
 uint32_t Muninn_trackSnapshot();
+// Aktuelle vier Sensor-Rohpegel ohne Entnahme aus der UART-Snapshot-Queue.
+uint8_t Muninn_sensorLevelsSnapshot();
 // ID-spezifischer atomarer Parameterwert. False bei ungueltigem/fehlendem Wert.
 bool Muninn_getParamSnapshot(uint8_t id, uint32_t& value);
 // NVM-Fehlermaske / Gueltigkeitsmaske in einem atomaren uint16-Snapshot.

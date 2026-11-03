@@ -4,6 +4,8 @@
 #include <U8g2lib.h>
 #include "HW_Config.h"
 #include "Motor.h"
+#include "CommandRouter.h"
+#include "HTTP.h"
 
 namespace fy {
 namespace {
@@ -45,14 +47,17 @@ void keyboardShow();
  */
 bool sendLocal(uint8_t id, uint8_t a, uint8_t b, bool priority) {
     if (kbWaiting || kbContext == nullptr) return false;
+    // Fernhoheit betrifft jeden lokalen Befehl ausser STOP.
+    if (id != CMD_STOPP || a != 0x55U || b != 0xAAU) {
+        if (HTTP_controlMode() != ControlMode::LOCAL) return false;
+    }
     CommandMessage msg{};
     msg.id = id;
     msg.data[0] = a;
     msg.data[1] = b;
     msg.length = (id == CMD_REFERENCE || id == CMD_SET_TRACK) ? 2U : 3U;
     msg.sequence = 0x80000000UL | (++kbSeq & 0x7FFFFFFFUL);
-    QueueHandle_t q = priority ? kbContext->priorityCommands : kbContext->commands;
-    if (q == nullptr || xQueueSend(q, &msg, 0) != pdTRUE) return false;
+    if (!CommandRouter_enqueue(kbContext, msg, priority)) return false;
     kbAwaitSeq = msg.sequence;
     kbWaiting = true;
     return true;
@@ -111,7 +116,7 @@ void keyboardShowReleaseHint() {
 void updateStatusLeds() {
     if (!kbPcfReady || !kbSplashDone) return;
     uint8_t leds = 0U;
-    if (Muninn_motorState() == MotorState_t::STOPPED) leds |= 0x01U;
+    if (Muninn_isStopLatched()) leds |= 0x01U;
     if (Muninn_isDriverEnabled()) leds |= 0x04U;
     const uint8_t direction = Muninn_motionDirectionSnapshot();
     if (direction == 1U) leds |= 0x02U; // links (G39)
@@ -123,11 +128,26 @@ void updateStatusLeds() {
 void keyboardShow() {
     if (!kbOledReady) return;
     kbDisplay.clearBuffer();
+    const ControlMode mode = HTTP_controlMode();
+    if (mode != ControlMode::LOCAL) {
+        kbDisplay.drawStr(0, 0, "FY UVB / FERN");
+        kbDisplay.drawStr(0, 8, mode == ControlMode::REMOTE ?
+                          "FERNSTEUERUNG" : "AUTOMATIK");
+        kbDisplay.drawStr(0, 16, mode == ControlMode::REMOTE ?
+                          "WEB AKTIV" : "JMRI AKTIV");
+        kbDisplay.drawStr(0, 24, "STOP lokal moeglich");
+        kbDisplay.sendBuffer();
+        return;
+    }
     kbDisplay.drawStr(0, 0, "FY UVB / LOCAL");
     if (kbMenu == Menu::LOCKED) {
         kbDisplay.drawStr(0, 8,  "STOP verriegelt");
         kbDisplay.drawStr(0, 16, "LINKS halten");
         kbDisplay.drawStr(0, 24, "dann GO");
+    } else if (kbMenu == Menu::ENABLE) {
+        kbDisplay.drawStr(0, 8,  "STOP entriegelt");
+        kbDisplay.drawStr(0, 16, "Motor noch AUS");
+        kbDisplay.drawStr(0, 24, "GO: Motor EIN");
     } else if (kbMenu == Menu::REF_MENU) {
         kbDisplay.drawStr(0, 8,  kbLongRef ? "REF: LONG" : "REF: SHORT");
         kbDisplay.drawStr(0, 16, "LINKS/RECHTS Wahl");
@@ -239,6 +259,8 @@ void keyboardScanButtons() {
         kbMenu = Menu::LOCKED;
         if (!sendLocal(CMD_STOPP, 0x55U, 0xAAU, true))
             kbMenu = Menu::ERROR;
+    } else if (HTTP_controlMode() != ControlMode::LOCAL) {
+        // Nur STOP ist im Fernbetrieb lokal wirksam.
     } else if (!kbWaiting && kbMenu == Menu::LOCKED) {
         // LINKS halten und GO neu druecken; Einzel-GO bleibt wirkungslos.
         if ((pressed & 0x04U) != 0U && (previous & 0x02U) != 0U &&
@@ -249,7 +271,14 @@ void keyboardScanButtons() {
         }
     } else if (!kbWaiting && !Muninn_isMoving() &&
                (active & static_cast<uint8_t>(active - 1U)) == 0U) {
-        if (kbMenu == Menu::REF_MENU) {
+        if (kbMenu == Menu::ENABLE) {
+            // Nach Web-UNLOCK darf GO die lokal angeforderte Motorfreigabe
+            // ausloesen. Keine automatische Freigabe ohne Tastendruck.
+            if ((pressed & 0x04U) != 0U) {
+                if (!sendLocal(CMD_GO, 0xAAU, 0x55U, false))
+                    kbMenu = Menu::ERROR;
+            }
+        } else if (kbMenu == Menu::REF_MENU) {
             if ((pressed & 0x0AU) != 0U) kbLongRef = !kbLongRef;
             else if ((pressed & 0x04U) != 0U) {
                 kbMenu = Menu::REF_RUN;
@@ -271,9 +300,89 @@ void keyboardScanButtons() {
     keyboardShow();
 }
 
+/** @brief Gleicht das LOCAL-Menue mit den echten Muninn-Snapshots ab.
+ * @note Web-/UART-Befehle veraendern Muninn, ohne das lokale Menue zu bedienen.
+ *       Hier wird nur die Anzeige/Zustandswahl angepasst: KEIN Motorbefehl.
+ *       Ausstehende lokale Antworten bleiben dem lokalen Auftrag vorbehalten.
+ */
+void syncMenuWithMotor() {
+    if (!kbStartReleased || kbWaiting) return;
+    static ControlMode shownMode = ControlMode::LOCAL;
+    const ControlMode mode = HTTP_controlMode();
+    if (mode != shownMode) {
+        shownMode = mode;
+        keyboardShow();
+    }
+    if (mode != ControlMode::LOCAL) return;
+    const bool latched = Muninn_isStopLatched();
+    const bool driverOn = Muninn_isDriverEnabled();
+    const bool moving = Muninn_isMoving();
+    const MotorState_t state = Muninn_motorState();
+
+    if (latched) {
+        if (kbMenu != Menu::LOCKED) {
+            kbMenu = Menu::LOCKED;
+            keyboardShow();
+        }
+        return;
+    }
+
+    // Entriegelt, aber Treiber aus: das Keyboard darf ihn mit GO aktivieren.
+    // KEIN selbststaendiger GO-Auftrag bei einem fremden Freigabebefehl.
+    if (!driverOn) {
+        if (kbMenu != Menu::ENABLE) {
+            kbMenu = Menu::ENABLE;
+            keyboardShow();
+        }
+        return;
+    }
+
+    if (state == MotorState_t::ERROR) {
+        if (kbMenu != Menu::ERROR) {
+            kbMenu = Menu::ERROR;
+            keyboardShow();
+        }
+        return;
+    }
+
+    if (moving || state == MotorState_t::REFRUN ||
+        state == MotorState_t::MOVING) {
+        const Menu desired = Muninn_referenceStatusSnapshot() == REFERENCE_REAL
+            ? Menu::TRACK_RUN : Menu::REF_RUN;
+        if (kbMenu != desired) {
+            kbMenu = desired;
+            keyboardShow();
+        }
+        return;
+    }
+
+    if (state == MotorState_t::IDLE) {
+        if (Muninn_referenceStatusSnapshot() == REFERENCE_REAL) {
+            // Nur beim Wechsel ins TRACK_MENU die bestaetigte Gleisnummer
+            // uebernehmen. Eine lokale Vorwahl darf nicht ueberschrieben
+            // werden, solange keine neue Bewegung stattfindet.
+            if (kbMenu != Menu::TRACK_MENU) {
+                const uint32_t snapshot = Muninn_trackSnapshot();
+                const uint8_t confirmed =
+                    static_cast<uint8_t>((snapshot >> 8U) & 0xFFU);
+                const uint8_t trackStatus =
+                    static_cast<uint8_t>((snapshot >> 16U) & 0xFFU);
+                if (trackStatus == TRACK_STATUS_REACHED &&
+                    confirmed >= 1U && confirmed <= 5U)
+                    kbTrack = confirmed;
+                kbMenu = Menu::TRACK_MENU;
+                keyboardShow();
+            }
+        } else if (kbMenu != Menu::REF_MENU) {
+            kbMenu = Menu::REF_MENU;
+            keyboardShow();
+        }
+    }
+}
+
 /** @brief Prüft den bestätigten Fahrtabschluss und schaltet das Menü weiter. */
 void progress() {
-    if (kbWaiting) return;
+    if (kbWaiting || HTTP_controlMode() != ControlMode::LOCAL) return;
     const auto state = Muninn_motorState();
     const uint32_t track = Muninn_trackSnapshot();
     if (kbMenu == Menu::REF_RUN) {
@@ -317,5 +426,11 @@ bool Keyboard_isAvailable() {
 /** @brief Pollt lokale Antworten, Tasten, Fahrstatus und LEDs.
  *  @note Regelmäßig aus dem Arduino-Hauptloop aufrufen; kein direkter Motor-GPIO-Zugriff.
  */
-void Keyboard_poll() { pollLocalReply(); keyboardScanButtons(); progress(); updateStatusLeds(); }
+void Keyboard_poll() {
+    pollLocalReply();
+    syncMenuWithMotor();
+    keyboardScanButtons();
+    progress();
+    updateStatusLeds();
+}
 } // namespace fy
