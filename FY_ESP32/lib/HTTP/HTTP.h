@@ -8,6 +8,11 @@
 
 namespace fy {
 
+/** @brief Bedienhoheit: LOCAL, Browser oder spaetere Automatik. */
+enum class ControlMode : uint8_t { LOCAL = 0U, REMOTE = 1U, AUTO = 2U };
+/** @brief Atomarer Snapshot der vom HTTP-Task verwalteten Bedienhoheit. */
+ControlMode HTTP_controlMode();
+
 /** @brief Bereitet Kontext und nicht blockierende HTTP-Diagnosequeue vor.
  * @param context Gemeinsame FreeRTOS-Strukturen (nicht Eigentum des HTTP-Moduls).
  * @return true, wenn die HTTP-Diagnose vorbereitet ist.
