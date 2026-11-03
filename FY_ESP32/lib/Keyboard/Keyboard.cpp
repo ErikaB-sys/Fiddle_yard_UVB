@@ -5,6 +5,7 @@
 #include "HW_Config.h"
 #include "Motor.h"
 #include "CommandRouter.h"
+#include "HTTP.h"
 
 namespace fy {
 namespace {
@@ -46,6 +47,10 @@ void keyboardShow();
  */
 bool sendLocal(uint8_t id, uint8_t a, uint8_t b, bool priority) {
     if (kbWaiting || kbContext == nullptr) return false;
+    // Fernhoheit betrifft jeden lokalen Befehl ausser STOP.
+    if (id != CMD_STOPP || a != 0x55U || b != 0xAAU) {
+        if (HTTP_controlMode() != ControlMode::LOCAL) return false;
+    }
     CommandMessage msg{};
     msg.id = id;
     msg.data[0] = a;
@@ -123,6 +128,17 @@ void updateStatusLeds() {
 void keyboardShow() {
     if (!kbOledReady) return;
     kbDisplay.clearBuffer();
+    const ControlMode mode = HTTP_controlMode();
+    if (mode != ControlMode::LOCAL) {
+        kbDisplay.drawStr(0, 0, "FY UVB / FERN");
+        kbDisplay.drawStr(0, 8, mode == ControlMode::REMOTE ?
+                          "FERNSTEUERUNG" : "AUTOMATIK");
+        kbDisplay.drawStr(0, 16, mode == ControlMode::REMOTE ?
+                          "WEB AKTIV" : "JMRI AKTIV");
+        kbDisplay.drawStr(0, 24, "STOP lokal moeglich");
+        kbDisplay.sendBuffer();
+        return;
+    }
     kbDisplay.drawStr(0, 0, "FY UVB / LOCAL");
     if (kbMenu == Menu::LOCKED) {
         kbDisplay.drawStr(0, 8,  "STOP verriegelt");
@@ -243,6 +259,8 @@ void keyboardScanButtons() {
         kbMenu = Menu::LOCKED;
         if (!sendLocal(CMD_STOPP, 0x55U, 0xAAU, true))
             kbMenu = Menu::ERROR;
+    } else if (HTTP_controlMode() != ControlMode::LOCAL) {
+        // Nur STOP ist im Fernbetrieb lokal wirksam.
     } else if (!kbWaiting && kbMenu == Menu::LOCKED) {
         // LINKS halten und GO neu druecken; Einzel-GO bleibt wirkungslos.
         if ((pressed & 0x04U) != 0U && (previous & 0x02U) != 0U &&
@@ -289,6 +307,13 @@ void keyboardScanButtons() {
  */
 void syncMenuWithMotor() {
     if (!kbStartReleased || kbWaiting) return;
+    static ControlMode shownMode = ControlMode::LOCAL;
+    const ControlMode mode = HTTP_controlMode();
+    if (mode != shownMode) {
+        shownMode = mode;
+        keyboardShow();
+    }
+    if (mode != ControlMode::LOCAL) return;
     const bool latched = Muninn_isStopLatched();
     const bool driverOn = Muninn_isDriverEnabled();
     const bool moving = Muninn_isMoving();
@@ -357,7 +382,7 @@ void syncMenuWithMotor() {
 
 /** @brief Prüft den bestätigten Fahrtabschluss und schaltet das Menü weiter. */
 void progress() {
-    if (kbWaiting) return;
+    if (kbWaiting || HTTP_controlMode() != ControlMode::LOCAL) return;
     const auto state = Muninn_motorState();
     const uint32_t track = Muninn_trackSnapshot();
     if (kbMenu == Menu::REF_RUN) {
