@@ -571,11 +571,24 @@ void httpTask(void*) {
     bool listening = false;
     bool mdns = false;
     bool attempted = false;
+    bool wasOnline = false;
     uint32_t lastAttempt = 0U;
     for (;;) {
         const uint32_t now = millis();
         expireWebLease();
         const bool online = WiFi.status() == WL_CONNECTED;
+        if (online != wasOnline) {
+            if (online) {
+                Serial.print(F("[HTTP] WLAN verbunden, IP: "));
+                Serial.println(WiFi.localIP());
+                Serial.print(F("[HTTP] Web: http://"));
+                Serial.print(WiFi.localIP());
+                Serial.println('/');
+            } else {
+                Serial.println(F("[HTTP] WLAN-Verbindung verloren"));
+            }
+            wasOnline = online;
+        }
         if (online) {
             if (!listening) {
                 webServer.begin();
@@ -597,6 +610,7 @@ void httpTask(void*) {
             }
             if (!attempted || now - lastAttempt >= kWiFiRetryMs) {
                 // WiFi.begin() kehrt zurueck; keine 15-s-Startwarteschleife.
+                Serial.println(F("[HTTP] WLAN-Verbindungsversuch ..."));
                 WiFi.begin(FY_WIFI_SSID, FY_WIFI_PASSWORD);
                 attempted = true;
                 lastAttempt = now;
