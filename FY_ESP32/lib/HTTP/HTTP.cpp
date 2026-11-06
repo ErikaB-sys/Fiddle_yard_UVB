@@ -70,6 +70,7 @@ uint32_t setupApStartedMs = 0U;
 char setupApPassword[17]{};
 String setupApSsid;
 const char* networkResult = "idle";
+String networkRequestToken; // Zufallstoken gegen browserseitige Cross-Site-POSTs.
 
 /** @brief Entzieht eine abgelaufene Web-Bedienberechtigung. */
 void expireWebLease() {
@@ -103,6 +104,12 @@ bool isSetupClient() {
 bool isStationClient() {
     return WiFi.status() == WL_CONNECTED &&
            webServer.client().localIP() == WiFi.localIP();
+}
+
+/** @brief Einmaligen Session-Wert nur im eigenen Netzwerkformular ausgeben. */
+bool networkRequestAuthorized() {
+    return networkRequestToken.length() == 16U &&
+           webServer.arg("csrf") == networkRequestToken;
 }
 
 /** @brief Startet ein WPA2-geschuetztes, nur lokal lesbar dokumentiertes Setup-WLAN. */
@@ -181,6 +188,8 @@ String networkStatusJson() {
     json += pendingNetworkTest ? F("true") : F("false");
     json += F(",\"result\":\"");
     json += networkResult;
+    json += F("\",\"csrf\":\"");
+    json += networkRequestToken;
     json += F("\"}");
     return json;
 }
@@ -518,6 +527,10 @@ void configureRoutes() {
         webServer.send(200, "application/json", networkStatusJson());
     });
     webServer.on("/api/v1/network/setup", HTTP_POST, []() {
+        if (!networkRequestAuthorized()) {
+            webServer.send(403, "text/plain", "INVALID_SESSION");
+            return;
+        }
         if (!controlStandstill() || pendingNetworkTest) {
             webServer.send(409, "text/plain", "BUSY");
             return;
@@ -527,6 +540,10 @@ void configureRoutes() {
                        ok ? "SETUP_AP_STARTED" : "SETUP_FAILED");
     });
     webServer.on("/api/v1/network/apply", HTTP_POST, []() {
+        if (!networkRequestAuthorized()) {
+            webServer.send(403, "text/plain", "INVALID_SESSION");
+            return;
+        }
         // Normaler Wechsel direkt im privaten LAN, Recovery weiterhin per
         // WPA2-Setup-AP. Die Konfiguration laeuft ueber HTTP (ohne TLS).
         if (!isSetupClient() && !isStationClient()) {
@@ -720,6 +737,11 @@ void configureRoutes() {
 void httpTask(void*) {
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(kHostname);
+    char token[17]{};
+    std::snprintf(token, sizeof(token), "%08lx%08lx",
+                  static_cast<unsigned long>(esp_random()),
+                  static_cast<unsigned long>(esp_random()));
+    networkRequestToken = token;
     const bool hasStoredNetwork = NetworkSettings_load(savedNetwork);
     Serial.println(hasStoredNetwork ?
                    F("[NET] WLAN-Daten aus NVS geladen") :
