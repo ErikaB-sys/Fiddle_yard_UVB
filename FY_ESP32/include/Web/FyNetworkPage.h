@@ -40,7 +40,7 @@ small,.muted{color:#b4c7d4}
 Das Einrichtungs-WLAN ist passwortgeschützt; das einmalige Passwort
 erscheint im seriellen Monitor. Zugriff dann über
 <code>http://192.168.4.1/network</code>.</small></p>
-<button id="activate" type="button">Einrichtungs-WLAN aktivieren</button>
+<button id="activate" type="button" disabled>Einrichtungs-WLAN aktivieren</button>
 </details>
 </section>
 <section>
@@ -54,7 +54,7 @@ Nur in einem privaten, vertrauenswürdigen WLAN verwenden.</small></p>
 <input id="ssid" name="ssid" maxlength="32" autocomplete="off" required>
 <label for="psk">WLAN-Passwort</label>
 <input id="psk" name="psk" type="password" minlength="8" maxlength="63" autocomplete="new-password" required>
-<button id="save" type="submit">Verbindung testen und übernehmen</button>
+<button id="save" type="submit" disabled>Verbindung testen und übernehmen</button>
 </form>
 <p id="result" role="status"></p>
 <div id="handoff" hidden>
@@ -70,6 +70,7 @@ Nur in einem privaten, vertrauenswürdigen WLAN verwenden.</small></p>
 <script>
 const el=id=>document.getElementById(id);
 let wasSubmitted=false;
+let csrfToken='';
 let allowSsidPrefill=true;
 el('ssid').addEventListener('input',()=>{allowSsidPrefill=false;});
 async function update(){
@@ -77,11 +78,12 @@ async function update(){
   const r=await fetch('/api/v1/network/status',{cache:'no-store'});
   if(!r.ok) throw Error('HTTP '+r.status);
   const n=await r.json();
+  csrfToken=n.csrf||'';
   el('state').textContent=n.connected?'Verbunden · IP '+n.ip:'Keine Verbindung zum Heimnetz';
   el('identity').textContent='SSID: '+(n.ssid||'nicht eingerichtet')+(n.connected?' · '+n.rssi+' dBm':'');
   el('setup').textContent=n.setup_active?'Einrichtungs-WLAN: '+n.setup_ssid:'Einrichtungs-WLAN: aus';
-  el('activate').disabled=n.setup_active||n.pending;
-  el('save').disabled=n.pending||(!n.setup_client&&!n.connected);
+  el('activate').disabled=n.setup_active||n.pending||!csrfToken;
+  el('save').disabled=n.pending||!csrfToken||(!n.setup_client&&!n.connected);
   if(allowSsidPrefill&&n.ssid)el('ssid').value=n.ssid;
   el('handoff').hidden=!(n.result==='saved'&&n.connected);
   if(!el('handoff').hidden){
@@ -104,7 +106,10 @@ async function update(){
 }
 el('activate').addEventListener('click',async()=>{
  try{
-  const r=await fetch('/api/v1/network/setup',{method:'POST'});
+  const r=await fetch('/api/v1/network/setup',{
+    method:'POST',
+    body:new URLSearchParams({csrf:csrfToken})
+  });
   el('result').textContent=r.ok
     ?'Einrichtungs-WLAN aktiviert. Passwort im seriellen Monitor ablesen.'
     :'Einrichtungs-WLAN konnte nicht aktiviert werden (Bühne muss stehen).';
@@ -114,7 +119,9 @@ el('activate').addEventListener('click',async()=>{
 el('config').addEventListener('submit',async e=>{
  e.preventDefault();
  if(!confirm('Neues WLAN jetzt testen? Die Verbindung zu dieser Seite kann während des Wechsels abbrechen.'))return;
- const body=new URLSearchParams({ssid:el('ssid').value,psk:el('psk').value});
+ const body=new URLSearchParams({
+   ssid:el('ssid').value,psk:el('psk').value,csrf:csrfToken
+ });
  el('psk').value='';
  wasSubmitted=true;
  el('result').textContent='Verbindungstest angefordert …';
