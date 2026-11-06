@@ -28,7 +28,7 @@ small,.muted{color:#b4c7d4}
 </head>
 <body><main>
 <h1>FY UVB · Netzwerk</h1>
-<p><a href="/diagnostics">Diagnose</a> · <a href="/">Bedienpult</a></p>
+<p><a href="/diagnostics">Diagnose</a> · <a href="/">Bedienpult</a> · <a href="/ota">OTA</a></p>
 <section>
 <h2>Verbindung</h2>
 <p id="state">Prüfe Netzwerk …</p>
