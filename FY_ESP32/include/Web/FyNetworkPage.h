@@ -33,6 +33,8 @@ small,.muted{color:#b4c7d4}
 <h2>Verbindung</h2>
 <p id="state">Prüfe Netzwerk …</p>
 <p id="identity" class="muted"></p>
+<p class="muted">WLAN-Client-MAC (STA): <code id="staMac">Wird ermittelt …</code></p>
+<p><small>Für eine feste IP-Adresse diese MAC im Router für eine DHCP-Reservierung verwenden.</small></p>
 <p id="setup" class="muted"></p>
 <details>
 <summary>Notfallzugang über Einrichtungs-WLAN</summary>
@@ -81,6 +83,7 @@ async function update(){
   csrfToken=n.csrf||'';
   el('state').textContent=n.connected?'Verbunden · IP '+n.ip:'Keine Verbindung zum Heimnetz';
   el('identity').textContent='SSID: '+(n.ssid||'nicht eingerichtet')+(n.connected?' · '+n.rssi+' dBm':'');
+  el('staMac').textContent=n.sta_mac||'nicht verfügbar';
   el('setup').textContent=n.setup_active?'Einrichtungs-WLAN: '+n.setup_ssid:'Einrichtungs-WLAN: aus';
   el('activate').disabled=n.setup_active||n.pending||!csrfToken;
   el('save').disabled=n.pending||!csrfToken||(!n.setup_client&&!n.connected);
