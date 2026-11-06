@@ -10,6 +10,13 @@ namespace fy {
  * @return true, falls STOP-Verriegelung und ausgeschalteter Motor bestaetigt.
  */
 bool OtaGuard_armFromStop();
+#if defined(FY_OTA_BENCH_TEST_ARM) && FY_OTA_BENCH_TEST_ARM
+/** @brief Tischmuster-Freigabe nur per lokalem USB-UART und Test-Build.
+ *  @return true nur bei STOP-Verriegelung, abgeschaltetem Treiber und Stillstand.
+ *  @warning Dieser Aufruf existiert in Produktiv-Builds nicht.
+ */
+bool OtaGuard_armFromBenchSerial();
+#endif
 /** @brief Meldet, ob die physische OTA-Freigabe noch gueltig ist. */
 bool OtaGuard_isArmed();
 /** @brief Restlaufzeit der Freigabe in Millisekunden. */
