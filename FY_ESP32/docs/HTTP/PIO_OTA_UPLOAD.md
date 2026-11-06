@@ -9,8 +9,10 @@ und kein weiteres PC-Programm erforderlich.
 
 1. Die Schiebebuehne benoetigt mindestens Firmware **3.2.0** mit der
    bestehenden Webseite `/ota`.
-2. Fuer die FY im Router eine feste DHCP-IP per WLAN-STA-MAC auf
-   `http://<FY-IP>/network` reservieren.
+2. Die **aktuelle** IP der FY auf `http://<FY-IP>/network` ablesen.
+   Eine feste DHCP-Reservierung im Router ist fuer OTA **nicht erforderlich**,
+   kann aber spaeter eingerichtet werden. Wenn der Router die IP aendert,
+   muss `custom_ota_host` entsprechend angepasst werden.
 3. In `FY_ESP32/platformio.ini` unter `[env:esp32dev]` **genau eine**
    Zeile bearbeiten:
 
