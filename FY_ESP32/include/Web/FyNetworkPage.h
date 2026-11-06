@@ -34,15 +34,21 @@ small,.muted{color:#b4c7d4}
 <p id="state">Prüfe Netzwerk …</p>
 <p id="identity" class="muted"></p>
 <p id="setup" class="muted"></p>
+<details>
+<summary>Notfallzugang über Einrichtungs-WLAN</summary>
+<p><small>Nur nötig, wenn das Heim-WLAN nicht erreichbar ist.
+Das Einrichtungs-WLAN ist passwortgeschützt; das einmalige Passwort
+erscheint im seriellen Monitor. Zugriff dann über
+<code>http://192.168.4.1/network</code>.</small></p>
 <button id="activate" type="button">Einrichtungs-WLAN aktivieren</button>
-<p><small>Das Einrichtungs-WLAN ist WPA2-geschützt. Das einmalige Passwort wird ausschließlich
-am seriellen Monitor angezeigt. Zur Eingabe mit diesem WLAN verbinden und
-<code>http://192.168.4.1/network</code> öffnen.</small></p>
+</details>
 </section>
 <section>
 <h2>WLAN-Zugangsdaten ändern</h2>
-<p>Änderungen sind nur über das gesicherte Einrichtungs-WLAN und bei stillstehender Bühne möglich.
-Das bisherige WLAN bleibt im Speicher, bis das neue erfolgreich verbunden wurde.</p>
+<p>Neue SSID und Passwort einfach hier eingeben. Die Bühne muss dabei stehen.
+Das bisherige WLAN bleibt gespeichert, bis die neue Verbindung funktioniert.</p>
+<p><small>Hinweis: Diese Konfiguration verwendet HTTP ohne Verschlüsselung.
+Nur in einem privaten, vertrauenswürdigen WLAN verwenden.</small></p>
 <form id="config">
 <label for="ssid">Netzwerkname (SSID)</label>
 <input id="ssid" name="ssid" maxlength="32" autocomplete="off" required>
@@ -53,46 +59,73 @@ Das bisherige WLAN bleibt im Speicher, bis das neue erfolgreich verbunden wurde.
 <p id="result" role="status"></p>
 <div id="handoff" hidden>
 <p><strong>Verbindung erfolgreich eingerichtet!</strong></p>
-<p>Jetzt den Rechner oder das Handy wieder mit dem normalen Heim-WLAN verbinden.</p>
-<p>Danach <a id="homeLink" href="/">das FY-Bedienpult im Heimnetz öffnen</a>.</p>
-<p><small>Das Einrichtungs-WLAN wird nach einer kurzen Übergangszeit beendet. Die automatische Weiterleitung ist hier nicht sinnvoll, da dein Gerät zunächst das WLAN wechseln muss.</small></p>
+<p id="handoffInfo">Falls du das WLAN gewechselt hast: Rechner oder Handy mit dem neuen WLAN verbinden.</p>
+<p>Neue FY-Adresse: <strong id="newIp"></strong></p>
+<p><a id="homeLink" href="/">Das FY-Bedienpult öffnen</a></p>
+<p><small>Alternativ: <code>http://fy-uvb.local/</code> nach dem WLAN-Wechsel aufrufen.</small></p>
 </div>
 </section>
 <p><small>Es wird jeweils nur ein WLAN gespeichert. Neue Zugangsdaten ersetzen nach erfolgreichem Verbindungstest die bisherige Verbindung.</small></p>
 </main>
 <script>
 const el=id=>document.getElementById(id);
+let wasSubmitted=false;
+let allowSsidPrefill=true;
+el('ssid').addEventListener('input',()=>{allowSsidPrefill=false;});
 async function update(){
  try{
   const r=await fetch('/api/v1/network/status',{cache:'no-store'});
+  if(!r.ok) throw Error('HTTP '+r.status);
   const n=await r.json();
   el('state').textContent=n.connected?'Verbunden · IP '+n.ip:'Keine Verbindung zum Heimnetz';
   el('identity').textContent='SSID: '+(n.ssid||'nicht eingerichtet')+(n.connected?' · '+n.rssi+' dBm':'');
   el('setup').textContent=n.setup_active?'Einrichtungs-WLAN: '+n.setup_ssid:'Einrichtungs-WLAN: aus';
-  el('activate').disabled=n.setup_active;
-  el('save').disabled=!n.setup_client||n.pending;
+  el('activate').disabled=n.setup_active||n.pending;
+  el('save').disabled=n.pending||(!n.setup_client&&!n.connected);
+  if(allowSsidPrefill&&n.ssid)el('ssid').value=n.ssid;
   el('handoff').hidden=!(n.result==='saved'&&n.connected);
   if(!el('handoff').hidden){
     el('homeLink').href='http://'+n.ip+'/';
+    el('newIp').textContent=n.ip;
+    el('handoffInfo').textContent=n.setup_client
+      ? 'Bitte mit dem neu eingerichteten WLAN verbinden.'
+      : 'Bei einem WLAN-Wechsel den Rechner oder das Handy mit dem neuen WLAN verbinden.';
   }
-  if(!n.setup_client && n.result!=='saved') el('result').textContent='Zum Ändern bitte mit dem Einrichtungs-WLAN verbinden.';
-  else if(n.pending) el('result').textContent='Neue WLAN-Verbindung wird geprüft …';
-  else if(n.result==='failed') el('result').textContent='Verbindung fehlgeschlagen; alte Zugangsdaten bleiben erhalten.';
-  else if(n.result==='saved') el('result').textContent='Zugangsdaten gespeichert. Bitte ins Heim-WLAN wechseln.';
-  else if(n.result==='storage_error') el('result').textContent='Fehler beim Speichern. Bitte nochmals versuchen.';
- }catch(e){el('state').textContent='Netzwerkstatus nicht erreichbar';}
+  if(n.pending)el('result').textContent='Neue WLAN-Verbindung wird geprüft …';
+  else if(n.result==='failed')el('result').textContent='Verbindung fehlgeschlagen; alte Zugangsdaten bleiben erhalten.';
+  else if(n.result==='saved')el('result').textContent='Neue Zugangsdaten gespeichert.';
+  else if(n.result==='storage_error')el('result').textContent='Speichern fehlgeschlagen; bitte erneut versuchen.';
+  else if(!n.setup_client&&!n.connected)el('result').textContent='Zum Einrichten mit dem FY-Einrichtungs-WLAN verbinden.';
+ }catch(e){
+   el('state').textContent='Keine Verbindung zum FY.';
+   if(wasSubmitted)el('result').textContent=
+     'Die Verbindung zum bisherigen WLAN ist unterbrochen. Bitte mit dem neuen WLAN verbinden und http://fy-uvb.local/network erneut öffnen. Die neue IP wird auch seriell ausgegeben. Falls die Verbindung nicht klappt, kehrt der FY zum bisherigen WLAN zurück.';
+ }
 }
 el('activate').addEventListener('click',async()=>{
- const r=await fetch('/api/v1/network/setup',{method:'POST'});
- el('result').textContent=r.ok?'Einrichtungs-WLAN aktiviert. Passwort im seriellen Monitor ablesen.':'Einrichtungs-WLAN konnte nicht aktiviert werden (Bühne muss stehen).';
+ try{
+  const r=await fetch('/api/v1/network/setup',{method:'POST'});
+  el('result').textContent=r.ok
+    ?'Einrichtungs-WLAN aktiviert. Passwort im seriellen Monitor ablesen.'
+    :'Einrichtungs-WLAN konnte nicht aktiviert werden (Bühne muss stehen).';
+ }catch(e){el('result').textContent='Keine Verbindung zum FY.';}
  update();
 });
 el('config').addEventListener('submit',async e=>{
  e.preventDefault();
+ if(!confirm('Neues WLAN jetzt testen? Die Verbindung zu dieser Seite kann während des Wechsels abbrechen.'))return;
  const body=new URLSearchParams({ssid:el('ssid').value,psk:el('psk').value});
  el('psk').value='';
- const r=await fetch('/api/v1/network/apply',{method:'POST',body});
- el('result').textContent=r.ok?'Verbindungstest läuft; die bisherigen Daten bleiben zunächst erhalten.':'Eingabe abgelehnt (nur über Einrichtungs-WLAN bei Stillstand).';
+ wasSubmitted=true;
+ el('result').textContent='Verbindungstest angefordert …';
+ try{
+  const r=await fetch('/api/v1/network/apply',{method:'POST',body});
+  el('result').textContent=r.ok
+    ?'Verbindungstest läuft. Bei einem WLAN-Wechsel bitte auf das neue WLAN umschalten und diese Seite erneut öffnen.'
+    :'Änderung abgelehnt. Nur im lokalen Netzwerk bei stillstehender Bühne möglich.';
+ }catch(e){
+  el('result').textContent='Verbindung abgebrochen. Eventuell wurde das WLAN bereits gewechselt. Bitte im neuen WLAN http://fy-uvb.local/network öffnen.';
+ }
  update();
 });
 update();setInterval(update,2000);
