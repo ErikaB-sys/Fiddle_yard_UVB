@@ -97,6 +97,14 @@ bool isSetupClient() {
     return setupApActive && webServer.client().localIP() == WiFi.softAPIP();
 }
 
+/** @brief Erlaubt Konfiguration auch direkt im privaten Heim-WLAN.
+ * @warning Ohne HTTPS/Administrator-Authentifizierung; nur vertrautes LAN.
+ */
+bool isStationClient() {
+    return WiFi.status() == WL_CONNECTED &&
+           webServer.client().localIP() == WiFi.localIP();
+}
+
 /** @brief Startet ein WPA2-geschuetztes, nur lokal lesbar dokumentiertes Setup-WLAN. */
 bool startSetupAp() {
     if (setupApActive) return true;
@@ -114,7 +122,7 @@ bool startSetupAp() {
     }
     setupApActive = true;
     setupApStartedMs = millis();
-    networkResult = "idle";
+    // Fehlerstatus beim automatischen Recovery nicht ueberschreiben.
     Serial.print(F("[NET] Setup-SSID: "));
     Serial.println(setupApSsid);
     Serial.print(F("[NET] Setup-Passwort (nur UART): "));
@@ -519,10 +527,10 @@ void configureRoutes() {
                        ok ? "SETUP_AP_STARTED" : "SETUP_FAILED");
     });
     webServer.on("/api/v1/network/apply", HTTP_POST, []() {
-        // Zugangsdaten werden ausschliesslich ueber das passwortgeschuetzte
-        // AP-Interface angenommen, nicht ueber den normalen HTTP-Bedienport.
-        if (!isSetupClient()) {
-            webServer.send(403, "text/plain", "SETUP_AP_ONLY");
+        // Normaler Wechsel direkt im privaten LAN, Recovery weiterhin per
+        // WPA2-Setup-AP. Die Konfiguration laeuft ueber HTTP (ohne TLS).
+        if (!isSetupClient() && !isStationClient()) {
+            webServer.send(403, "text/plain", "LOCAL_NETWORK_ONLY");
             return;
         }
         if (!controlStandstill() || pendingNetworkTest) {
