@@ -25,12 +25,7 @@ und kein weiteres PC-Programm erforderlich.
 
 ## Update aus VS Code
 
-1. Falls notwendig zuerst `PlatformIO: Build` ausfuehren; der OTA-Task
-   baut die Firmware auch selbst bei Aenderungen.
-2. Direkt an der FY: Motor stoppen (STOP verriegelt, Treiber AUS),
-   die **rote STOP-Taste drei Sekunden halten**. Das gibt OTA 120 s
-   frei. Die Physik-Interlocks bleiben unveraendert.
-3. In VS Code `PlatformIO > Project Tasks > esp32dev >
+1. In VS Code `PlatformIO > Project Tasks > esp32dev >
    Custom > OTA Upload` waehlen.
    Alternativ im `FY_ESP32`-Projektverzeichnis:
 
@@ -38,6 +33,14 @@ und kein weiteres PC-Programm erforderlich.
    pio run -e esp32dev -t ota
    ```
 
+2. **Zuerst** wird die Firmware gebaut (bei unveraendertem Projekt
+   wird der vorhandene Build verwendet). Deshalb die physische
+   Freigabe **noch nicht vorher** ausloesen.
+3. Sobald im Terminal `Jetzt an der FY die rote STOP-Taste 3 Sekunden
+   halten` erscheint, an der FY den Motor stoppen und die
+   **rote STOP-Taste drei Sekunden halten**. Die OTA-Freigabe
+   gilt 120 Sekunden; das Programm wartet maximal 90 Sekunden auf
+   die Freigabe und startet danach selbststaendig die Uebertragung.
 4. Das Terminal zeigt den Ziel-Hostnamen, die per Netzwerkstatus gelesene
    STA-MAC, den Uebertragungsfortschritt und zum Abschluss den
    bestaetigten HTTP-OTA-Erfolg an.
@@ -45,6 +48,21 @@ und kein weiteres PC-Programm erforderlich.
    an den ESP32 uebergeben; der FY startet anschliessend neu.
    Bei Verbindungsfehlern wird **kein** automatischer Wiederholversuch
    vorgenommen. Den tatsaechlichen Firmware-Status am FY kontrollieren.
+
+### Targetregistrierung pruefen
+
+Bei `Do not know how to make File target 'ota'` ist kein Upload
+gestartet. Zuerst den aktuellen Stand des Entwicklungsbranches
+laden und dann die registrierten Targets auflisten:
+
+```bash
+pio run -e esp32dev --list-targets
+```
+
+Unter den benutzerdefinierten Targets muss `ota` erscheinen.
+Fehlt der Eintrag, sicherstellen, dass die lokale
+`platformio.ini` das `post:scripts/pio_ota_target.py`
+enthält und `FY_ESP32/scripts/pio_ota_target.py` vorhanden ist.
 
 ## Abgrenzung
 
