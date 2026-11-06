@@ -1,3 +1,53 @@
+# HTTP-Babelfisch – Stand Web 3.0.0 / Netzwerkkonfiguration in Entwicklung
+
+> **Experimenteller Branch:** `feature/FY_ESP32_Network_Config` (Issue #188).
+> Die nachfolgende Netzwerkfunktion ist noch nicht gebaut/auf HW3 abgenommen
+> und darf erst nach erfolgreichem Test nach `main` gemergt werden.
+
+## Netzwerk-Konfiguration ohne einkompilierte Zugangsdaten (neu)
+
+- **Keine `WiFi_Secrets.h` mehr erforderlich.** `httpTask` startet auch bei
+  fehlenden Zugangsdaten und startet dann ein WPA2-gesichertes Setup-WLAN.
+- Die neue `/network`-Seite ist von `/diagnostics` verlinkt. Das Formular
+  fuer neue SSID und Passwort laesst sich **nur ueber das Setup-WLAN** absenden.
+- Setup-SSID, zufaellig erzeugtes Setup-Passwort und die URL
+  `http://192.168.4.1/network` erscheinen am seriellen Monitor (115200 Baud).
+  Das echte WLAN-Passwort erscheint weder im UART-Log noch in einer Antwort.
+- Bei bestehender Heimnetzverbindung kann das Setup-WLAN ueber den Button
+  **Einrichtungs-WLAN aktivieren** geoeffnet werden, ausschliesslich bei
+  stillstehender Buehne. Ein aktiver Setup-AP ermoeglicht keine FY-Fahrbefehle.
+  STOP bleibt als Prioritaetsbefehl verfuegbar.
+- Neue Zugangsdaten werden zunaechst **getestet** und nur nach erfolgreichem
+  STA-Connect und im Stillstand in einem eigenen NVS-Namespace
+  `fy_wifi` gespeichert (CRC-gesicherter, atomarer Record); die bestehenden
+  Motor-, Kalibrier- und Gleis-Records im Namespace `fy_uvb` bleiben unberuehrt.
+- Bei gescheitertem Test wird das alte WLAN wieder verwendet; ohne
+  funktionierende Heimnetzverbindung steht der Setup-AP als Recovery bereit.
+- Setup-AP wird nach erfolgreicher Speicherung mit kurzer Verzoegerung
+  geschlossen; unbenutzter AP wird bei bestehender WLAN-Verbindung automatisch
+  nach einer Frist geschlossen.
+- Nicht fuer fremde/unvertrauenswuerdige LANs vorgesehen: normales Web-HTTP
+  bleibt unverschluesselt; Netzwerk-Administration ist deshalb an das
+  separat passwortgeschuetzte Setup-WLAN gebunden.
+- **Oeffentliche Releases:** Ausschliesslich generische Firmware erzeugen;
+  keine persoenlichen SSIDs/Passwoerter im Binary veroeffentlichen.
+
+## HW3-Abnahme vor Merge
+
+1. Neues Geraet ohne Daten: Setup-AP, zufaelliges Passwort, Netzwerkseite.
+2. Gueltige Zugangsdaten: Verbindung, IP ueber UART, Speichern im NVS;
+   Neustart laedt Daten ohne Neukompilieren.
+3. Falsches Passwort: Abbruch und Wiederherstellung der bisherigen Verbindung,
+   Setup-AP bleibt erreichbar.
+4. Netzwerkausfall/Routerwechsel: lokaler Motorbetrieb funktioniert weiter,
+   Recovery-AP steht zur Verfuegung.
+5. AP-Zugriff auf `/api/v1/command` und `/api/v1/mode` wird abgelehnt;
+   lokale STOP-/GO-Tasten und bestehende Webbedienung im Heimnetz bleiben korrekt.
+6. Gespeicherte Gleispositionen, Motorparameter und Referenzdaten bleiben nach
+   Netzwerkwechsel erhalten.
+
+---
+
 # HTTP-Babelfisch – HW3-Stand 03.11.2026
 
 **Abgenommen im realen HW3-Test:** gemeinsamer Motorstatus, Web-Fahrbefehle, Diagnose, LOCAL/REMOTE-Bedienhoheit, Ein-Browser-Verriegelung, automatische Rueckgabe an LOCAL beim WLAN-/Verbindungsverlust sowie STOP ueber die erprobten Bedienwege. **AUTO/JMRI und OTA sind noch nicht implementiert.**
