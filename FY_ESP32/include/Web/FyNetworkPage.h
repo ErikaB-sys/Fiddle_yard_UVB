@@ -51,6 +51,12 @@ Das bisherige WLAN bleibt im Speicher, bis das neue erfolgreich verbunden wurde.
 <button id="save" type="submit">Verbindung testen und übernehmen</button>
 </form>
 <p id="result" role="status"></p>
+<div id="handoff" hidden>
+<p><strong>Verbindung erfolgreich eingerichtet!</strong></p>
+<p>Jetzt den Rechner oder das Handy wieder mit dem normalen Heim-WLAN verbinden.</p>
+<p>Danach <a id="homeLink" href="/">das FY-Bedienpult im Heimnetz öffnen</a>.</p>
+<p><small>Das Einrichtungs-WLAN wird nach einer kurzen Übergangszeit beendet. Die automatische Weiterleitung ist hier nicht sinnvoll, da dein Gerät zunächst das WLAN wechseln muss.</small></p>
+</div>
 </section>
 <p><small>Die Zugangsdaten werden im separaten Netzwerk-NVS abgelegt, niemals als Firmware-Konstanten.</small></p>
 </main>
@@ -65,10 +71,15 @@ async function update(){
   el('setup').textContent=n.setup_active?'Einrichtungs-WLAN: '+n.setup_ssid:'Einrichtungs-WLAN: aus';
   el('activate').disabled=n.setup_active;
   el('save').disabled=!n.setup_client||n.pending;
-  if(!n.setup_client) el('result').textContent='Zum Ändern bitte mit dem Einrichtungs-WLAN verbinden.';
+  el('handoff').hidden=!(n.result==='saved'&&n.connected);
+  if(!el('handoff').hidden){
+    el('homeLink').href='http://'+n.ip+'/';
+  }
+  if(!n.setup_client && n.result!=='saved') el('result').textContent='Zum Ändern bitte mit dem Einrichtungs-WLAN verbinden.';
   else if(n.pending) el('result').textContent='Neue WLAN-Verbindung wird geprüft …';
   else if(n.result==='failed') el('result').textContent='Verbindung fehlgeschlagen; alte Zugangsdaten bleiben erhalten.';
-  else if(n.result==='saved') el('result').textContent='Neue Zugangsdaten gespeichert.';
+  else if(n.result==='saved') el('result').textContent='Zugangsdaten gespeichert. Bitte ins Heim-WLAN wechseln.';
+  else if(n.result==='storage_error') el('result').textContent='Fehler beim Speichern. Bitte nochmals versuchen.';
  }catch(e){el('state').textContent='Netzwerkstatus nicht erreichbar';}
 }
 el('activate').addEventListener('click',async()=>{
