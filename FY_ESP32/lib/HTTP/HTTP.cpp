@@ -30,7 +30,8 @@ namespace fy {
 namespace {
 constexpr char kHostname[] = "fy-uvb";
 constexpr uint32_t kWiFiRetryMs = 20000UL;
-constexpr uint32_t kSetupApGraceMs = 20000UL;
+constexpr uint32_t kSetupApGraceMs = 15UL * 60UL * 1000UL;
+constexpr uint32_t kSetupAfterSaveMs = 20000UL;
 constexpr uint32_t kUnknownPosition = 0x00007FFFUL;
 constexpr UBaseType_t kTraceDepth = 16;
 constexpr uint32_t kHttpSequenceMask = 0x3FFFFFFFUL;
@@ -113,6 +114,7 @@ bool startSetupAp() {
     }
     setupApActive = true;
     setupApStartedMs = millis();
+    networkResult = "idle";
     Serial.print(F("[NET] Setup-SSID: "));
     Serial.println(setupApSsid);
     Serial.print(F("[NET] Setup-Passwort (nur UART): "));
@@ -125,7 +127,9 @@ bool startSetupAp() {
 
 void stopSetupAp() {
     if (!setupApActive) return;
-    WiFi.softAPdisconnect(true);
+    WiFi.softAPdisconnect(false);
+    // STA muss weiterlaufen; softAPdisconnect(true) koennte das Radio abschalten.
+    WiFi.mode(WIFI_STA);
     setupApActive = false;
     setupApPassword[0] = '\0';
     Serial.println(F("[NET] Setup-AP beendet"));
@@ -794,7 +798,9 @@ void httpTask(void*) {
             (void)startSetupAp();
         }
         if (online && setupApActive && !pendingNetworkTest &&
-            static_cast<uint32_t>(now - connectedSince) >= kSetupApGraceMs) {
+            ((std::strcmp(networkResult, "saved") == 0 &&
+              static_cast<uint32_t>(now - connectedSince) >= kSetupAfterSaveMs) ||
+             static_cast<uint32_t>(now - setupApStartedMs) >= kSetupApGraceMs)) {
             stopSetupAp();
         }
 
