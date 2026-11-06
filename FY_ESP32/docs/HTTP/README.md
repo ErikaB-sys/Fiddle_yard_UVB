@@ -1,10 +1,13 @@
-# HTTP-Babelfisch – Stand Web 3.0.0 / Netzwerkkonfiguration in Entwicklung
+# HTTP-Babelfisch – WLAN-Konfiguration 3.1.0 / HW3-Abnahme 06.11.2026
 
-> **Experimenteller Branch:** `feature/FY_ESP32_Network_Config` (Issue #188).
-> **Erster HW3-Test (06.11.2026):** Clean Build mit RAM 14,8 % und
-> Flash 70,3 %, Initialeinrichtung sowie NVS-Erhalt ueber POR bestaetigt.
-> Der nachfolgende direkte WLAN-Wechsel ist neu und noch nicht getestet.
-> Erst nach Regressionstests nach `main` mergen.
+> **HW3-Abnahme (06.11.2026):** Build erfolgreich (RAM 14,9 % /
+> 48.664 B; Flash 70,5 % / 924.309 B). Ersteinrichtung, direkte
+> Netzwerkaenderung im Heimnetz, NVS-Persistenz ueber POR, Rueckkehr zum
+> bisherigen WLAN bei fehlgeschlagener Anmeldung und Setup-AP-Rettungsweg
+> wurden von der Nutzerin erfolgreich getestet.
+> **Hinweis:** Aenderung der Netzwerk-Zugangsdaten per HTTP ist nur fuer
+> vertraute lokale Netze vorgesehen; separate Admin-Authentifizierung
+> ist fuer spaeteren Sicherheits-/Komfortcheck in Issue #187 notiert.
 
 ## Netzwerk-Konfiguration ohne einkompilierte Zugangsdaten (neu)
 
