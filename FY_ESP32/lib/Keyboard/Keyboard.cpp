@@ -6,6 +6,8 @@
 #include "Motor.h"
 #include "CommandRouter.h"
 #include "HTTP.h"
+#include "OtaGuard.h"
+#include <cstdio>
 
 namespace fy {
 namespace {
@@ -34,6 +36,8 @@ uint8_t kbTrack = 3U;
 uint32_t kbSeq = 0U;
 uint32_t kbAwaitSeq = 0U;
 bool kbWaiting = false;
+uint32_t kbStopHoldStartMs = 0U;
+bool kbOtaArmHandled = false;
 
 void keyboardShow();
 
@@ -128,6 +132,25 @@ void updateStatusLeds() {
 void keyboardShow() {
     if (!kbOledReady) return;
     kbDisplay.clearBuffer();
+    if (OtaGuard_active()) {
+        char progressText[25]{};
+        std::snprintf(progressText, sizeof(progressText), "Fortschritt: %3u %%",
+                      static_cast<unsigned>(OtaGuard_progress()));
+        kbDisplay.drawStr(0, 0, "FY UVB / OTA");
+        kbDisplay.drawStr(0, 8, "FLASH UPDATE");
+        kbDisplay.drawStr(0, 16, progressText);
+        kbDisplay.drawStr(0, 24, "MOTOR GESPERRT");
+        kbDisplay.sendBuffer();
+        return;
+    }
+    if (OtaGuard_isArmed()) {
+        kbDisplay.drawStr(0, 0, "FY UVB / OTA");
+        kbDisplay.drawStr(0, 8, "UPDATE FREIGEGEBEN");
+        kbDisplay.drawStr(0, 16, "Browser: /ota");
+        kbDisplay.drawStr(0, 24, "STOP bleibt aktiv");
+        kbDisplay.sendBuffer();
+        return;
+    }
     const ControlMode mode = HTTP_controlMode();
     if (mode != ControlMode::LOCAL) {
         kbDisplay.drawStr(0, 0, "FY UVB / FERN");
@@ -250,11 +273,31 @@ void keyboardScanButtons() {
         kbLastChangeMs = now;
         return;
     }
-    if ((now - kbLastChangeMs) < 25U || active == kbStable) return;
+    if ((now - kbLastChangeMs) < 25U) return;
+    if (active == kbStable) {
+        // Nur die seit einer echten neuen Flanke gehaltene rote STOP-Taste
+        // kann OTA freigeben. Bereits beim Boot gehaltene Tasten gelten nicht.
+        if (active == 0x01U && kbStopHoldStartMs != 0U &&
+            !kbOtaArmHandled &&
+            static_cast<uint32_t>(now - kbStopHoldStartMs) >= 3000UL) {
+            kbOtaArmHandled = true;
+            if (OtaGuard_armFromStop()) {
+                Serial.println(F("[OTA] Physischer STOP: Update fuer 120 s freigegeben"));
+                keyboardShow();
+            }
+        }
+        return;
+    }
     const uint8_t previous = kbStable;
     const uint8_t pressed = static_cast<uint8_t>(active & ~previous);
     kbStable = active;
+    if (active != 0x01U) {
+        kbStopHoldStartMs = 0U;
+        kbOtaArmHandled = false;
+    }
     if ((pressed & 0x01U) != 0U) {
+        kbStopHoldStartMs = now;
+        kbOtaArmHandled = false;
         kbWaiting = false;
         kbMenu = Menu::LOCKED;
         if (!sendLocal(CMD_STOPP, 0x55U, 0xAAU, true))
@@ -431,6 +474,20 @@ void Keyboard_poll() {
     syncMenuWithMotor();
     keyboardScanButtons();
     progress();
+    // Anzeige nur bei echtem Zustands- oder Fortschrittswechsel erneuern.
+    static bool shownArmed = false;
+    static bool shownActive = false;
+    static uint8_t shownStep = 255U;
+    const bool armed = OtaGuard_isArmed();
+    const bool active = OtaGuard_active();
+    const uint8_t step = active ? static_cast<uint8_t>(OtaGuard_progress() / 5U)
+                                : 255U;
+    if (armed != shownArmed || active != shownActive || step != shownStep) {
+        shownArmed = armed;
+        shownActive = active;
+        shownStep = step;
+        keyboardShow();
+    }
     updateStatusLeds();
 }
 } // namespace fy

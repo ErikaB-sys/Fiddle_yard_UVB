@@ -4,6 +4,7 @@
 #include "HW_Config.h"
 #include "Error.h"
 #include "NVM.h"
+#include "OtaGuard.h"
 #include <freertos/task.h>
 #include <atomic>
 
@@ -927,7 +928,7 @@ void Muninn_motorTask(void* arg) {
             // dagegen nur aus der tatsaechlich verriegelten Ruhelage zulaessig.
             // Sonst koennte eine spaete Web-Entriegelung eine aktive Fahrt
             // abbrechen und die Referenz unbeabsichtigt verwerfen.
-            if (release && (!stopActive || motorMoving.load(std::memory_order_acquire) ||
+            if (release && (OtaGuard_active() || !stopActive || motorMoving.load(std::memory_order_acquire) ||
                             stepTimerRunning() || motor.referenceActive() ||
                             realTrackProfileActive ||
                             motor.state() != MotorState_t::STOPPED)) {
@@ -1143,6 +1144,11 @@ void Muninn_motorTask(void* arg) {
         }
         if (xQueueReceive(context->commands, &cmd, pdMS_TO_TICKS(2)) != pdTRUE)
             continue;
+        // Auftraege aus der Zeit vor OTA duerfen die Sperre nicht umgehen.
+        if (OtaGuard_active()) {
+            emit(context, cmd, false, nackData(NackReason::BUSY));
+            continue;
+        }
 
         // Nano-GO/STOP-Freigabeverhalten bleibt erhalten;
         // der MOVE-Testpfad darf eine begrenzte STEP-Fahrt starten.

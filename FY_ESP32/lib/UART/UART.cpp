@@ -4,6 +4,7 @@
 #include "Keyboard.h"
 #include "HTTP.h"
 #include "CommandRouter.h"
+#include "OtaGuard.h"
 #include <freertos/task.h>
 #include <cstring>
 
@@ -34,6 +35,52 @@ constexpr uint8_t kErrorTelegram = FY_ERROR_LOCATION_UART | 0x06U;
 constexpr uint8_t kErrorCrc = FY_ERROR_LOCATION_UART | 0x07U;
 constexpr uint32_t kPositionUnknown = 0x00007FFFU; // Unbekannte Position gemaess Nano-Protokoll.
 
+#if defined(FY_OTA_BENCH_TEST_ARM) && FY_OTA_BENCH_TEST_ARM
+// Nur im expliziten USB-Tischmuster-Build: '!OTA ARM' als eigene
+// lokale Terminal-Zeile vor dem unveraenderten BabelFish-Parser abfangen.
+bool benchAtLineStart = true;
+bool benchLineActive = false;
+char benchLine[20]{};
+size_t benchLineLength = 0U;
+
+bool handleBenchOtaByte(char c) {
+    if (!benchLineActive) {
+        if (benchAtLineStart && c == '!') {
+            benchLineActive = true;
+            benchAtLineStart = false;
+            benchLineLength = 0U;
+            benchLine[benchLineLength++] = c;
+            return true;
+        }
+        benchAtLineStart = c == '\r' || c == '\n';
+        return false;
+    }
+    if (c == '\r' || c == '\n') {
+        benchLine[benchLineLength] = '\0';
+        const bool valid = std::strcmp(benchLine, "!OTA ARM") == 0;
+        Serial.println();
+        if (!valid) {
+            Serial.println(F("[OTA] Unbekannter Tischmuster-Befehl"));
+        } else if (OtaGuard_armFromBenchSerial()) {
+            Serial.println(F("[OTA] BENCH: Freigabe 120 s, Browser /ota"));
+        } else {
+            Serial.println(F("[OTA] BENCH: Abgelehnt (STOP verriegeln, Treiber AUS, Stillstand)"));
+        }
+        benchLineActive = false;
+        benchAtLineStart = true;
+        benchLineLength = 0U;
+        return true;
+    }
+    // Begrenzter Puffer; ueberlange Sonderzeilen koennen keinen Befehl bilden.
+    if (benchLineLength + 1U < sizeof(benchLine)) {
+        benchLine[benchLineLength++] = c;
+    } else {
+        benchLine[0] = '?';
+    }
+    return true;
+}
+#endif
+
 // Nano-Befehlstabelle unveraendert lassen. MOVE ist eine eigene
 // ESP32-Erweiterung; LEFT und RIGHT erhalten keine neue Bedeutung.
 constexpr CommandDefinition kMoveDefinition{
@@ -61,6 +108,10 @@ void UART::begin(BringupContext* context) {
     Serial.println(F("FY ESP32: Huginn UART ready; Muninn motor task configured"));
     Serial.println(F("HW3 REF: 01=LONG calibration; 00=SHORT with saved calibration"));
     Serial.println(F("FY ESP32: motor/REF status via STATUS 20 / STATUS 30"));
+#if defined(FY_OTA_BENCH_TEST_ARM) && FY_OTA_BENCH_TEST_ARM
+    Serial.println(F("[OTA] WARNUNG: TISCHMUSTER-BUILD, NICHT FUER FY-HW!"));
+    Serial.println(F("[OTA] USB-Seriell: !OTA ARM <ENTER> fuer 120 s"));
+#endif
 }
 
 void UART::update() {
@@ -75,9 +126,15 @@ void UART::update() {
 
 void UART::receive() {
     while (Serial.available() > 0) {
+        const char received = static_cast<char>(Serial.read());
+#if defined(FY_OTA_BENCH_TEST_ARM) && FY_OTA_BENCH_TEST_ARM
+        // Die Ausnahme betrifft nur explizite '!' Zeilen am Zeilenanfang.
+        // Alle anderen Bytes gehen wie bisher an BabelFish.
+        if (handleBenchOtaByte(received)) continue;
+#endif
         BabelFishCommand_t decoded{};
         const BabelFishResult result =
-            _babelFish.process(static_cast<char>(Serial.read()), decoded);
+            _babelFish.process(received, decoded);
         if (result == BabelFishResult::NONE) continue;
         if (result == BabelFishResult::INVALID) {
             _errors.setError(kErrorTelegram);
