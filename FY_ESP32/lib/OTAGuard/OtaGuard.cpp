@@ -24,6 +24,14 @@ bool OtaGuard_armFromStop() {
     return true;
 }
 
+#if defined(FY_OTA_BENCH_TEST_ARM) && FY_OTA_BENCH_TEST_ARM
+bool OtaGuard_armFromBenchSerial() {
+    // Exakt dieselben Motorbedingungen wie bei physischem STOP.
+    // Lediglich die Quellenfreigabe (USB statt Taste) unterscheidet sich.
+    return OtaGuard_armFromStop();
+}
+#endif
+
 uint32_t OtaGuard_armRemainingMs() {
     if (otaLocked.load(std::memory_order_acquire)) return 0U;
     const uint32_t until = armDeadline.load(std::memory_order_acquire);
