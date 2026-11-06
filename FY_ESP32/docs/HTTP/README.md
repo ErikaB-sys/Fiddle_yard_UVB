@@ -1,15 +1,24 @@
 # HTTP-Babelfisch – Stand Web 3.0.0 / Netzwerkkonfiguration in Entwicklung
 
 > **Experimenteller Branch:** `feature/FY_ESP32_Network_Config` (Issue #188).
-> Die nachfolgende Netzwerkfunktion ist noch nicht gebaut/auf HW3 abgenommen
-> und darf erst nach erfolgreichem Test nach `main` gemergt werden.
+> **Erster HW3-Test (06.11.2026):** Clean Build mit RAM 14,8 % und
+> Flash 70,3 %, Initialeinrichtung sowie NVS-Erhalt ueber POR bestaetigt.
+> Der nachfolgende direkte WLAN-Wechsel ist neu und noch nicht getestet.
+> Erst nach Regressionstests nach `main` mergen.
 
 ## Netzwerk-Konfiguration ohne einkompilierte Zugangsdaten (neu)
 
 - **Keine `WiFi_Secrets.h` mehr erforderlich.** `httpTask` startet auch bei
   fehlenden Zugangsdaten und startet dann ein WPA2-gesichertes Setup-WLAN.
-- Die neue `/network`-Seite ist von `/diagnostics` verlinkt. Das Formular
-  fuer neue SSID und Passwort laesst sich **nur ueber das Setup-WLAN** absenden.
+- `/network` ist von Bedienpult und Diagnose verlinkt. **Normalfall:**
+  Im bereits verbundenen privaten Heim-WLAN neue SSID und Passwort direkt
+  eingeben und `Verbindung testen und uebernehmen` druecken (Buehne steht).
+  Kein Wechsel ins Setup-WLAN notwendig.
+- Erstinstallation und Recovery laufen weiterhin ueber den WPA2-Setup-AP.
+  Eine neue SSID kann den bestehenden Browser-Zugriff unterbrechen:
+  Geraet ins neue WLAN wechseln und `http://fy-uvb.local/network` neu
+  oeffnen; dort neue IP und Erfolg anzeigen. Die IP steht immer auch im
+  seriellen Monitor. Bei Fehlschlag versucht der FY das alte WLAN wieder.
 - Setup-SSID, zufaellig erzeugtes Setup-Passwort und die URL
   `http://192.168.4.1/network` erscheinen am seriellen Monitor (115200 Baud).
   Das echte WLAN-Passwort erscheint weder im UART-Log noch in einer Antwort.
@@ -26,9 +35,13 @@
 - Setup-AP wird nach erfolgreicher Speicherung mit kurzer Verzoegerung
   geschlossen; unbenutzter AP wird bei bestehender WLAN-Verbindung automatisch
   nach einer Frist geschlossen.
-- Nicht fuer fremde/unvertrauenswuerdige LANs vorgesehen: normales Web-HTTP
-  bleibt unverschluesselt; Netzwerk-Administration ist deshalb an das
-  separat passwortgeschuetzte Setup-WLAN gebunden.
+- **Sicherheitsmodell:** direkte Netzwerkverwaltung im *vertrauenswuerdigen*
+  Modellbahn-/Heim-LAN. HTTP ist weder Ende-zu-Ende verschluesselt noch durch
+  eigenes Administrator-Passwort geschuetzt. Die POST-Routen erfordern einen
+  per Boot zufaellig erzeugten, ueber die lokale Netzwerkseite auslesbaren
+  Anfragetoken gegen browserseitige Cross-Site-POSTs. Das ist **keine**
+  Administrator-Authentifizierung und schuetzt nicht gegen Teilnehmer, die
+  bereits Zugriff aufs LAN haben. Ausbau bei Bedarf in #187.
 - **Oeffentliche Releases:** Ausschliesslich generische Firmware erzeugen;
   keine persoenlichen SSIDs/Passwoerter im Binary veroeffentlichen.
 
@@ -36,14 +49,16 @@
 
 1. Neues Geraet ohne Daten: Setup-AP, zufaelliges Passwort, Netzwerkseite.
 2. Gueltige Zugangsdaten: Verbindung, IP ueber UART, Speichern im NVS;
-   Neustart laedt Daten ohne Neukompilieren.
-3. Falsches Passwort: Abbruch und Wiederherstellung der bisherigen Verbindung,
+   Neustart/POR laedt Daten ohne Neukompilieren (**06.11. bereits getestet**).
+3. Vom bestehenden Heimnetz aus ueber /network neues WLAN setzen: alter
+   Browserzugriff kann abbrechen; auf neuem WLAN IP/Erfolgsstatus ablesen.
+4. Falsches Passwort: Abbruch und Wiederherstellung der bisherigen Verbindung,
    Setup-AP bleibt erreichbar.
-4. Netzwerkausfall/Routerwechsel: lokaler Motorbetrieb funktioniert weiter,
+5. Netzwerkausfall/Routerwechsel: lokaler Motorbetrieb funktioniert weiter,
    Recovery-AP steht zur Verfuegung.
-5. AP-Zugriff auf `/api/v1/command` und `/api/v1/mode` wird abgelehnt;
+6. AP-Zugriff auf `/api/v1/command` und `/api/v1/mode` wird abgelehnt;
    lokale STOP-/GO-Tasten und bestehende Webbedienung im Heimnetz bleiben korrekt.
-6. Gespeicherte Gleispositionen, Motorparameter und Referenzdaten bleiben nach
+7. Gespeicherte Gleispositionen, Motorparameter und Referenzdaten bleiben nach
    Netzwerkwechsel erhalten.
 
 ---
