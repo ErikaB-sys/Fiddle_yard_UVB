@@ -7,6 +7,7 @@ namespace {
 constexpr uint32_t kArmWindowMs = 120000UL;
 std::atomic<uint32_t> armDeadline{0U};
 std::atomic<bool> otaLocked{false};
+std::atomic<uint8_t> otaPercent{0U};
 
 bool stoppedAndDisabled() {
     return Muninn_isStopLatched() &&
@@ -48,12 +49,22 @@ bool OtaGuard_tryLock() {
         return false;
     }
     armDeadline.store(0U, std::memory_order_release);
+    otaPercent.store(0U, std::memory_order_release);
     return true;
 }
 
 void OtaGuard_unlock() {
     otaLocked.store(false, std::memory_order_release);
     armDeadline.store(0U, std::memory_order_release);
+}
+
+void OtaGuard_setProgress(uint8_t percent) {
+    otaPercent.store(percent > 100U ? 100U : percent,
+                     std::memory_order_release);
+}
+
+uint8_t OtaGuard_progress() {
+    return otaPercent.load(std::memory_order_acquire);
 }
 
 bool OtaGuard_active() {
