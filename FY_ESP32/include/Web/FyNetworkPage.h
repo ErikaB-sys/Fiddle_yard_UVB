@@ -58,7 +58,7 @@ Das bisherige WLAN bleibt im Speicher, bis das neue erfolgreich verbunden wurde.
 <p><small>Das Einrichtungs-WLAN wird nach einer kurzen Übergangszeit beendet. Die automatische Weiterleitung ist hier nicht sinnvoll, da dein Gerät zunächst das WLAN wechseln muss.</small></p>
 </div>
 </section>
-<p><small>Die Zugangsdaten werden im separaten Netzwerk-NVS abgelegt, niemals als Firmware-Konstanten.</small></p>
+<p><small>Es wird jeweils nur ein WLAN gespeichert. Neue Zugangsdaten ersetzen nach erfolgreichem Verbindungstest die bisherige Verbindung.</small></p>
 </main>
 <script>
 const el=id=>document.getElementById(id);
