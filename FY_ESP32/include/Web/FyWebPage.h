@@ -157,7 +157,7 @@ a{color:var(--aqua)}
 </div>
 <div class="foot">
 <span id="alignment">Warte auf ESP32-Snapshot …</span>
-<span class="mini"><a href="/diagnostics">Diagnose</a> · <a href="/api/system">Speicher</a> · <a href="/api/status">Netzstatus</a></span>
+<span class="mini"><a href="/network">Netzwerk</a> · <a href="/diagnostics">Diagnose</a></span>
 </div>
 </section>
 </main>

@@ -1,3 +1,71 @@
+# HTTP-Babelfisch – WLAN-Konfiguration 3.1.0 / HW3-Abnahme 06.11.2026
+
+> **HW3-Abnahme (06.11.2026):** Build erfolgreich (RAM 14,9 % /
+> 48.664 B; Flash 70,5 % / 924.309 B). Ersteinrichtung, direkte
+> Netzwerkaenderung im Heimnetz, NVS-Persistenz ueber POR, Rueckkehr zum
+> bisherigen WLAN bei fehlgeschlagener Anmeldung und Setup-AP-Rettungsweg
+> wurden von der Nutzerin erfolgreich getestet.
+> **Hinweis:** Aenderung der Netzwerk-Zugangsdaten per HTTP ist nur fuer
+> vertraute lokale Netze vorgesehen; separate Admin-Authentifizierung
+> ist fuer spaeteren Sicherheits-/Komfortcheck in Issue #187 notiert.
+
+## Netzwerk-Konfiguration ohne einkompilierte Zugangsdaten (neu)
+
+- **Keine `WiFi_Secrets.h` mehr erforderlich.** `httpTask` startet auch bei
+  fehlenden Zugangsdaten und startet dann ein WPA2-gesichertes Setup-WLAN.
+- `/network` ist von Bedienpult und Diagnose verlinkt. **Normalfall:**
+  Im bereits verbundenen privaten Heim-WLAN neue SSID und Passwort direkt
+  eingeben und `Verbindung testen und uebernehmen` druecken (Buehne steht).
+  Kein Wechsel ins Setup-WLAN notwendig.
+- Erstinstallation und Recovery laufen weiterhin ueber den WPA2-Setup-AP.
+  Eine neue SSID kann den bestehenden Browser-Zugriff unterbrechen:
+  Geraet ins neue WLAN wechseln und `http://fy-uvb.local/network` neu
+  oeffnen; dort neue IP und Erfolg anzeigen. Die IP steht immer auch im
+  seriellen Monitor. Bei Fehlschlag versucht der FY das alte WLAN wieder.
+- Setup-SSID, zufaellig erzeugtes Setup-Passwort und die URL
+  `http://192.168.4.1/network` erscheinen am seriellen Monitor (115200 Baud).
+  Das echte WLAN-Passwort erscheint weder im UART-Log noch in einer Antwort.
+- Bei bestehender Heimnetzverbindung kann das Setup-WLAN ueber den Button
+  **Einrichtungs-WLAN aktivieren** geoeffnet werden, ausschliesslich bei
+  stillstehender Buehne. Ein aktiver Setup-AP ermoeglicht keine FY-Fahrbefehle.
+  STOP bleibt als Prioritaetsbefehl verfuegbar.
+- Neue Zugangsdaten werden zunaechst **getestet** und nur nach erfolgreichem
+  STA-Connect und im Stillstand in einem eigenen NVS-Namespace
+  `fy_wifi` gespeichert (CRC-gesicherter, atomarer Record); die bestehenden
+  Motor-, Kalibrier- und Gleis-Records im Namespace `fy_uvb` bleiben unberuehrt.
+- Bei gescheitertem Test wird das alte WLAN wieder verwendet; ohne
+  funktionierende Heimnetzverbindung steht der Setup-AP als Recovery bereit.
+- Setup-AP wird nach erfolgreicher Speicherung mit kurzer Verzoegerung
+  geschlossen; unbenutzter AP wird bei bestehender WLAN-Verbindung automatisch
+  nach einer Frist geschlossen.
+- **Sicherheitsmodell:** direkte Netzwerkverwaltung im *vertrauenswuerdigen*
+  Modellbahn-/Heim-LAN. HTTP ist weder Ende-zu-Ende verschluesselt noch durch
+  eigenes Administrator-Passwort geschuetzt. Die POST-Routen erfordern einen
+  per Boot zufaellig erzeugten, ueber die lokale Netzwerkseite auslesbaren
+  Anfragetoken gegen browserseitige Cross-Site-POSTs. Das ist **keine**
+  Administrator-Authentifizierung und schuetzt nicht gegen Teilnehmer, die
+  bereits Zugriff aufs LAN haben. Ausbau bei Bedarf in #187.
+- **Oeffentliche Releases:** Ausschliesslich generische Firmware erzeugen;
+  keine persoenlichen SSIDs/Passwoerter im Binary veroeffentlichen.
+
+## HW3-Abnahme vor Merge
+
+1. Neues Geraet ohne Daten: Setup-AP, zufaelliges Passwort, Netzwerkseite.
+2. Gueltige Zugangsdaten: Verbindung, IP ueber UART, Speichern im NVS;
+   Neustart/POR laedt Daten ohne Neukompilieren (**06.11. bereits getestet**).
+3. Vom bestehenden Heimnetz aus ueber /network neues WLAN setzen: alter
+   Browserzugriff kann abbrechen; auf neuem WLAN IP/Erfolgsstatus ablesen.
+4. Falsches Passwort: Abbruch und Wiederherstellung der bisherigen Verbindung,
+   Setup-AP bleibt erreichbar.
+5. Netzwerkausfall/Routerwechsel: lokaler Motorbetrieb funktioniert weiter,
+   Recovery-AP steht zur Verfuegung.
+6. AP-Zugriff auf `/api/v1/command` und `/api/v1/mode` wird abgelehnt;
+   lokale STOP-/GO-Tasten und bestehende Webbedienung im Heimnetz bleiben korrekt.
+7. Gespeicherte Gleispositionen, Motorparameter und Referenzdaten bleiben nach
+   Netzwerkwechsel erhalten.
+
+---
+
 # HTTP-Babelfisch – HW3-Stand 03.11.2026
 
 **Abgenommen im realen HW3-Test:** gemeinsamer Motorstatus, Web-Fahrbefehle, Diagnose, LOCAL/REMOTE-Bedienhoheit, Ein-Browser-Verriegelung, automatische Rueckgabe an LOCAL beim WLAN-/Verbindungsverlust sowie STOP ueber die erprobten Bedienwege. **AUTO/JMRI und OTA sind noch nicht implementiert.**

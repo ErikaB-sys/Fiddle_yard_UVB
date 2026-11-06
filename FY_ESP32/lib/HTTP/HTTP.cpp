@@ -4,6 +4,8 @@
 #include "CommandRouter.h"
 #include "Firmware.h"
 #include "Web/FyDiagPage.h"
+#include "Web/FyNetworkPage.h"
+#include "NetworkSettings.h"
 #include "Web/FyWebPage.h"
 #include <WiFi.h>
 #include <WebServer.h>
@@ -21,19 +23,15 @@
 #define FY_HTTP_WEB_TEST_CONTROL 0
 #endif
 
-// Die Zugangsdaten sind absichtlich lokal, nie im Repository.
-// Ohne Datei bleibt die funktionierende LOCAL-Firmware baubar und betriebsfaehig.
-#if __has_include("WiFi_Secrets.h")
-#include "WiFi_Secrets.h"
-#define FY_HTTP_WIFI_CONFIGURED 1
-#else
-#define FY_HTTP_WIFI_CONFIGURED 0
-#endif
+// WLAN-Zugangsdaten werden ausschliesslich im Netzwerk-NVS gespeichert.
+// Keine WiFi_Secrets.h und keine produktiven Passwoerter im Firmware-Binary.
 
 namespace fy {
 namespace {
 constexpr char kHostname[] = "fy-uvb";
-constexpr uint32_t kWiFiRetryMs = 10000UL;
+constexpr uint32_t kWiFiRetryMs = 20000UL;
+constexpr uint32_t kSetupApGraceMs = 15UL * 60UL * 1000UL;
+constexpr uint32_t kSetupAfterSaveMs = 90000UL; // Zeit fuer Wechsel ins Heim-WLAN
 constexpr uint32_t kUnknownPosition = 0x00007FFFUL;
 constexpr UBaseType_t kTraceDepth = 16;
 constexpr uint32_t kHttpSequenceMask = 0x3FFFFFFFUL;
@@ -61,6 +59,18 @@ constexpr uint32_t kWebLeaseMs = 10000UL;
 std::atomic<uint8_t> controlMode{static_cast<uint8_t>(ControlMode::LOCAL)};
 String ownerToken;
 uint32_t ownerLastSeenMs = 0U;
+// Eigentum ausschliesslich beim Huginn-HTTP-Task; keine Shared-State-Zugriffe.
+NetworkSettings savedNetwork{};
+NetworkSettings pendingNetwork{};
+bool pendingNetworkTest = false;
+bool pendingNetworkStarted = false;
+uint32_t pendingNetworkStartMs = 0U;
+bool setupApActive = false;
+uint32_t setupApStartedMs = 0U;
+char setupApPassword[17]{};
+String setupApSsid;
+const char* networkResult = "idle";
+String networkRequestToken; // Zufallstoken gegen browserseitige Cross-Site-POSTs.
 
 /** @brief Entzieht eine abgelaufene Web-Bedienberechtigung. */
 void expireWebLease() {
@@ -82,6 +92,106 @@ bool controlStandstill() {
     const MotorState_t state = Muninn_motorState();
     return !Muninn_isMoving() && state != MotorState_t::MOVING &&
            state != MotorState_t::REFRUN;
+}
+
+bool isSetupClient() {
+    return setupApActive && webServer.client().localIP() == WiFi.softAPIP();
+}
+
+/** @brief Erlaubt Konfiguration auch direkt im privaten Heim-WLAN.
+ * @warning Ohne HTTPS/Administrator-Authentifizierung; nur vertrautes LAN.
+ */
+bool isStationClient() {
+    return WiFi.status() == WL_CONNECTED &&
+           webServer.client().localIP() == WiFi.localIP();
+}
+
+/** @brief Einmaligen Session-Wert nur im eigenen Netzwerkformular ausgeben. */
+bool networkRequestAuthorized() {
+    return networkRequestToken.length() == 16U &&
+           webServer.arg("csrf") == networkRequestToken;
+}
+
+/** @brief Startet ein WPA2-geschuetztes, nur lokal lesbar dokumentiertes Setup-WLAN. */
+bool startSetupAp() {
+    if (setupApActive) return true;
+    char id[7]{};
+    std::snprintf(id, sizeof(id), "%06lx",
+                  static_cast<unsigned long>(ESP.getEfuseMac() & 0xFFFFFFULL));
+    setupApSsid = String("FY-UVB-Setup-") + id;
+    std::snprintf(setupApPassword, sizeof(setupApPassword), "%08lx%08lx",
+                  static_cast<unsigned long>(esp_random()),
+                  static_cast<unsigned long>(esp_random()));
+    WiFi.mode(WIFI_AP_STA);
+    if (!WiFi.softAP(setupApSsid.c_str(), setupApPassword)) {
+        Serial.println(F("[NET] Setup-AP konnte nicht gestartet werden"));
+        return false;
+    }
+    setupApActive = true;
+    setupApStartedMs = millis();
+    // Fehlerstatus beim automatischen Recovery nicht ueberschreiben.
+    Serial.print(F("[NET] Setup-SSID: "));
+    Serial.println(setupApSsid);
+    Serial.print(F("[NET] Setup-Passwort (nur UART): "));
+    Serial.println(setupApPassword);
+    Serial.print(F("[NET] Konfiguration: http://"));
+    Serial.print(WiFi.softAPIP());
+    Serial.println(F("/network"));
+    return true;
+}
+
+void stopSetupAp() {
+    if (!setupApActive) return;
+    WiFi.softAPdisconnect(false);
+    // STA muss weiterlaufen; softAPdisconnect(true) koennte das Radio abschalten.
+    WiFi.mode(WIFI_STA);
+    setupApActive = false;
+    setupApPassword[0] = '\0';
+    Serial.println(F("[NET] Setup-AP beendet"));
+}
+
+/** @brief Nur die SSID ausgeben, nie das reale WLAN-Passwort. */
+String jsonEscape(const String& value) {
+    String out;
+    out.reserve(value.length() + 8U);
+    for (size_t i = 0U; i < value.length(); ++i) {
+        const char c = value[i];
+        if (c == '"' || c == '\\') {
+            out += '\\';
+            out += c;
+        } else if (static_cast<uint8_t>(c) < 0x20U) {
+            out += '?';
+        } else {
+            out += c;
+        }
+    }
+    return out;
+}
+
+String networkStatusJson() {
+    const bool connected = WiFi.status() == WL_CONNECTED;
+    String json = F("{\"connected\":");
+    json += connected ? F("true") : F("false");
+    json += F(",\"ip\":\"");
+    json += connected ? WiFi.localIP().toString() : String("0.0.0.0");
+    json += F("\",\"ssid\":\"");
+    json += jsonEscape(savedNetwork.ssid);
+    json += F("\",\"rssi\":");
+    json += String(connected ? WiFi.RSSI() : 0);
+    json += F(",\"setup_active\":");
+    json += setupApActive ? F("true") : F("false");
+    json += F(",\"setup_ssid\":\"");
+    json += jsonEscape(setupApActive ? setupApSsid : String(""));
+    json += F("\",\"setup_client\":");
+    json += isSetupClient() ? F("true") : F("false");
+    json += F(",\"pending\":");
+    json += pendingNetworkTest ? F("true") : F("false");
+    json += F(",\"result\":\"");
+    json += networkResult;
+    json += F("\",\"csrf\":\"");
+    json += networkRequestToken;
+    json += F("\"}");
+    return json;
 }
 
 
@@ -405,7 +515,56 @@ String diagnosticsJson() {
 void configureRoutes() {
     webServer.on("/", HTTP_GET, []() {
         webServer.sendHeader("Cache-Control", "no-store");
-        webServer.send_P(200, "text/html; charset=utf-8", FY_WEB_PAGE);
+        webServer.send_P(200, "text/html; charset=utf-8",
+                         isSetupClient() ? FY_NETWORK_PAGE : FY_WEB_PAGE);
+    });
+    webServer.on("/network", HTTP_GET, []() {
+        webServer.sendHeader("Cache-Control", "no-store");
+        webServer.send_P(200, "text/html; charset=utf-8", FY_NETWORK_PAGE);
+    });
+    webServer.on("/api/v1/network/status", HTTP_GET, []() {
+        webServer.sendHeader("Cache-Control", "no-store");
+        webServer.send(200, "application/json", networkStatusJson());
+    });
+    webServer.on("/api/v1/network/setup", HTTP_POST, []() {
+        if (!networkRequestAuthorized()) {
+            webServer.send(403, "text/plain", "INVALID_SESSION");
+            return;
+        }
+        if (!controlStandstill() || pendingNetworkTest) {
+            webServer.send(409, "text/plain", "BUSY");
+            return;
+        }
+        const bool ok = startSetupAp();
+        webServer.send(ok ? 200 : 503, "text/plain",
+                       ok ? "SETUP_AP_STARTED" : "SETUP_FAILED");
+    });
+    webServer.on("/api/v1/network/apply", HTTP_POST, []() {
+        if (!networkRequestAuthorized()) {
+            webServer.send(403, "text/plain", "INVALID_SESSION");
+            return;
+        }
+        // Normaler Wechsel direkt im privaten LAN, Recovery weiterhin per
+        // WPA2-Setup-AP. Die Konfiguration laeuft ueber HTTP (ohne TLS).
+        if (!isSetupClient() && !isStationClient()) {
+            webServer.send(403, "text/plain", "LOCAL_NETWORK_ONLY");
+            return;
+        }
+        if (!controlStandstill() || pendingNetworkTest) {
+            webServer.send(409, "text/plain", "BUSY");
+            return;
+        }
+        NetworkSettings candidate{webServer.arg("ssid"), webServer.arg("psk")};
+        if (!NetworkSettings_valid(candidate)) {
+            webServer.send(400, "text/plain", "INVALID_NETWORK_SETTINGS");
+            return;
+        }
+        pendingNetwork = candidate;
+        pendingNetworkTest = true;
+        pendingNetworkStarted = false;
+        networkResult = "testing";
+        webServer.sendHeader("Cache-Control", "no-store");
+        webServer.send(202, "text/plain", "NETWORK_TEST_STARTED");
     });
     webServer.on("/api/v1/status", HTTP_GET, []() {
         webServer.sendHeader("Cache-Control", "no-store");
@@ -420,6 +579,10 @@ void configureRoutes() {
         webServer.send_P(200, "text/html; charset=utf-8", FY_DIAG_PAGE);
     });
     webServer.on("/api/v1/mode", HTTP_POST, []() {
+        if (isSetupClient() || pendingNetworkTest) {
+            webServer.send(423, "text/plain", "NETWORK_SETUP");
+            return;
+        }
         trace("RX", "MODE", nullptr, nullptr, 0U);
         expireWebLease();
         if (!controlStandstill()) {
@@ -461,6 +624,10 @@ void configureRoutes() {
 #endif
     });
     webServer.on("/api/v1/heartbeat", HTTP_POST, []() {
+        if (isSetupClient()) {
+            webServer.send(403, "text/plain", "SETUP_AP_ONLY");
+            return;
+        }
         expireWebLease();
         if (!isWebOwner()) {
             webServer.send(423, "application/json",
@@ -472,6 +639,10 @@ void configureRoutes() {
         webServer.send(200, "application/json", "{\"result\":\"ACK\"}");
     });
     webServer.on("/api/v1/command", HTTP_POST, []() {
+        if (isSetupClient() || pendingNetworkTest) {
+            webServer.send(423, "text/plain", "NETWORK_SETUP");
+            return;
+        }
         const String command = webServer.arg("command");
         const char* name = traceCommand(command);
         const String rawValue = webServer.arg("value");
@@ -564,63 +735,122 @@ void configureRoutes() {
 
 /** @brief WLAN-Verbindung und Server in eigenem Core-0-Task pflegen. */
 void httpTask(void*) {
-#if FY_HTTP_WIFI_CONFIGURED
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(kHostname);
+    char token[17]{};
+    std::snprintf(token, sizeof(token), "%08lx%08lx",
+                  static_cast<unsigned long>(esp_random()),
+                  static_cast<unsigned long>(esp_random()));
+    networkRequestToken = token;
+    const bool hasStoredNetwork = NetworkSettings_load(savedNetwork);
+    Serial.println(hasStoredNetwork ?
+                   F("[NET] WLAN-Daten aus NVS geladen") :
+                   F("[NET] Keine gueltigen WLAN-Daten: Einrichtungsmodus"));
     configureRoutes();
     bool listening = false;
     bool mdns = false;
     bool attempted = false;
     bool wasOnline = false;
     uint32_t lastAttempt = 0U;
+    uint32_t offlineSince = millis();
+    uint32_t connectedSince = 0U;
+    if (!hasStoredNetwork) (void)startSetupAp();
+
     for (;;) {
         const uint32_t now = millis();
         expireWebLease();
+        // Kandidat erst verbinden, danach (im Stillstand) ins NVS uebernehmen.
+        if (pendingNetworkTest && !pendingNetworkStarted) {
+            WiFi.disconnect(false);
+            WiFi.begin(pendingNetwork.ssid.c_str(),
+                       pendingNetwork.password.c_str());
+            pendingNetworkStartMs = now;
+            pendingNetworkStarted = true;
+            attempted = true;
+            lastAttempt = now;
+            Serial.println(F("[NET] Teste neue Zugangsdaten ..."));
+        }
         const bool online = WiFi.status() == WL_CONNECTED;
         if (online != wasOnline) {
             if (online) {
+                connectedSince = now;
                 Serial.print(F("[HTTP] WLAN verbunden, IP: "));
                 Serial.println(WiFi.localIP());
                 Serial.print(F("[HTTP] Web: http://"));
                 Serial.print(WiFi.localIP());
                 Serial.println('/');
             } else {
+                offlineSince = now;
                 Serial.println(F("[HTTP] WLAN-Verbindung verloren"));
             }
             wasOnline = online;
         }
-        if (online) {
-            if (!listening) {
-                webServer.begin();
-                listening = true;
+
+        if (pendingNetworkTest && pendingNetworkStarted) {
+            if (online && WiFi.SSID() == pendingNetwork.ssid &&
+                static_cast<uint32_t>(now - pendingNetworkStartMs) > 750U) {
+                // NVS-Schreiben nur im Stillstand; keine Konkurrenz zur Fahrt.
+                if (controlStandstill()) {
+                    if (NetworkSettings_save(pendingNetwork)) {
+                        savedNetwork = pendingNetwork;
+                        networkResult = "saved";
+                        Serial.println(F("[NET] Neue WLAN-Daten im NVS gespeichert"));
+                    } else {
+                        networkResult = "storage_error";
+                        Serial.println(F("[NET] Fehler beim Speichern der WLAN-Daten"));
+                    }
+                    pendingNetwork = {};
+                    pendingNetworkTest = false;
+                    pendingNetworkStarted = false;
+                    connectedSince = now; // AP erst nach sichtbarer Bestaetigung beenden.
+                }
+            } else if (!online &&
+                       static_cast<uint32_t>(now - pendingNetworkStartMs) >= kWiFiRetryMs) {
+                networkResult = "failed";
+                pendingNetwork = {};
+                pendingNetworkTest = false;
+                pendingNetworkStarted = false;
+                attempted = false; // Gespeicherte Zugangsdaten wieder benutzen.
+                WiFi.disconnect(false);
+                Serial.println(F("[NET] Verbindung fehlgeschlagen; alte Daten beibehalten"));
             }
-            if (!mdns) {
-                mdns = MDNS.begin(kHostname);
-                if (mdns) MDNS.addService("http", "tcp", 80);
-            }
-            webServer.handleClient();
-        } else {
-            if (mdns) {
-                MDNS.end();
-                mdns = false;
-            }
-            if (listening) {
-                webServer.stop();
-                listening = false;
-            }
-            if (!attempted || now - lastAttempt >= kWiFiRetryMs) {
-                // WiFi.begin() kehrt zurueck; keine 15-s-Startwarteschleife.
-                Serial.println(F("[HTTP] WLAN-Verbindungsversuch ..."));
-                WiFi.begin(FY_WIFI_SSID, FY_WIFI_PASSWORD);
-                attempted = true;
-                lastAttempt = now;
-            }
+        } else if (!online && NetworkSettings_valid(savedNetwork) &&
+                   (!attempted || static_cast<uint32_t>(now-lastAttempt) >= kWiFiRetryMs)) {
+            Serial.println(F("[HTTP] WLAN-Verbindungsversuch ..."));
+            WiFi.begin(savedNetwork.ssid.c_str(), savedNetwork.password.c_str());
+            attempted = true;
+            lastAttempt = now;
         }
+
+        if (!online && !setupApActive &&
+            (!NetworkSettings_valid(savedNetwork) ||
+             static_cast<uint32_t>(now - offlineSince) >= kWiFiRetryMs)) {
+            (void)startSetupAp();
+        }
+        if (online && setupApActive && !pendingNetworkTest &&
+            ((std::strcmp(networkResult, "saved") == 0 &&
+              static_cast<uint32_t>(now - connectedSince) >= kSetupAfterSaveMs) ||
+             static_cast<uint32_t>(now - setupApStartedMs) >= kSetupApGraceMs)) {
+            stopSetupAp();
+        }
+
+        if (online && !mdns) {
+            mdns = MDNS.begin(kHostname);
+            if (mdns) MDNS.addService("http", "tcp", 80);
+        } else if (!online && mdns) {
+            MDNS.end();
+            mdns = false;
+        }
+        if ((online || setupApActive) && !listening) {
+            webServer.begin();
+            listening = true;
+        } else if (!online && !setupApActive && listening) {
+            webServer.stop();
+            listening = false;
+        }
+        if (listening) webServer.handleClient();
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-#else
-    vTaskDelete(nullptr);
-#endif
 }
 } // namespace
 
@@ -640,14 +870,9 @@ bool HTTP_prepare(BringupContext* context) {
 BaseType_t Huginn_startHTTP(BringupContext* context) {
     if (context == nullptr || context != httpContext || traceQueue == nullptr)
         return pdFAIL;
-#if FY_HTTP_WIFI_CONFIGURED
     return xTaskCreatePinnedToCore(
         httpTask, "Huginn_HTTP", 8192,
         nullptr, 1, nullptr, CORE_HUGINN);
-#else
-    // Keine Zugangsdaten vorhanden: lokaler Controller laeuft weiter.
-    return pdPASS;
-#endif
 }
 
 void HTTP_flushTrace() {
