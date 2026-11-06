@@ -20,4 +20,7 @@ bool OtaGuard_tryLock();
 void OtaGuard_unlock();
 /** @brief Motor-Task und CommandRouter duerfen nur STOP waehrend OTA annehmen. */
 bool OtaGuard_active();
+/** @brief Nur Anzeigewert 0..100, sicher von beiden Kernen lesbar. */
+void OtaGuard_setProgress(uint8_t percent);
+uint8_t OtaGuard_progress();
 } // namespace fy
