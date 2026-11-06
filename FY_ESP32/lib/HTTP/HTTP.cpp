@@ -6,13 +6,18 @@
 #include "Web/FyDiagPage.h"
 #include "Web/FyNetworkPage.h"
 #include "NetworkSettings.h"
+#include "OtaGuard.h"
+#include "Web/FyOtaPage.h"
 #include "Web/FyWebPage.h"
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
+#include <Update.h>
+#include <esp_ota_ops.h>
 #include <freertos/task.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <atomic>
 #include <esp_system.h>
@@ -37,6 +42,9 @@ constexpr UBaseType_t kTraceDepth = 16;
 constexpr uint32_t kHttpSequenceMask = 0x3FFFFFFFUL;
 constexpr uint32_t kHttpSequenceTag = 0x40000000UL;
 constexpr uint32_t kMotorAckTimeoutMs = 350UL;
+constexpr uint32_t kOtaPrepareTimeoutMs = 30000UL;
+constexpr uint32_t kOtaTransferTimeoutMs = 60000UL;
+constexpr uint32_t kOtaRestartDelayMs = 3000UL;
 
 struct TraceLine {
     char line[124];
@@ -71,6 +79,16 @@ char setupApPassword[17]{};
 String setupApSsid;
 const char* networkResult = "idle";
 String networkRequestToken; // Zufallstoken gegen browserseitige Cross-Site-POSTs.
+bool otaPrepared = false;
+bool otaUploading = false;
+bool otaFinished = false;
+uint32_t otaExpectedBytes = 0U;
+uint32_t otaWrittenBytes = 0U;
+uint32_t otaPreparedAt = 0U;
+uint32_t otaLastChunkAt = 0U;
+uint32_t otaRestartAt = 0U;
+const char* otaResult = "idle";
+const char* otaError = "NONE";
 
 /** @brief Entzieht eine abgelaufene Web-Bedienberechtigung. */
 void expireWebLease() {
@@ -194,6 +212,126 @@ String networkStatusJson() {
     return json;
 }
 
+
+/** @brief Liefert die inaktive OTA-App-Partition, falls vorhanden. */
+const esp_partition_t* otaDestination() {
+    const esp_partition_t* current = esp_ota_get_running_partition();
+    const esp_partition_t* next = esp_ota_get_next_update_partition(nullptr);
+    return current && next && current->address != next->address &&
+           next->type == ESP_PARTITION_TYPE_APP ? next : nullptr;
+}
+
+String otaStatusJson() {
+    const esp_partition_t* dest = otaDestination();
+    const esp_partition_t* current = esp_ota_get_running_partition();
+    String json;
+    json.reserve(320);
+    json += F("{\"firmware\":\"");
+    json += FY_FW_VERSION;
+    json += F("\",\"supported\":");
+    json += dest ? F("true") : F("false");
+    json += F(",\"slot_bytes\":");
+    json += String(dest ? dest->size : 0U);
+    json += F(",\"running_slot\":\"");
+    json += current ? String(current->label) : String("unbekannt");
+    json += F("\",\"armed\":");
+    json += OtaGuard_isArmed() ? F("true") : F("false");
+    json += F(",\"arm_ms\":");
+    json += String(OtaGuard_armRemainingMs());
+    json += F(",\"active\":");
+    json += OtaGuard_active() ? F("true") : F("false");
+    json += F(",\"prepared\":");
+    json += otaPrepared ? F("true") : F("false");
+    json += F(",\"received\":");
+    json += String(otaWrittenBytes);
+    json += F(",\"expected\":");
+    json += String(otaExpectedBytes);
+    json += F(",\"result\":\"");
+    json += otaResult;
+    json += F("\",\"error\":\"");
+    json += otaError;
+    json += F("\",\"csrf\":\"");
+    json += networkRequestToken;
+    json += F("\"}");
+    return json;
+}
+
+/** @brief Ungueltige oder abgebrochene Updates niemals aktivieren. */
+void otaFailure(const char* reason) {
+    if (otaUploading) Update.abort();
+    otaPrepared = false;
+    otaUploading = false;
+    otaFinished = false;
+    otaResult = "failed";
+    otaError = reason;
+    OtaGuard_unlock(); // STOP-Latch bleibt verriegelt.
+}
+
+/** @brief Upload-Callback des synchronen WebServers (Huginn/Core 0). */
+void otaHandleUpload() {
+    HTTPUpload& upload = webServer.upload();
+    switch (upload.status) {
+    case UPLOAD_FILE_START:
+        if (!otaPrepared || !OtaGuard_active() ||
+            !isStationClient() || !networkRequestAuthorized()) {
+            otaError = "NOT_AUTHORIZED_OR_NOT_PREPARED";
+            return;
+        }
+        if (!upload.filename.endsWith(".bin") ||
+            otaExpectedBytes == 0U || otaDestination() == nullptr) {
+            otaFailure("INVALID_IMAGE");
+            return;
+        }
+        if (!Update.begin(otaExpectedBytes, U_FLASH)) {
+            otaFailure("FLASH_BEGIN_FAILED");
+            return;
+        }
+        otaUploading = true;
+        otaLastChunkAt = millis();
+        otaWrittenBytes = 0U;
+        otaResult = "uploading";
+        otaError = "NONE";
+        break;
+    case UPLOAD_FILE_WRITE:
+        if (!otaUploading) return;
+        if (upload.currentSize > otaExpectedBytes - otaWrittenBytes) {
+            otaFailure("IMAGE_TOO_LARGE");
+            return;
+        }
+        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+            otaFailure("FLASH_WRITE_FAILED");
+            return;
+        }
+        otaWrittenBytes += static_cast<uint32_t>(upload.currentSize);
+        otaLastChunkAt = millis();
+        OtaGuard_setProgress(static_cast<uint8_t>(
+            (static_cast<uint64_t>(otaWrittenBytes) * 100ULL) / otaExpectedBytes));
+        break;
+    case UPLOAD_FILE_END:
+        if (!otaUploading) return;
+        if (otaWrittenBytes != otaExpectedBytes) {
+            otaFailure("INCOMPLETE_IMAGE");
+            return;
+        }
+        if (!Update.end(false)) {
+            otaFailure("IMAGE_VALIDATION_FAILED");
+            return;
+        }
+        otaUploading = false;
+        otaPrepared = false;
+        otaFinished = true;
+        otaResult = "success";
+        otaError = "NONE";
+        OtaGuard_setProgress(100U);
+        Serial.println(F("[OTA] Firmware geschrieben; Neustart nach HTTP-Antwort"));
+        break;
+    case UPLOAD_FILE_ABORTED:
+        if (otaPrepared || otaUploading) otaFailure("TRANSFER_ABORTED");
+        break;
+    default:
+        break;
+    }
+}
 
 /** @brief Schreibt genau eine HTTP-Kommunikationsmeldung in die Debugqueue.
  * @note Nicht blockierend; eine volle Debugqueue darf den Webserver nie aufhalten.
@@ -522,11 +660,82 @@ void configureRoutes() {
         webServer.sendHeader("Cache-Control", "no-store");
         webServer.send_P(200, "text/html; charset=utf-8", FY_NETWORK_PAGE);
     });
+    webServer.on("/ota", HTTP_GET, []() {
+        if (isSetupClient() || !isStationClient()) {
+            webServer.send(403, "text/plain", "HOME_NETWORK_ONLY");
+            return;
+        }
+        webServer.sendHeader("Cache-Control", "no-store");
+        webServer.send_P(200, "text/html; charset=utf-8", FY_OTA_PAGE);
+    });
+    webServer.on("/api/v1/ota/status", HTTP_GET, []() {
+        if (!isStationClient() || isSetupClient()) {
+            webServer.send(403, "text/plain", "HOME_NETWORK_ONLY");
+            return;
+        }
+        webServer.sendHeader("Cache-Control", "no-store");
+        webServer.send(200, "application/json", otaStatusJson());
+    });
+    webServer.on("/api/v1/ota/prepare", HTTP_POST, []() {
+        if (!isStationClient() || isSetupClient() ||
+            !networkRequestAuthorized()) {
+            webServer.send(403, "text/plain", "HOME_NETWORK_ONLY");
+            return;
+        }
+        if (pendingNetworkTest || otaPrepared || otaUploading ||
+            otaFinished || otaRestartAt != 0U) {
+            webServer.send(409, "text/plain", "BUSY");
+            return;
+        }
+        const esp_partition_t* target = otaDestination();
+        if (target == nullptr) {
+            webServer.send(409, "text/plain", "NO_OTA_SLOT");
+            return;
+        }
+        const String rawSize = webServer.arg("size");
+        char* end = nullptr;
+        const unsigned long bytes = std::strtoul(rawSize.c_str(), &end, 10);
+        if (rawSize.length() == 0U || end == rawSize.c_str() ||
+            *end != '\0' || bytes < 4096UL || bytes > target->size) {
+            webServer.send(400, "text/plain", "INVALID_IMAGE_SIZE");
+            return;
+        }
+        if (!OtaGuard_tryLock()) {
+            webServer.send(423, "text/plain", "PHYSICAL_STOP_ARM_REQUIRED");
+            return;
+        }
+        otaExpectedBytes = static_cast<uint32_t>(bytes);
+        otaWrittenBytes = 0U;
+        otaPreparedAt = millis();
+        otaPrepared = true;
+        otaFinished = false;
+        otaResult = "prepared";
+        otaError = "NONE";
+        webServer.sendHeader("Cache-Control", "no-store");
+        webServer.send(200, "application/json", "{\"result\":\"ACK\"}");
+    });
+    webServer.on("/api/v1/ota/upload", HTTP_POST, []() {
+        if (otaFinished && OtaGuard_active()) {
+            webServer.sendHeader("Cache-Control", "no-store");
+            webServer.send(200, "application/json",
+                           "{\"result\":\"ACK\",\"restart\":true}");
+            otaRestartAt = millis() + kOtaRestartDelayMs;
+            return;
+        }
+        const bool failed = std::strcmp(otaResult, "failed") == 0;
+        const char* reason = failed ? otaError : "INCOMPLETE_UPLOAD";
+        if (otaPrepared || otaUploading) otaFailure("INCOMPLETE_UPLOAD");
+        webServer.send(400, "text/plain", reason);
+    }, otaHandleUpload);
     webServer.on("/api/v1/network/status", HTTP_GET, []() {
         webServer.sendHeader("Cache-Control", "no-store");
         webServer.send(200, "application/json", networkStatusJson());
     });
     webServer.on("/api/v1/network/setup", HTTP_POST, []() {
+        if (OtaGuard_active()) {
+            webServer.send(423, "text/plain", "OTA_ACTIVE");
+            return;
+        }
         if (!networkRequestAuthorized()) {
             webServer.send(403, "text/plain", "INVALID_SESSION");
             return;
@@ -540,6 +749,10 @@ void configureRoutes() {
                        ok ? "SETUP_AP_STARTED" : "SETUP_FAILED");
     });
     webServer.on("/api/v1/network/apply", HTTP_POST, []() {
+        if (OtaGuard_active()) {
+            webServer.send(423, "text/plain", "OTA_ACTIVE");
+            return;
+        }
         if (!networkRequestAuthorized()) {
             webServer.send(403, "text/plain", "INVALID_SESSION");
             return;
@@ -579,7 +792,7 @@ void configureRoutes() {
         webServer.send_P(200, "text/html; charset=utf-8", FY_DIAG_PAGE);
     });
     webServer.on("/api/v1/mode", HTTP_POST, []() {
-        if (isSetupClient() || pendingNetworkTest) {
+        if (OtaGuard_active() || isSetupClient() || pendingNetworkTest) {
             webServer.send(423, "text/plain", "NETWORK_SETUP");
             return;
         }
@@ -639,7 +852,7 @@ void configureRoutes() {
         webServer.send(200, "application/json", "{\"result\":\"ACK\"}");
     });
     webServer.on("/api/v1/command", HTTP_POST, []() {
-        if (isSetupClient() || pendingNetworkTest) {
+        if (OtaGuard_active() || isSetupClient() || pendingNetworkTest) {
             webServer.send(423, "text/plain", "NETWORK_SETUP");
             return;
         }
@@ -759,6 +972,15 @@ void httpTask(void*) {
     for (;;) {
         const uint32_t now = millis();
         expireWebLease();
+        if (otaRestartAt != 0U &&
+            static_cast<int32_t>(now - otaRestartAt) >= 0)
+            ESP.restart();
+        if (otaPrepared && !otaUploading &&
+            static_cast<uint32_t>(now - otaPreparedAt) >= kOtaPrepareTimeoutMs)
+            otaFailure("UPLOAD_NOT_STARTED");
+        if (otaUploading &&
+            static_cast<uint32_t>(now - otaLastChunkAt) >= kOtaTransferTimeoutMs)
+            otaFailure("UPLOAD_TIMEOUT");
         // Kandidat erst verbinden, danach (im Stillstand) ins NVS uebernehmen.
         if (pendingNetworkTest && !pendingNetworkStarted) {
             WiFi.disconnect(false);
