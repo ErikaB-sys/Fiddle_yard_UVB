@@ -1,6 +1,7 @@
 #include "NetworkSettings.h"
 #include <Preferences.h>
 #include <cstring>
+#include <cstddef>
 
 namespace fy {
 namespace {
@@ -47,10 +48,8 @@ bool NetworkSettings_load(NetworkSettings& settings) {
                         pref.getBytes(kKey, &data, sizeof(data)) == sizeof(data);
     pref.end();
     if (!readOk || data.magic != kMagic || recordCrc(data) != data.crc ||
-        data.ssid[sizeof(data.ssid)-1U] != '\0' &&
-        std::memchr(data.ssid, 0, sizeof(data.ssid)) == nullptr ||
-        data.password[sizeof(data.password)-1U] != '\0' &&
-        std::memchr(data.password, 0, sizeof(data.password)) == nullptr)
+        std::memchr(data.ssid, '\0', sizeof(data.ssid)) == nullptr ||
+        std::memchr(data.password, '\0', sizeof(data.password)) == nullptr)
         return false;
     NetworkSettings candidate{String(data.ssid), String(data.password)};
     if (!NetworkSettings_valid(candidate)) return false;
