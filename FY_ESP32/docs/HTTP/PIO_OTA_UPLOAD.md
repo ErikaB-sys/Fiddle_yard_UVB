@@ -9,22 +9,19 @@ und kein weiteres PC-Programm erforderlich.
 
 1. Die Schiebebuehne benoetigt mindestens Firmware **3.2.0** mit der
    bestehenden Webseite `/ota`.
-2. Die **aktuelle** IP der FY auf `http://<FY-IP>/network` ablesen.
-   Eine feste DHCP-Reservierung im Router ist fuer OTA **nicht erforderlich**,
-   kann aber spaeter eingerichtet werden. Wenn der Router die IP aendert,
-   muss `custom_ota_host` entsprechend angepasst werden.
-3. In `FY_ESP32/platformio.ini` unter `[env:esp32dev]` **genau eine**
-   Zeile bearbeiten:
-
+2. Die Schiebebuehne ist standardmaessig unter
+   [http://fy-uvb.local/](http://fy-uvb.local/) erreichbar.
+   Das ist auch das vorkonfigurierte OTA-Ziel:
+   
    ```ini
-   custom_ota_host = 192.168.X.Y
+   custom_ota_host = fy-uvb.local
    ```
 
-   Dabei `192.168.X.Y` durch die tatsaechliche IP der **echten FY**
-   ersetzen. Nicht die IP des Tischmusters verwenden. Der Platzhalter
-   `SET_FY_IP` fuehrt absichtlich zu einer Fehlermeldung. Hostname
-   `fy-uvb.local` ist nur geeignet, wenn nicht zwei Boards damit
-   gleichzeitig im LAN sind.
+   **Eine feste IP oder DHCP-Reservierung ist nicht notwendig.**
+   Das abgeschlossene Tischmuster ist nicht mehr parallel im WLAN.
+   Falls Windows/Python `fy-uvb.local` nicht aufloesen kann,
+   als Rueckfalladresse die aktuelle IP aus `/network` eintragen,
+   z.B. `custom_ota_host = 192.168.X.Y`.
 
 ## Update aus VS Code
 
@@ -41,7 +38,7 @@ und kein weiteres PC-Programm erforderlich.
    pio run -e esp32dev -t ota
    ```
 
-4. Das Terminal zeigt die Ziel-IP, die per Netzwerkstatus gelesene
+4. Das Terminal zeigt den Ziel-Hostnamen, die per Netzwerkstatus gelesene
    STA-MAC, den Uebertragungsfortschritt und zum Abschluss den
    bestaetigten HTTP-OTA-Erfolg an.
 5. Erst bei `FY OTA: ACK erhalten` gilt das Update als erfolgreich
