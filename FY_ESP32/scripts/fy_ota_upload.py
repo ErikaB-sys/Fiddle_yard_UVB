@@ -11,6 +11,7 @@ import http.client
 import json
 import re
 import sys
+import time
 import uuid
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
@@ -181,10 +182,24 @@ def main() -> int:
         if state.get("active") or state.get("prepared"):
             raise OtaError("Am FY laeuft bereits ein OTA-Vorgang.")
         if not state.get("armed"):
-            raise OtaError(
-                "OTA nicht freigegeben. Rote STOP-Taste am FY drei Sekunden "
-                "halten (Motor AUS, STOP verriegelt); danach OTA-Task erneut starten."
+            print(
+                "Firmware gebaut. Jetzt an der FY die rote STOP-Taste "
+                "3 Sekunden halten (Motor steht). Warte auf Freigabe ...",
+                flush=True,
             )
+            for _ in range(45):
+                time.sleep(2)
+                state = get_json(host, port, "/api/v1/ota/status")
+                if state.get("armed"):
+                    print("Physische OTA-Freigabe erkannt.", flush=True)
+                    break
+                if state.get("active") or state.get("prepared"):
+                    raise OtaError("FY meldet einen parallelen OTA-Vorgang.")
+            else:
+                raise OtaError(
+                    "Innerhalb von 90 Sekunden keine physische STOP-Freigabe. "
+                    "Erneut OTA Upload starten."
+                )
         csrf = state.get("csrf")
         if not isinstance(csrf, str) or len(csrf) != 16:
             raise OtaError("FY liefert kein gueltiges OTA-Formular-Token.")
