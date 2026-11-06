@@ -31,7 +31,7 @@ namespace {
 constexpr char kHostname[] = "fy-uvb";
 constexpr uint32_t kWiFiRetryMs = 20000UL;
 constexpr uint32_t kSetupApGraceMs = 15UL * 60UL * 1000UL;
-constexpr uint32_t kSetupAfterSaveMs = 20000UL;
+constexpr uint32_t kSetupAfterSaveMs = 90000UL; // Zeit fuer Wechsel ins Heim-WLAN
 constexpr uint32_t kUnknownPosition = 0x00007FFFUL;
 constexpr UBaseType_t kTraceDepth = 16;
 constexpr uint32_t kHttpSequenceMask = 0x3FFFFFFFUL;
