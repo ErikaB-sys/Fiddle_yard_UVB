@@ -33,7 +33,7 @@ footer{margin-top:8px;color:var(--mute);font-size:13px}
 </style>
 </head>
 <body><main>
-<header><h1>FY UVB · Diagnose</h1><a href="/">← Bedienpult</a><span class="small" id="connection">Verbinde …</span></header>
+<header><h1>FY UVB · Diagnose</h1><a href="/">← Bedienpult</a><a href="/network">Netzwerk</a><span class="small" id="connection">Verbinde …</span></header>
 <div class="grid">
 <section class="card"><h2>Motor und Bühne</h2>
 <div class="metric"><span>Zustand</span><strong id="state">–</strong></div>
