@@ -5,7 +5,7 @@
 #define FW_GIT_COMMIT "unknown"
 #endif
 #define FY_FW_NAME "FY_ESP32"
-#define FY_FW_VERSION "2.1.0"
+#define FY_FW_VERSION "3.1.0"
 static constexpr char FW_RESPONSE[] =
     "FW: " FY_FW_NAME "\n"
     "VER: " FY_FW_VERSION "\n"
