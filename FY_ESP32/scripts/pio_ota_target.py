@@ -7,11 +7,12 @@ import sys
 from pathlib import Path
 
 
-def run_fy_ota(source, target, build_env):
-    host = build_env.GetProjectOption("custom_ota_host", "").strip()
-    project = Path(build_env.subst("$PROJECT_DIR"))
-    firmware = Path(build_env.subst("$BUILD_DIR")) / (
-        build_env.subst("${PROGNAME}") + ".bin"
+def run_fy_ota(target, source, env):
+    # SCons Action-Callbacks erhalten keyword arguments: target, source, env.
+    host = env.GetProjectOption("custom_ota_host", "").strip()
+    project = Path(env.subst("$PROJECT_DIR"))
+    firmware = Path(env.subst("$BUILD_DIR")) / (
+        env.subst("${PROGNAME}") + ".bin"
     )
     command = [
         sys.executable,
