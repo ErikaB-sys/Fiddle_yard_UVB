@@ -25,14 +25,16 @@ def run_fy_ota(source, target, build_env):
         raise SystemExit(result)
 
 
-if env.get("PIOENV") == "esp32dev":
-    env.AddCustomTarget(
-        name="ota",
-        dependencies="$BUILD_DIR/${PROGNAME}.bin",
-        actions=run_fy_ota,
-        title="OTA Upload",
-        description=(
-            "Kompiliert bei Bedarf und uebertraegt firmware.bin per WLAN "
-            "nach 3 Sekunden physischer STOP-Freigabe"
-        ),
-    )
+# Dieses Script wird nur vom normalen esp32dev-Environment geladen.
+# Den Custom-Task deshalb immer registrieren, auch bei PlatformIO-Integration-Dumps.
+# Kein optionaler PIOENV-Guard: andernfalls ist 'ota' im SCons-Targetgraph unsichtbar.
+env.AddCustomTarget(
+    name="ota",
+    dependencies="$BUILD_DIR/${PROGNAME}.bin",
+    actions=run_fy_ota,
+    title="OTA Upload",
+    description=(
+        "Kompiliert bei Bedarf und uebertraegt firmware.bin per WLAN "
+        "nach 3 Sekunden physischer STOP-Freigabe"
+    ),
+)
