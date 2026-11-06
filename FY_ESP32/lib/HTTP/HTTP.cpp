@@ -196,6 +196,11 @@ String networkStatusJson() {
     json += jsonEscape(savedNetwork.ssid);
     json += F("\",\"rssi\":");
     json += String(connected ? WiFi.RSSI() : 0);
+    // STA-MAC bleibt auch im Setup-AP-Modus fuer DHCP-Reservierung sichtbar.
+    // Nicht mit der separaten SoftAP-MAC verwechseln.
+    json += F(",\"sta_mac\":\"");
+    json += WiFi.macAddress();
+    json += F("\"");
     json += F(",\"setup_active\":");
     json += setupApActive ? F("true") : F("false");
     json += F(",\"setup_ssid\":\"");
