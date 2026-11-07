@@ -79,4 +79,6 @@ Documents/Datasheets/.~lock.Motor_MD_EL.odg#
 /FY_ESP32_Web/.pio/
 /FY_ESP32_Web/.pioenvs/
 /FY_ESP32_Web/.piolibdeps/
-/JMRI/UVB.jmri/backupPanels
+# JMRI: automatisch erzeugte Panel-Sicherungen und Editor-Backups
+/JMRI/**/backupPanels/
+/JMRI/**/*.xml~
