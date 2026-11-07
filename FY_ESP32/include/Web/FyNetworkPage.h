@@ -37,6 +37,13 @@ small,.muted{color:#b4c7d4}
 <p><small>Für eine feste IP-Adresse diese MAC im Router für eine DHCP-Reservierung verwenden.</small></p>
 <p id="setup" class="muted"></p>
 <details>
+<summary>fy-uvb.local nicht erreichbar?</summary>
+<p><small>Falls <code>http://fy-uvb.local/</code> nicht funktioniert, die oben angezeigte IP-Adresse verwenden.
+Für mDNS müssen Rechner und FY normalerweise im selben lokalen Netz sein und Multicast darf nicht gesperrt werden.
+Gegebenenfalls mDNS-/Multicast-Einstellungen, Gastnetz oder Client-Isolation am Router bzw. Access Point prüfen.
+Zwischen getrennten Netzen wird mDNS nicht automatisch weitergeleitet.</small></p>
+</details>
+<details>
 <summary>Notfallzugang über Einrichtungs-WLAN</summary>
 <p><small>Nur nötig, wenn das Heim-WLAN nicht erreichbar ist.
 Das Einrichtungs-WLAN ist passwortgeschützt; das einmalige Passwort
