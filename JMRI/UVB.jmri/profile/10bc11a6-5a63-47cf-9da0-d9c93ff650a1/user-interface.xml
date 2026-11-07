@@ -29,6 +29,7 @@
         <setting xmlns="">jmri.jmrit.display.layoutEditor.LayoutEditor:Fiddle_YArd.any.antialiasingOn</setting>
         <setting xmlns="">jmri.jmrit.display.layoutEditor.LayoutEditor:Fiddle_YArd.any:1.antialiasingOn</setting>
         <setting xmlns="">jmri.jmrit.display.layoutEditor.LayoutEditor:Fiddle_YArd.any:1.toolBarThin</setting>
+        <setting xmlns="">jmri.jmrit.display.layoutEditor.LayoutEditor:Fiddle_YArd.any:1.highlightSelectedBlock</setting>
     </settings>
     <tableDetails xmlns="http://jmri.org/xml/schema/auxiliary-configuration/table-details-4-3-5.xsd"/>
     <windowDetails xmlns="http://jmri.org/xml/schema/auxiliary-configuration/window-details-4-3-5.xsd">
@@ -37,7 +38,8 @@
         <window xmlns="" class="jmri.jmrit.roster.Roster"/>
         <window xmlns="" class="apps.gui3.tabbedpreferences.TabbedPreferencesFrame:Preferences" height="1049.0" locX="0.0" locY="31.0" width="1000.0"/>
         <window xmlns="" class="PanelPro" height="264.0" locX="622.0" locY="385.0" width="616.0"/>
-        <window xmlns="" class="jmri.jmrit.display.layoutEditor.LayoutEditor:Fiddle_YArd.any:1" height="1096.0" locX="-8.0" locY="-8.0" width="1936.0">
+        <window xmlns="" class="Set Grid Sizes" height="154.0" locX="70.0" locY="30.0" width="184.0"/>
+        <window xmlns="" class="jmri.jmrit.display.layoutEditor.LayoutEditor:Fiddle_YArd.any:1" height="1456.0" locX="1912.0" locY="-700.0" width="2576.0">
             <properties>
                 <property>
                     <key>zoom</key>
